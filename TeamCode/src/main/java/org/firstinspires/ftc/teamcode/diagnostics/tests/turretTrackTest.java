@@ -74,7 +74,8 @@ public class turretTrackTest extends LinearOpMode {
     @Override
     public void runOpMode() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
-        Turret t = new Turret(hardwareMap, new SimAiming(), new HivePosition());
+        boolean tRed = RED;
+        Turret t = new Turret(hardwareMap, new SimAiming(), new HivePosition(), tRed ? Alliance.RED : Alliance.BLUE);
         Servo pollen = hardwareMap.get(Servo.class, "pollenTurretServo");
         imu = null;
         try {
@@ -99,7 +100,10 @@ public class turretTrackTest extends LinearOpMode {
             }
             double s = (System.nanoTime() - start) / 1e9;
             sim = simPose(SCENARIO, s);
-            t.setAlliance(RED ? Alliance.RED : Alliance.BLUE);
+            if (RED != tRed) { // alliance is a constructor arg now: rebuild on a live Dashboard edit
+                tRed = RED;
+                t = new Turret(hardwareMap, new SimAiming(), new HivePosition(), tRed ? Alliance.RED : Alliance.BLUE);
+            }
             t.update();
 
             double thetaDeg = Math.toDegrees(t.aimPollen().theta);

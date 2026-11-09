@@ -52,10 +52,8 @@ public class TeleOp extends OpMode {
             follower.setPose(autoEndPose);
         }
         predictor = new PredictiveAiming(follower);
-        shooterSystem = new Shooter(hardwareMap, predictor, alliance);
-        intake = new Intake(hardwareMap);
         scoopula = new Scoopula(hardwareMap);
-
+        // Shooter and Intake are alliance-dependent: built in start(), after init_loop's X/B pick.
     }
 
     @Override
@@ -68,8 +66,8 @@ public class TeleOp extends OpMode {
 
     @Override
     public void start() {
-        shooterSystem.setAlliance(alliance);
-        intake.setAlliance(alliance);
+        shooterSystem = new Shooter(hardwareMap, predictor, alliance);
+        intake = new Intake(hardwareMap, alliance);
     }
 
     @Override

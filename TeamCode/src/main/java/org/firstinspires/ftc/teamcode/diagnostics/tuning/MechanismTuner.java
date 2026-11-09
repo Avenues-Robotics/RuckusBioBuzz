@@ -191,8 +191,7 @@ public class MechanismTuner extends OpMode {
         origOffPollen = SystemConstants.Zone.yOffsetPollen;
         origOffNectar = SystemConstants.Zone.yOffsetNectar;
         try {
-            intakeSys = new Intake(hardwareMap);
-            intakeSys.setAlliance(alliance);
+            intakeSys = new Intake(hardwareMap, alliance);
             intakeMotors[0] = hardwareMap.tryGet(DcMotorEx.class, "intakeLeft");
             intakeMotors[1] = hardwareMap.tryGet(DcMotorEx.class, "intakeRight");
         } catch (RuntimeException e) {

@@ -18,7 +18,6 @@ public class Shooter {
     private final ZoneCheck zone;
     private final Turret aiming;
     private final Flywheel flywheel;
-    private final Intake intake;
     private final HivePosition hivePosition;
     private Gate shooterGate;
 
@@ -34,18 +33,10 @@ public class Shooter {
     public Shooter(HardwareMap hardwareMap, PredictiveAiming predictor, Alliance alliance) {
         hivePosition = new HivePosition();
         zone = new ZoneCheck(alliance, SystemConstants.Zone.yOffsetPollen, SystemConstants.Zone.mapPollen);
-        aiming = new Turret(hardwareMap, predictor, new HivePosition());
-        intake = new Intake(hardwareMap);
+        aiming = new Turret(hardwareMap, predictor, new HivePosition(), alliance);
         flywheel = new Flywheel(hardwareMap, aiming);
         shooterGate = new Gate(hardwareMap);
         this.predictiveAiming = predictor;
-
-    }
-
-    public void setAlliance(Alliance alliance) {
-        aiming.setAlliance(alliance);
-        zone.setAlliance(alliance);
-        intake.setAlliance(alliance) ;
 
     }
     public void setForceZone(boolean force) {

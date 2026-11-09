@@ -22,8 +22,9 @@ public class Intake {
     private int lastSign = 0;
     private long lastDriveNanos = 0;
 
-    public Intake(HardwareMap hardwareMap) {
+    public Intake(HardwareMap hardwareMap, Alliance alliance) {
         this.hardwareMap = hardwareMap;
+        this.alliance = alliance;
 
         intakeLeft = hardwareMap.get(DcMotor.class, "intakeLeft");
         intakeRight = hardwareMap.get(DcMotor.class, "intakeRight");
@@ -34,9 +35,11 @@ public class Intake {
 
         //intakeRight.setDirection(DcMotor.Direction.REVERSE);
     }
-    public void setAlliance(Alliance alliance){
+
+    /** Runtime alliance change; only the Mechanism Tuner needs it (OpModes pass it to the constructor). */
+    public void setAlliance(Alliance alliance) {
         this.alliance = alliance;
-        colorCheck.setAlliance(alliance); // ColorCheck is built before the alliance is known
+        colorCheck.setAlliance(alliance);
     }
 
     public intakeState getState(){

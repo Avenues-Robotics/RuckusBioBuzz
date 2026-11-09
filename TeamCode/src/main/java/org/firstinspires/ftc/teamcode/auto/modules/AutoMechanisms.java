@@ -28,9 +28,7 @@ public final class AutoMechanisms {
             hub.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         }
         shooter = new Shooter(hardwareMap, new PredictiveAiming(follower), alliance);
-        shooter.setAlliance(alliance);
-        intake = new Intake(hardwareMap);
-        intake.setAlliance(alliance);
+        intake = new Intake(hardwareMap, alliance);
         scoopula = new Scoopula(hardwareMap);
     }
 

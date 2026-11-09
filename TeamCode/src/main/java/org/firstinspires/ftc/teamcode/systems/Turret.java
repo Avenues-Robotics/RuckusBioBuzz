@@ -42,17 +42,14 @@ public class Turret {
         }
     }
 
-    public Turret(HardwareMap hardwareMap, PredictiveAiming predictor, HivePosition hivePosition) {
+    public Turret(HardwareMap hardwareMap, PredictiveAiming predictor, HivePosition hivePosition, Alliance alliance) {
         this.predictor = predictor;
+        this.alliance = alliance;
         pollenTurret = new TurretServo(hardwareMap.get(Servo.class, "pollenTurretServo"),
                 limit(SystemConstants.Turret.POLLEN_TURRET_START, SystemConstants.Turret.POLLEN_TURRET_MIN, SystemConstants.Turret.POLLEN_TURRET_MAX));
         nectarTurret = new TurretServo(hardwareMap.get(Servo.class, "nectarTurretServo"),
                 limit(SystemConstants.Turret.NECTAR_TURRET_START, SystemConstants.Turret.NECTAR_TURRET_MIN, SystemConstants.Turret.NECTAR_TURRET_MAX));
         this.hivePosition = hivePosition;
-    }
-
-    public void setAlliance(Alliance alliance) {
-        this.alliance = alliance;
     }
 
 //in form dist, theta

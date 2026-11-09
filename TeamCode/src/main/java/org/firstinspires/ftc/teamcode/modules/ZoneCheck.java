@@ -6,9 +6,9 @@ import org.firstinspires.ftc.teamcode.SystemConstants;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
 
 public class ZoneCheck {
-    private static Alliance alliance;
-    private static int offset;
-    private static int[][] map;
+    private final Alliance alliance;
+    private final int offset;
+    private final int[][] map;
     private int xQuadrant;
     private int yQuadrant;
 
@@ -16,11 +16,7 @@ public class ZoneCheck {
     public ZoneCheck(Alliance alliance, int offset, int[][] map) {
         this.offset = offset;
         this.map = map;
-        ZoneCheck.alliance = alliance;
-    }
-
-    public void setAlliance(Alliance alliance) {
-        ZoneCheck.alliance = alliance;
+        this.alliance = alliance;
     }
 
     public boolean inZone(Pose pose) {

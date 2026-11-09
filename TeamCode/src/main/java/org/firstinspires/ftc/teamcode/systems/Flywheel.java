@@ -15,7 +15,7 @@ public class Flywheel {
 
     private final ShootingRegression regression;
 
-    private final DcMotorEx pollenFlywheel;
+    private final DcMotorEx pollenFlywheel; // Should a Flywheel have two Flywheels?  Of should you make two instances of Flywheel in your OpMode?  All I see is duplicate code here, that's a good case for making two instances of this one class.
     private final DcMotorEx nectarFlywheel;
     private double pollenTarget;
     private double nectarTarget;

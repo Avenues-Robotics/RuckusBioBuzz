@@ -8,7 +8,7 @@ import org.firstinspires.ftc.teamcode.helpers.Alliance;
 public class ZoneCheck {
     private static Alliance alliance;
     private static ShooterType shooterType;
-    public enum ShooterType{
+    public enum ShooterType{  // I gave this feedback to Ryder but this is not system/game agnostic.  It's only used to find the offsets, so just pass the offsets as constants or an object to the constructor.
         POLLEN, NECTAR
     }
 
@@ -23,7 +23,7 @@ public class ZoneCheck {
 
     public static boolean inZone(Pose pose) {
         boolean pollen = shooterType == ShooterType.POLLEN;
-        double offset = pollen ? SystemConstants.Zone.yOffsetPollen : SystemConstants.Zone.yOffsetNectar;
+        double offset = pollen ? SystemConstants.Zone.yOffsetPollen : SystemConstants.Zone.yOffsetNectar;  // The ternary operator is super unclear to read.  Just use if...else.  Only use in very simple cases or as a method parameter where an if else doesn't fit.
         double x = pose.x() - offset * Math.sin(pose.heading());
         double y = pose.y() + offset * Math.cos(pose.heading());
         if (alliance == Alliance.BLUE) {

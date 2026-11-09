@@ -25,7 +25,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @Autonomous(name = "Short RED auto", group = "Auto")
 public class shortAutoRed extends OpMode {
     // PathStep fields are editable from FTC Dashboard; paths are built in init(), so edits apply on the next init.
-    private static final double NUMBER_INTAKE_TIME = 1500;
+    private static final double NUMBER_INTAKE_TIME = 1500; // These constants will probably carry over to other Autos. Consider making an AutoConstants class to hold these.
     private static final double NUMBER_SHOOT_TIME = 2000;
     private static final double NUMBER_SCOOPULA_WAIT_TIME = 2000;
     public static PathStep START_STEP = new PathStep(56.000, 8.000, 180);

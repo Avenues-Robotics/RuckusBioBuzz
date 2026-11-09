@@ -35,13 +35,13 @@ public class ColorCheck {
 
     public ColorCheck(ColorSensor colorSensor, Alliance alliance) {
         this.colorSensor = colorSensor;
-        this.distanceSensor = colorSensor instanceof DistanceSensor ? (DistanceSensor) colorSensor : null;
+        this.distanceSensor = colorSensor instanceof DistanceSensor ? (DistanceSensor) colorSensor : null;  // This could use a comment
         this.alliance = alliance;
     }
 
     public void setAlliance(Alliance alliance) {
         this.alliance = alliance;
-    }
+    }  // Not terrible to have setters, but in what context does alliance change after the color check object is created?
 
     /** True when the piece in the intake belongs to the other alliance. No alliance set: never. */
     public boolean reject() {
@@ -58,7 +58,7 @@ public class ColorCheck {
     }
 
     // Pure rule, shared with diagnostics/tuning/MechanismTuner so the tool cannot drift from it.
-    public static boolean isRed(int r, int b) { return r > SystemConstants.ColorCheck.RED_OVER_BLUE * b; }
+    public static boolean isRed(int r, int b) { return r > SystemConstants.ColorCheck.RED_OVER_BLUE * b; } // All of these methods are hard to read squeezed onto one line with no javadocs, comments, or spacing.
     public static boolean isBlue(int r, int b) { return b > SystemConstants.ColorCheck.BLUE_OVER_RED * r; }
     public static boolean present(double distCm) { return !(distCm >= SystemConstants.ColorCheck.MAX_DIST_CM); }
     public static boolean calledRed(int r, int b, double distCm) { return present(distCm) && isRed(r, b); }

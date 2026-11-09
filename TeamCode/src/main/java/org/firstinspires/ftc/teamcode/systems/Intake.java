@@ -30,13 +30,13 @@ public class Intake {
         colorSensor = hardwareMap.get(ColorSensor.class, "colorSensor");
         intakeLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        colorCheck = new ColorCheck(colorSensor, alliance);
+        colorCheck = new ColorCheck(colorSensor, alliance); // alliance is null here, right?
 
         //intakeRight.setDirection(DcMotor.Direction.REVERSE);
     }
     public void setAlliance(Alliance alliance){
         this.alliance = alliance;
-        colorCheck.setAlliance(alliance); // ColorCheck is built before the alliance is known
+        colorCheck.setAlliance(alliance); // ColorCheck is built before the alliance is known //This seems unnecessary, just put the constructor call down here instead and pass it alliance
     }
 
     public intakeState getState(){

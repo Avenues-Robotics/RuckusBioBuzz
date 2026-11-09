@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 
+import org.firstinspires.ftc.teamcode.AutoConstants;
 import org.firstinspires.ftc.teamcode.auto.modules.AutoMechanisms;
 import org.firstinspires.ftc.teamcode.auto.modules.PathStep;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
@@ -52,6 +53,9 @@ public class BlueSoloAuto extends OpMode {
     private long stepStartTime;
     private boolean stepStarted;
     private boolean pathFinished;
+    // Step durations from AutoConstants.Autonomous, read at init so Dashboard edits apply on the next init.
+    private long shootTimeMs;
+    private long scoopulaTransitionMs;
     private static final int REPEAT_LOOP_CAPACITY = 1;
     private final int[] repeatLoopIterations = new int[REPEAT_LOOP_CAPACITY];
     private final int[] repeatLoopPathIndexes = new int[REPEAT_LOOP_CAPACITY];
@@ -70,6 +74,9 @@ public class BlueSoloAuto extends OpMode {
         follower = Constants.createFollower(hardwareMap);
         follower.setPose(START_STEP.toPose());
         mechanisms = new AutoMechanisms(hardwareMap, follower, Alliance.BLUE);
+
+        shootTimeMs = Math.round(AutoConstants.Autonomous.SHOOT_TIME);
+        scoopulaTransitionMs = Math.round(AutoConstants.Autonomous.SCOOPULA_TRANSITION_TIME);
 
         buildPaths();
         updateTelemetry("Initialized");
@@ -153,7 +160,7 @@ public class BlueSoloAuto extends OpMode {
               POINT_3.toPose()
             ).heading(headingInterpolator(Math.toRadians(90.000), Math.toRadians((180 - (180 - -((180 - 90))))), 0.700))
           )
-          .addParametricCallback(0, 0.380, () -> startParallelEvent("Scoopula Down", Math.round(300)));
+          .addParametricCallback(0, 0.380, () -> startParallelEvent("Scoopula Down", scoopulaTransitionMs));
 
       chain4 = new AutoPath(
             Paths.line(
@@ -161,7 +168,7 @@ public class BlueSoloAuto extends OpMode {
               POINT_4.toPose()
             ).heading(headingInterpolator(Math.toRadians(-90.000), Math.toRadians((180 - (180 - -((180 - 270))))), 1.350))
           )
-          .addParametricCallback(0, 0.500, () -> startParallelEvent("Scoopula Up", Math.round(300)));
+          .addParametricCallback(0, 0.500, () -> startParallelEvent("Scoopula Up", scoopulaTransitionMs));
 
       chain5 = new AutoPath(
             Paths.line(
@@ -177,7 +184,7 @@ public class BlueSoloAuto extends OpMode {
               POINT_6.toPose()
             ).heading(headingInterpolator(Math.toRadians(90.000), Math.toRadians((180 - (180 - -((180 - 180))))), 0.600))
           )
-          .addParametricCallback(0, 0.280, () -> startParallelEvent("Scoopula Down", Math.round(300)));
+          .addParametricCallback(0, 0.280, () -> startParallelEvent("Scoopula Down", scoopulaTransitionMs));
 
       chain7 = new AutoPath(
             Paths.line(
@@ -185,7 +192,7 @@ public class BlueSoloAuto extends OpMode {
               POINT_7.toPose()
             ).heading(headingInterpolator(Math.toRadians(0.000), Math.toRadians((180 - (180 - -((180 - 180))))), 1.000))
           )
-          .addParametricCallback(0, 0.370, () -> startParallelEvent("Scoopula Up", Math.round(300)));
+          .addParametricCallback(0, 0.370, () -> startParallelEvent("Scoopula Up", scoopulaTransitionMs));
 
       chain8 = new AutoPath(
             Paths.curve(
@@ -205,7 +212,7 @@ public class BlueSoloAuto extends OpMode {
 
         switch (sequenceIndex) {
       case 0:
-        runTimedEventStep("Shoot", 1500L);
+        runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 1:
         followPathStep(chain1, 1.000);
@@ -220,7 +227,7 @@ public class BlueSoloAuto extends OpMode {
         followPathStep(chain3, 1.000);
         break;
       case 5:
-        runTimedEventStep("Shoot", 1500L);
+        runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 6:
         followPathStep(chain4, 1.000);
@@ -232,7 +239,7 @@ public class BlueSoloAuto extends OpMode {
         followPathStep(chain5, 1.000);
         break;
       case 9:
-        runTimedEventStep("Shoot", 1500L);
+        runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 10:
         followPathStep(chain6, 1.000);
@@ -241,7 +248,7 @@ public class BlueSoloAuto extends OpMode {
         followPathStep(chain7, 1.000);
         break;
       case 12:
-        runTimedEventStep("Shoot", 1500L);
+        runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 13:
         followPathStep(chain8, 1.000);

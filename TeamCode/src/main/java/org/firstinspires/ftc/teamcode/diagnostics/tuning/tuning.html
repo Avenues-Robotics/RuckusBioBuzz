@@ -154,6 +154,18 @@
     <div class="grid" style="margin-top:12px" id="ovCards"></div>
   </section>
   <section>
+    <h2>Robot configuration</h2>
+    <p class="hint" style="margin-top:0">The hardware configuration the Robot Controller builds <code>hardwareMap</code>
+      from — the same as Configure Robot → Activate on the Driver Station. Activating one <b>restarts the robot</b>:
+      any running OpMode stops and this page drops for a few seconds. Afterwards, select and INIT the OpMode again.</p>
+    <div class="row">
+      <span class="stat">Active <b id="cfgActive">–</b></span>
+      <select id="cfgSel" style="width:auto;min-width:200px"></select>
+      <button class="small primary" id="cfgBtn" onclick="activateConfig()">Activate &amp; restart</button>
+      <span class="hint" id="cfgMsg"></span>
+    </div>
+  </section>
+  <section>
     <h2>Everything to tune, in order</h2>
     <div class="row" style="margin-top:0">
       <div class="progress"><div id="ckBar" style="width:0"></div></div>
@@ -1292,6 +1304,40 @@ function drawReg(w, W, rows, here) {
   g.fillStyle = COL[w]; g.strokeStyle = '#0c1015';
   rows.forEach(function (s) { g.beginPath(); g.arc(x(s.dist), y(s.vel), 4, 0, 2 * Math.PI); g.fill(); g.stroke(); });
 }
+
+// ---------------------------------------------------------------- robot configuration
+var cfgArm = 0, cfgList = null;
+function loadConfigs() {
+  fetch('/tune/configs', {cache: 'no-store'}).then(function (r) { return r.json(); }).then(function (j) {
+    if (!j.ok) { setText('cfgMsg', 'Could not list configurations: ' + j.message); return; }
+    setText('cfgActive', j.active + (j.activeDirty ? ' (unsaved edits)' : ''));
+    var key = JSON.stringify(j.files);
+    if (key !== cfgList) {
+      cfgList = key;
+      var keep = $('cfgSel').value || j.active;
+      $('cfgSel').innerHTML = j.files.map(function (f) {
+        return '<option value="' + esc(f.name) + '">' + esc(f.name) + (f.builtIn ? ' (built in)' : '') + '</option>';
+      }).join('');
+      $('cfgSel').value = keep;
+    }
+  }).catch(function () { setText('cfgActive', '–'); });
+}
+function activateConfig() {
+  var name = $('cfgSel').value; if (!name) return;
+  // No browser confirm() (it blocks the page); a second click within 4 s confirms.
+  if (!cfgArm || Date.now() - cfgArm > 4000) {
+    cfgArm = Date.now();
+    setText('cfgMsg', 'Click again within 4 s to activate "' + name + '" and RESTART the robot.');
+    return;
+  }
+  cfgArm = 0;
+  fetch('/tune/configActivate?' + new URLSearchParams({name: name}), {cache: 'no-store'})
+    .then(function (r) { return r.json(); })
+    .then(function (j) { setText('cfgMsg', j.ok ? j.message + ' Reconnecting…' : 'Refused: ' + j.message); setTimeout(loadConfigs, 8000); })
+    .catch(function () { setText('cfgMsg', 'Request sent; the robot may be restarting.'); setTimeout(loadConfigs, 8000); });
+}
+loadConfigs();
+setInterval(loadConfigs, 5000);
 
 // ---------------------------------------------------------------- live charts
 function prep(c) {

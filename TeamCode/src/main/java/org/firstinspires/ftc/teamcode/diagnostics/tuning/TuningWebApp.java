@@ -2,10 +2,15 @@ package org.firstinspires.ftc.teamcode.diagnostics.tuning;
 
 import android.content.Context;
 
+import com.qualcomm.ftccommon.CommandList;
+import com.qualcomm.ftccommon.configuration.RobotConfigFile;
+import com.qualcomm.ftccommon.configuration.RobotConfigFileManager;
+import com.qualcomm.robotcore.robocol.Command;
 import com.qualcomm.robotcore.util.RobotLog;
 import com.qualcomm.robotcore.util.WebHandlerManager;
 
 import org.firstinspires.ftc.ftccommon.external.WebHandlerRegistrar;
+import org.firstinspires.ftc.robotcore.internal.network.NetworkConnectionHandler;
 import org.firstinspires.ftc.robotcore.internal.webserver.WebHandler;
 import org.firstinspires.ftc.teamcode.diagnostics.swerve.SwerveBench;
 
@@ -137,6 +142,19 @@ public class TuningWebApp {
                 }
             };
 
+            WebHandler configs = new WebHandler() {
+                @Override
+                public NanoHTTPD.Response getResponse(NanoHTTPD.IHTTPSession session) {
+                    return text(MIME_JSON, configsJson());
+                }
+            };
+            WebHandler configActivate = new WebHandler() {
+                @Override
+                public NanoHTTPD.Response getResponse(NanoHTTPD.IHTTPSession session) {
+                    return text(MIME_JSON, activateConfig(params(session).get("name")));
+                }
+            };
+
             manager.register("/tune", page);
             manager.register("/tune/", page);
             manager.register("/tune/notify.js", notifyJs);
@@ -148,10 +166,72 @@ public class TuningWebApp {
             manager.register("/tune/rec.csv", rec);
             manager.register("/tune/color.csv", color);
             manager.register("/tune/regression.csv", regCsv);
+            manager.register("/tune/configs", configs);
+            manager.register("/tune/configActivate", configActivate);
             RobotLog.ii(TAG, "Mechanism tuning dashboard registered at /tune");
         } catch (RuntimeException e) {
             // A failure here must never prevent the Robot Controller from starting.
             RobotLog.ee(TAG, e, "Failed to register mechanism tuning dashboard");
+        }
+    }
+
+    // ---------------------------------------------------------------- robot configuration
+
+    /** Every robot configuration the Robot Controller knows (built-in XML resources and hub files). */
+    private static String configsJson() {
+        try {
+            RobotConfigFileManager mgr = new RobotConfigFileManager();
+            RobotConfigFile active = mgr.getActiveConfig();
+            StringBuilder sb = new StringBuilder(512);
+            sb.append("{\"ok\":true,\"active\":\"").append(TuningHub.esc(active.getName()))
+                    .append("\",\"activeDirty\":").append(active.isDirty())
+                    .append(",\"files\":[");
+            boolean first = true;
+            for (RobotConfigFile f : mgr.getXMLFiles()) {
+                if (!first) sb.append(',');
+                first = false;
+                sb.append("{\"name\":\"").append(TuningHub.esc(f.getName()))
+                        .append("\",\"builtIn\":").append(f.isReadOnly()).append('}');
+            }
+            return sb.append("]}").toString();
+        } catch (RuntimeException e) {
+            RobotLog.ee(TAG, e, "Could not list robot configurations");
+            return "{\"ok\":false,\"message\":\"" + TuningHub.esc(e.toString()) + "\"}";
+        }
+    }
+
+    /**
+     * Activates a configuration and restarts the robot, by injecting the same two commands the
+     * Driver Station sends (Configure Robot → Activate, then Restart Robot), so the SDK's own
+     * handlers do the work. The hardware map is only built at robot start, hence the restart: it
+     * stops any running OpMode and drops this page's connection for a few seconds.
+     */
+    private static String activateConfig(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return "{\"ok\":false,\"message\":\"name= is required\"}";
+        }
+        try {
+            RobotConfigFileManager mgr = new RobotConfigFileManager();
+            RobotConfigFile target = null;
+            for (RobotConfigFile f : mgr.getXMLFiles()) {
+                if (f.getName().equals(name.trim())) {
+                    target = f;
+                    break;
+                }
+            }
+            if (target == null) {
+                return "{\"ok\":false,\"message\":\"no configuration named " + TuningHub.esc(name) + "\"}";
+            }
+            NetworkConnectionHandler net = NetworkConnectionHandler.getInstance();
+            net.injectReceivedCommand(new Command(CommandList.CMD_ACTIVATE_CONFIGURATION,
+                    RobotConfigFileManager.serializeConfig(target)));
+            net.injectReceivedCommand(new Command(CommandList.CMD_RESTART_ROBOT));
+            RobotLog.ii(TAG, "Activated robot configuration %s from /tune; restarting robot", target.getName());
+            return "{\"ok\":true,\"message\":\"Activated " + TuningHub.esc(target.getName())
+                    + ". Robot restarting.\"}";
+        } catch (RuntimeException e) {
+            RobotLog.ee(TAG, e, "Could not activate robot configuration %s", name);
+            return "{\"ok\":false,\"message\":\"" + TuningHub.esc(e.toString()) + "\"}";
         }
     }
 

@@ -10,6 +10,7 @@ Diagnostic only — never ships. Tunes everything except the drivetrain (that is
 | Tab | What it does |
 |---|---|
 | Start here | Status, an ordered checklist of every value this tool tunes (live status: not set / changed / shipped, ticks kept in the browser), what is tuned elsewhere, message history from Claude |
+| Start here → Robot configuration | Lists every robot configuration (built-in and hub files), shows the active one, and **Activate & restart** switches it — the same two commands the Driver Station sends (activate, restart robot). Works with no OpMode running (`/tune/configs`, `/tune/configActivate?name=`) |
 | Flywheels | Live velocity chart and a zoomed speed-error chart (entry and hold bands, gate-open shading), spin / open loop, hub velocity PIDF (Write / Write to both / Shipped / Copy, sweep F, FIRST starting point, "not written" flag), step test with a rule-of-thumb verdict, synthetic kick, feed-forward sweep, **Step trials** (every step overlaid with its gains, pulled from `/tune/rec.csv`), shot/dip events and **Recovery by gain set**, recorder, Claude prompt |
 | Shooting | `shooter.java`'s gate logic run with tool values (entry band, hold band, min open time) and fed by the shipped intake; gate-window table; zone-entry test for `IDLE_FRACTION` |
 | Turrets & servos | Turret center / reversed / gear ratio against the exact `turret.java` formula, mount offsets; gate and scoopula positions with Mark buttons |

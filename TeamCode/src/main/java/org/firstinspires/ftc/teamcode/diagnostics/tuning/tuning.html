@@ -687,6 +687,7 @@ var filled = {};         // inputs pre-filled once from the robot, so typing is 
 var htmlCache = {};      // last HTML written per element id
 var WIN = 10;            // live chart window, s
 var COL = {pollen: '#e3a72f', nectar: '#4da3ff', good: '#3fb950', warn: '#d29922', muted: '#8b98a8', grid: '#1f2731'};
+var REG_W = ['pollen', 'nectar'];   // declared up here: buildRegCards() runs before the regression section
 var PAL = ['#f0b429', '#58a6ff', '#3fb950', '#ff7b72', '#bc8cff', '#39c5cf', '#f778ba', '#c9d1d9'];
 
 function $(id) { return document.getElementById(id); }
@@ -1174,7 +1175,6 @@ buildWheelCards(); buildTurretCards(); buildLimitCards(); buildServoCards(); bui
 prompts();
 
 // ---------------------------------------------------------------- regression
-var REG_W = ['pollen', 'nectar'];
 function buildRegCards() {
   $('regWheels').innerHTML = REG_W.map(function (w) {
     return '<section class="card" style="margin:14px 0 0"><h3><span style="color:var(--' + w + ')">●</span>' + w +
@@ -1805,14 +1805,26 @@ var polling = false;
 function poll() {
   if (polling) return;
   polling = true;
-  fetch('/tune/state', {cache: 'no-store'}).then(function (r) { return r.json(); })
-    .then(function (j) {
+  // Three different failures, reported differently: unreachable (offline), a reply that is not
+  // JSON (a tool bug on the robot), and an error while drawing (a page bug). Only the first is "offline".
+  fetch('/tune/state', {cache: 'no-store'}).then(function (r) { return r.text(); })
+    .then(function (txt) {
+      var j;
+      try { j = JSON.parse(txt); } catch (e) {
+        S = null; render();
+        setText('liveText', 'robot replied, but /tune/state is not valid JSON');
+        setText('hdrMsg', String(e.message) + ' — open /tune/state to see it');
+        console.error('bad /tune/state', e, txt.slice(0, 2000));
+        return;
+      }
       var wasLive = S && S.live, wasSession = S && S.sessionId;
       S = j;
       if (S.live && (!wasLive || S.sessionId !== wasSession)) { filled = {}; }
-      render();
-    })
-    .catch(function () { S = null; render(); })
+      try { render(); } catch (e) {
+        console.error('render failed', e && e.stack || e);
+        setText('hdrMsg', 'Page error while drawing: ' + e.message);
+      }
+    }, function () { S = null; render(); })
     .then(function () { polling = false; });
 }
 renderTrials(); renderGroups(); renderChecks();

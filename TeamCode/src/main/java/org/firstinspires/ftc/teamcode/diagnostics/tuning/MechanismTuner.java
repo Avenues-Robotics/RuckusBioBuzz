@@ -218,7 +218,7 @@ public class MechanismTuner extends OpMode {
         colorDistance = hardwareMap.tryGet(DistanceSensor.class, "colorSensor");
         try {
             localizer = Constants.createLocalizer(hardwareMap);
-            pose = localizer.state().pose();
+            readPose();
         } catch (RuntimeException e) {
             localizer = null;
             poseError = shortError(e);
@@ -1081,7 +1081,16 @@ public class MechanismTuner extends OpMode {
         if (localizer == null) return;
         try {
             localizer.update();
-            pose = localizer.state().pose();
+            Pose p = localizer.state().pose();
+            if (Double.isNaN(p.x()) || Double.isNaN(p.y()) || Double.isNaN(p.heading())
+                    || Double.isInfinite(p.x()) || Double.isInfinite(p.y())) {
+                // The Pinpoint reports NaN while it is not ready (IMU calibrating, device fault).
+                pose = null;
+                poseError = "Pinpoint returned NaN (not ready or faulted) - check its wiring / power, or set the pose";
+            } else {
+                pose = p;
+                poseError = "";
+            }
         } catch (RuntimeException e) {
             poseError = shortError(e);
         }
@@ -1161,20 +1170,20 @@ public class MechanismTuner extends OpMode {
                 .append(",\"poseError\":\"").append(TuningHub.esc(poseError)).append('"');
         if (pose != null) {
             HiveTarget h = hiveFor();
-            sb.append(",\"x\":").append(FlyRecorder.r(pose.x(), 2))
-                    .append(",\"y\":").append(FlyRecorder.r(pose.y(), 2))
-                    .append(",\"h\":").append(FlyRecorder.r(Math.toDegrees(pose.heading()), 1))
+            sb.append(",\"x\":").append(nanToNull(pose.x(), 2))
+                    .append(",\"y\":").append(nanToNull(pose.y(), 2))
+                    .append(",\"h\":").append(nanToNull(Math.toDegrees(pose.heading()), 1))
                     .append(",\"hiveUsed\":\"").append(h.name)
-                    .append("\",\"hiveX\":").append(FlyRecorder.r(h.pose.x(), 2))
-                    .append(",\"hiveY\":").append(FlyRecorder.r(h.pose.y(), 2))
+                    .append("\",\"hiveX\":").append(nanToNull(h.pose.x(), 2))
+                    .append(",\"hiveY\":").append(nanToNull(h.pose.y(), 2))
                     .append(",\"turrets\":[");
             for (int i = 0; i < turrets.length; i++) {
                 double[] a = aim(turrets[i]);
                 double fit = reg.fitVelocity(i, a[0]);
                 double[][] sh = reg.shipped[i];
                 if (i > 0) sb.append(',');
-                sb.append("{\"dist\":").append(FlyRecorder.r(a[0], 2))
-                        .append(",\"deg\":").append(FlyRecorder.r(Math.toDegrees(a[1]), 1))
+                sb.append("{\"dist\":").append(nanToNull(a[0], 2))
+                        .append(",\"deg\":").append(nanToNull(Math.toDegrees(a[1]), 1))
                         .append(",\"reachable\":").append(aimReachable[i])
                         .append(",\"fitVel\":").append(nanToNull(fit, 0))
                         .append(",\"shippedVel\":").append(nanToNull(

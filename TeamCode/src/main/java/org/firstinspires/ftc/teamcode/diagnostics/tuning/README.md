@@ -16,6 +16,7 @@ Diagnostic only — never ships. Tunes everything except the drivetrain (that is
 | Turret limits | Per turret: jog (allowed past the limits) and mark the wiring limit on each side and the start position (`*_TURRET_MIN/MAX/START`); every other turret move on the dashboard is held inside the marked limits |
 | Intake & color | Live raw RGB, what the shipped `ColorCheck` rule calls it, intake run through the shipped `intake` class, `REVERSE_BRAKE_MS`, labelled samples and a ratio + distance-gate suggestion (`/tune/color.csv`) |
 | Swerve | Whether Swerve Bring-Up is running, link to `/swerve`, Claude prompt |
+| Regression | Pick alliance + hive (AUTO = shipped rule by robot y, or force UP/DOWN), Pinpoint pose (settable), turrets tracking the hive; per wheel: set a speed, shoot, **Record** (target ticks/s at the turret-to-hive distance), linear or degree 2/3 least-squares fit with R²/RMSE/residuals, **Save fit** → export group `regression` → `modules/ShootingRegression.java`. Samples persist on the hub in `FIRST/mechtune_regression.csv` (`/tune/regression.csv`) |
 | Export | Every value next to what the code had at init, changed rows highlighted, the `--only` command for the changed files |
 
 Step trials and shot/kick history are kept in the browser's localStorage (per viewer, not on the

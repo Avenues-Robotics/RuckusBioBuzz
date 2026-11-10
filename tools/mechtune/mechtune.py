@@ -35,6 +35,8 @@ library only. See MECHANISM_TUNING_TASK.md at repo root for the procedure this s
     python mechtune.py export [--write] [--only flywheel,intake,...]
                                                    splice the tool's values into SystemConstants.java by name
                                                    (dry run without --write). A SHIPPED change.
+    python mechtune.py export --only regression --write
+                                                   the Regression tab's saved fits -> modules/ShootingRegression.java
 
 Override the robot address with MECHTUNE_HOST=ip:port.
 """
@@ -344,9 +346,11 @@ def set_pidf(wheel: str, coeffs: list[float]) -> None:
 
 # ---------------------------------------------------------------------------------- export
 
-# Every exported value lives in SystemConstants.java (one nested @Config class per mechanism, field
-# names unique across the file); --only filters on the export entry's group.
-FILE_KEYS = ("flywheel", "turret", "intake", "gate", "scoopula", "shooter", "ColorCheck", "zone")
+# Exported values live in SystemConstants.java (one nested @Config class per mechanism, field names
+# unique across the file), except group "regression", which goes to modules/ShootingRegression.java
+# (each entry carries its file); --only filters on the export entry's group.
+FILE_KEYS = ("flywheel", "turret", "intake", "gate", "scoopula", "shooter", "ColorCheck", "zone",
+             "regression")
 
 
 def splice(export: list[dict], write: bool, only: set[str] | None) -> int:

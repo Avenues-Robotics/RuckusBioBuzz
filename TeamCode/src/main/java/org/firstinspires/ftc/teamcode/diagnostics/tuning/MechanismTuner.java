@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.diagnostics.tuning;
 
 import org.firstinspires.ftc.teamcode.SystemConstants;
 
+import com.pedropathing.math.Pose;
+import com.pedropathing.revhub.localizers.PinpointLocalizer;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
@@ -16,6 +18,9 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
+import org.firstinspires.ftc.teamcode.helpers.HivePosition;
+import org.firstinspires.ftc.teamcode.modules.ShootingRegression;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.teamcode.systems.ColorCheck;
 import org.firstinspires.ftc.teamcode.systems.Flywheel;
 import org.firstinspires.ftc.teamcode.systems.Intake;
@@ -97,6 +102,17 @@ public class MechanismTuner extends OpMode {
     private int[][] origMapPollen, origMapNectar;
     private int origXQuality, origYQuality, origOffPollen, origOffNectar;
     private Alliance alliance = Alliance.RED;
+
+    // Shooting regression (Regression tab). The Pinpoint is read for the pose only - the drivetrain
+    // is never built. Its pose is NOT reset here (Constants.pinpointConfig resetMode NONE), so it
+    // carries whatever the last OpMode left, until the operator sets one.
+    private PinpointLocalizer localizer;
+    private String poseError = "";
+    private Pose pose;
+    private String hive = "AUTO";   // AUTO (shipped rule: by robot y) | UP | DOWN
+    private boolean regAim;
+    private final boolean[] aimReachable = {true, true};
+    private final RegressionSession reg = new RegressionSession();
 
     private ColorSensor color;
     private DistanceSensor colorDistance;
@@ -200,14 +216,28 @@ public class MechanismTuner extends OpMode {
         }
         color = hardwareMap.tryGet(ColorSensor.class, "colorSensor");
         colorDistance = hardwareMap.tryGet(DistanceSensor.class, "colorSensor");
+        try {
+            localizer = Constants.createLocalizer(hardwareMap);
+            pose = localizer.state().pose();
+        } catch (RuntimeException e) {
+            localizer = null;
+            poseError = shortError(e);
+        }
+        reg.load();
 
         TuningHub.INSTANCE.clearCommands();
         TuningHub.INSTANCE.setRecorder(recorder);
+        TuningHub.INSTANCE.setRegression(reg);
         lastLoopNs = System.nanoTime();
         rebuildColorSummary();
         for (String[] e : exportEntries()) {
             shippedValues.put(e[0] + "#" + e[1], e[2]);
         }
+        // A fit saved in an earlier run reloads from the hub file; "in the code" is still the class's own value.
+        shippedValues.put("regression#POLLEN_COEFFS", reg.shippedCoeffSource(0));
+        shippedValues.put("regression#POLLEN_RANGE", reg.shippedRangeSource(0));
+        shippedValues.put("regression#NECTAR_COEFFS", reg.shippedCoeffSource(1));
+        shippedValues.put("regression#NECTAR_RANGE", reg.shippedRangeSource(1));
     }
 
     @Override
@@ -264,9 +294,16 @@ public class MechanismTuner extends OpMode {
             w.read(slow || recCurrent);
         }
 
+        if (regAim || slow) {
+            readPose();
+        }
+
         Map<String, String> cmd;
         while ((cmd = TuningHub.INSTANCE.poll()) != null) {
             handle(cmd);
+        }
+        if (regAim) {
+            aimTurrets();
         }
 
         if (breakIn) {
@@ -369,6 +406,10 @@ public class MechanismTuner extends OpMode {
             telemetry.addData("Shoot", (shootState == 2 ? "SHOOT (gate open)" : "TRACK (waiting for speed)")
                     + "  windows left " + shootLeft);
         }
+        if (regAim && pose != null) {
+            telemetry.addData("Regression aim", alliance + " " + hiveFor().name + " hive  pollen "
+                    + FlyRecorder.r(aim(turrets[0])[0], 1) + " in  nectar " + FlyRecorder.r(aim(turrets[1])[0], 1) + " in");
+        }
         telemetry.addData("Message", message);
         telemetry.update();
     }
@@ -379,7 +420,7 @@ public class MechanismTuner extends OpMode {
         switch (action) {
             case "fly": case "flyPower": case "step": case "kick": case "ffSweep":
             case "turretPos": case "turretDeg": case "servoPos": case "gatePulse": case "intake":
-            case "shoot": case "breakInStart":
+            case "shoot": case "breakInStart": case "regAim": case "regSpinFit":
                 return true;
             default:
                 return false;
@@ -416,6 +457,9 @@ public class MechanismTuner extends OpMode {
         }
         if (shootState != 0 && endsShoot(action)) {
             endShoot("interrupted by " + action);
+        }
+        if (regAim && ("turretPos".equals(action) || "turretDeg".equals(action))) {
+            regAim = false;
         }
         try {
             dispatch(action, cmd);
@@ -732,6 +776,96 @@ public class MechanismTuner extends OpMode {
                 message = "Intake break-in stopped.";
                 break;
 
+            // ---- shooting regression
+            case "regHive": {
+                String h = c.get("hive") == null ? "" : c.get("hive").toUpperCase(java.util.Locale.US);
+                if (!h.equals("AUTO") && !h.equals("UP") && !h.equals("DOWN")) {
+                    throw new IllegalArgumentException("hive= must be AUTO, UP or DOWN");
+                }
+                hive = h;
+                message = "Aiming at the " + hive + " hive, alliance " + alliance + ".";
+                break;
+            }
+            case "setPose": {
+                if (localizer == null) throw new IllegalStateException("no Pinpoint: " + poseError);
+                Pose p = new Pose(num(c, "x", 0), num(c, "y", 0), Math.toRadians(num(c, "deg", 0)));
+                localizer.setPose(p);
+                pose = p;
+                message = "Pose set to x " + FlyRecorder.r(p.x(), 2) + ", y " + FlyRecorder.r(p.y(), 2)
+                        + ", heading " + FlyRecorder.r(num(c, "deg", 0), 1) + " deg.";
+                break;
+            }
+            case "regAim":
+                regAim = num(c, "on", 1) != 0;
+                if (regAim && localizer == null) {
+                    regAim = false;
+                    throw new IllegalStateException("no Pinpoint: " + poseError);
+                }
+                message = regAim ? "Turrets tracking the " + hive + " hive (" + alliance + ")." : "Turret tracking off.";
+                break;
+            case "regRecord": {
+                readPose();
+                if (pose == null) throw new IllegalStateException("no pose: " + poseError);
+                StringBuilder out = new StringBuilder();
+                for (Wheel w : wheelsFor(c)) {
+                    int i = w == wheels[0] ? 0 : 1;
+                    if (w.mode != MODE_VEL || w.target <= 0) {
+                        out.append(w.name).append(": not spinning in velocity mode, skipped. ");
+                        continue;
+                    }
+                    double[] a = aim(turrets[i]);
+                    RegressionSession.Sample s = reg.add(i, a[0], w.target, w.vel, pose.x(), pose.y(),
+                            Math.toDegrees(pose.heading()), alliance.toString(), hiveFor().name, volts);
+                    out.append(w.name).append(" #").append(s.id).append(": ")
+                            .append(FlyRecorder.r(w.target, 0)).append(" ticks/s at ")
+                            .append(FlyRecorder.r(a[0], 1)).append(" in. ");
+                }
+                message = out.length() == 0 ? "Nothing recorded." : out.toString().trim();
+                break;
+            }
+            case "regDelete":
+                message = reg.delete((int) num(c, "id", -1)) ? "Sample deleted." : "No such sample.";
+                break;
+            case "regClear":
+                message = "Cleared " + reg.clear(RegressionSession.wheelIndex(c.get("wheel"))) + " "
+                        + c.get("wheel") + " samples.";
+                break;
+            case "regDegree":
+                reg.setDegree(RegressionSession.wheelIndex(c.get("wheel")), (int) num(c, "degree", 1));
+                message = c.get("wheel") + " fit degree " + (int) num(c, "degree", 1) + ".";
+                break;
+            case "regSave": {
+                String why = reg.save(RegressionSession.wheelIndex(c.get("wheel")));
+                message = why == null
+                        ? c.get("wheel") + " fit saved for export (ShootingRegression.java via mechtune.py export --only regression --write)."
+                        : "REFUSED regSave: " + why;
+                break;
+            }
+            case "regUnsave":
+                reg.unsave(RegressionSession.wheelIndex(c.get("wheel")));
+                message = c.get("wheel") + " export reverted to the shipped regression.";
+                break;
+            case "regSpinFit": {
+                readPose();
+                if (pose == null) throw new IllegalStateException("no pose: " + poseError);
+                StringBuilder out = new StringBuilder();
+                for (Wheel w : wheelsFor(c)) {
+                    int i = w == wheels[0] ? 0 : 1;
+                    double d = aim(turrets[i])[0];
+                    double v = reg.fitVelocity(i, d);
+                    if (Double.isNaN(v)) {
+                        out.append(w.name).append(": no fit yet. ");
+                        continue;
+                    }
+                    w.cancelTests();
+                    w.setVelocity(v);
+                    out.append(w.name).append(" ").append(FlyRecorder.r(w.target, 0)).append(" ticks/s (fit at ")
+                            .append(FlyRecorder.r(d, 1)).append(" in). ");
+                }
+                message = out.toString().trim();
+                break;
+            }
+
             case "zoneCell": {
                 int[][] map = zoneMap(c.get("map"));
                 int x = (int) num(c, "x", -1), y = (int) num(c, "y", -1);
@@ -794,6 +928,7 @@ public class MechanismTuner extends OpMode {
     }
 
     private void stopAll() {
+        regAim = false;
         if (shootState != 0) {
             endShoot("everything stopped");
         }
@@ -938,6 +1073,120 @@ public class MechanismTuner extends OpMode {
         intakeSys.setAlliance(null);
         intakeSys.update(false, false);
         intakeSys.setAlliance(alliance);
+    }
+
+    // ------------------------------------------------------------------------- shooting regression
+
+    private void readPose() {
+        if (localizer == null) return;
+        try {
+            localizer.update();
+            pose = localizer.state().pose();
+        } catch (RuntimeException e) {
+            poseError = shortError(e);
+        }
+    }
+
+    private static final class HiveTarget {
+        final String name;
+        final Pose pose;
+
+        HiveTarget(String name, Pose pose) {
+            this.name = name;
+            this.pose = pose;
+        }
+    }
+
+    /**
+     * AUTO is the shipped rule exactly ({@link HivePosition#target} on the robot-center pose, as
+     * Turret.aimFrom calls it); UP / DOWN force that hive at the alliance's x.
+     */
+    private HiveTarget hiveFor() {
+        Pose auto = HivePosition.target(offsetPose(SystemConstants.PredictiveAiming.CENTER), alliance);
+        if ("AUTO".equals(hive)) {
+            return new HiveTarget(auto.y() == SystemConstants.HivePosition.UP_POS ? "UP" : "DOWN", auto);
+        }
+        return new HiveTarget(hive, new Pose(auto.x(), "UP".equals(hive)
+                ? SystemConstants.HivePosition.UP_POS : SystemConstants.HivePosition.DOWN_POS));
+    }
+
+    /** The pose shifted by a robot-frame {forward, left} offset, as PredictiveAiming.leadPose at rest. */
+    private Pose offsetPose(double[] offset) {
+        double c = Math.cos(pose.heading()), s = Math.sin(pose.heading());
+        return new Pose(pose.x() + offset[0] * c - offset[1] * s,
+                pose.y() + offset[0] * s + offset[1] * c, pose.heading());
+    }
+
+    /** {distance in, bearing rad relative to the robot heading} from this turret's pivot to the hive. */
+    private double[] aim(TurretCal t) {
+        Pose from = offsetPose(t.offset);
+        Pose target = hiveFor().pose;
+        double dx = target.x() - from.x(), dy = target.y() - from.y();
+        double theta = Math.atan2(dy, dx) - from.heading();
+        theta = Math.atan2(Math.sin(theta), Math.cos(theta));
+        return new double[]{Math.hypot(dx, dy), theta};
+    }
+
+    /**
+     * Points both turrets at the hive with the tool's calibration: of the aim angle and its copies a
+     * whole turn away, the reachable one nearest the current position (turret.java unwinds the same
+     * way, minus the hysteresis). Unreachable: held at the nearer limit and flagged.
+     */
+    private void aimTurrets() {
+        if (pose == null) return;
+        for (int i = 0; i < turrets.length; i++) {
+            TurretCal t = turrets[i];
+            if (t.servo == null) continue;
+            double deg = Math.toDegrees(aim(t)[1]);
+            double lo = Math.min(t.min, t.max), hi = Math.max(t.min, t.max);
+            double cur = Double.isNaN(t.pos) ? t.center : t.pos;
+            double best = Double.NaN;
+            for (int k = -1; k <= 1; k++) {
+                double p = t.positionFor(deg + 360 * k);
+                if (p >= lo && p <= hi && (Double.isNaN(best) || Math.abs(p - cur) < Math.abs(best - cur))) {
+                    best = p;
+                }
+            }
+            aimReachable[i] = !Double.isNaN(best);
+            if (!aimReachable[i]) best = clamp(t.positionFor(deg), lo, hi);
+            if (Double.isNaN(t.pos) || Math.abs(best - t.pos) > 1e-4) {
+                t.setPosition(best, false);
+            }
+        }
+    }
+
+    private String regJson() {
+        StringBuilder sb = new StringBuilder(512);
+        sb.append("{\"poseOk\":").append(pose != null)
+                .append(",\"poseError\":\"").append(TuningHub.esc(poseError)).append('"');
+        if (pose != null) {
+            HiveTarget h = hiveFor();
+            sb.append(",\"x\":").append(FlyRecorder.r(pose.x(), 2))
+                    .append(",\"y\":").append(FlyRecorder.r(pose.y(), 2))
+                    .append(",\"h\":").append(FlyRecorder.r(Math.toDegrees(pose.heading()), 1))
+                    .append(",\"hiveUsed\":\"").append(h.name)
+                    .append("\",\"hiveX\":").append(FlyRecorder.r(h.pose.x(), 2))
+                    .append(",\"hiveY\":").append(FlyRecorder.r(h.pose.y(), 2))
+                    .append(",\"turrets\":[");
+            for (int i = 0; i < turrets.length; i++) {
+                double[] a = aim(turrets[i]);
+                double fit = reg.fitVelocity(i, a[0]);
+                double[][] sh = reg.shipped[i];
+                if (i > 0) sb.append(',');
+                sb.append("{\"dist\":").append(FlyRecorder.r(a[0], 2))
+                        .append(",\"deg\":").append(FlyRecorder.r(Math.toDegrees(a[1]), 1))
+                        .append(",\"reachable\":").append(aimReachable[i])
+                        .append(",\"fitVel\":").append(nanToNull(fit, 0))
+                        .append(",\"shippedVel\":").append(nanToNull(
+                                ShootingRegression.evaluate(sh[0], sh[1], a[0]), 0)).append('}');
+            }
+            sb.append(']');
+        }
+        sb.append(",\"alliance\":\"").append(alliance)
+                .append("\",\"hive\":\"").append(hive)
+                .append("\",\"aim\":").append(regAim)
+                .append(",\"data\":").append(reg.json());
+        return sb.append('}').toString();
     }
 
     // ------------------------------------------------------------------------- shoot sequence
@@ -1981,6 +2230,7 @@ public class MechanismTuner extends OpMode {
                 .append("\",\"samples\":").append(samples.size())
                 .append(",\"summary\":").append(colorSummary).append('}');
 
+        sb.append(",\"reg\":").append(regJson());
         sb.append(",\"export\":").append(exportJson());
         return sb.append('}').toString();
     }
@@ -1999,7 +2249,7 @@ public class MechanismTuner extends OpMode {
             String[] e = out.get(i);
             String shipped = shippedValues.get(e[0] + "#" + e[1]);
             if (i > 0) sb.append(',');
-            sb.append("{\"file\":\"").append(EXPORT_FILE)
+            sb.append("{\"file\":\"").append(e.length > 3 ? e[3] : EXPORT_FILE)
                     .append("\",\"group\":\"").append(e[0])
                     .append("\",\"name\":\"").append(e[1])
                     .append("\",\"value\":\"").append(TuningHub.esc(e[2]))
@@ -2009,8 +2259,13 @@ public class MechanismTuner extends OpMode {
         return sb.append(']').toString();
     }
 
-    /** Every exported value lives in SystemConstants.java; e[0] of an entry is its --only group. */
+    /**
+     * Exported values live in SystemConstants.java unless the entry names its file in e[3]; e[0]
+     * of an entry is its --only group.
+     */
     static final String EXPORT_FILE = "SystemConstants.java";
+    /** The regression fit is the one export that lands outside SystemConstants (e[3] of its entries). */
+    static final String REGRESSION_FILE = "modules/ShootingRegression.java";
 
     private List<String[]> exportEntries() {
         List<String[]> out = new ArrayList<>();
@@ -2053,6 +2308,12 @@ public class MechanismTuner extends OpMode {
         out.add(new String[]{zn, "yOffsetNectar", Integer.toString(SystemConstants.Zone.yOffsetNectar)});
         out.add(new String[]{zn, "mapPollen", mapSource(SystemConstants.Zone.mapPollen)});
         out.add(new String[]{zn, "mapNectar", mapSource(SystemConstants.Zone.mapNectar)});
+        // The fit saved on the Regression tab, or ShootingRegression's own value when none was saved.
+        String rg = "regression";
+        out.add(new String[]{rg, "POLLEN_COEFFS", reg.coeffSource(0), REGRESSION_FILE});
+        out.add(new String[]{rg, "POLLEN_RANGE", reg.rangeSource(0), REGRESSION_FILE});
+        out.add(new String[]{rg, "NECTAR_COEFFS", reg.coeffSource(1), REGRESSION_FILE});
+        out.add(new String[]{rg, "NECTAR_RANGE", reg.rangeSource(1), REGRESSION_FILE});
         for (ServoCal s : servos) {
             for (Map.Entry<String, Double> m : s.marks.entrySet()) {
                 if (m.getValue() != null) {

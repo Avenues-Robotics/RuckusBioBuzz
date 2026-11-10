@@ -25,6 +25,7 @@ public final class TuningHub {
     private final AtomicReference<String> stateJson = new AtomicReference<>("{\"live\":false}");
     private final ConcurrentLinkedQueue<Map<String, String>> commands = new ConcurrentLinkedQueue<>();
     private final AtomicReference<FlyRecorder> recorder = new AtomicReference<>();
+    private final AtomicReference<RegressionSession> regression = new AtomicReference<>();
     private final AtomicReference<String> colorCsv = new AtomicReference<>("label,r,g,b,a,dist\n");
     private volatile long lastPublishMs;
     private volatile long lastClientMs;
@@ -90,6 +91,14 @@ public final class TuningHub {
 
     public FlyRecorder recorder() {
         return recorder.get();
+    }
+
+    void setRegression(RegressionSession r) {
+        regression.set(r);
+    }
+
+    RegressionSession regression() {
+        return regression.get();
     }
 
     public void setColorCsv(String csv) {

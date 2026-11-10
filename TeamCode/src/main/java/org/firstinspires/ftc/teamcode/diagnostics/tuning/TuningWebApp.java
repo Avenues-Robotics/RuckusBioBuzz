@@ -128,6 +128,15 @@ public class TuningWebApp {
                 }
             };
 
+            WebHandler regCsv = new WebHandler() {
+                @Override
+                public NanoHTTPD.Response getResponse(NanoHTTPD.IHTTPSession session) {
+                    RegressionSession r = TuningHub.INSTANCE.regression();
+                    return text("text/csv", r == null
+                            ? "# no regression session; run the Mechanism Tuner OpMode\n" : r.csv());
+                }
+            };
+
             manager.register("/tune", page);
             manager.register("/tune/", page);
             manager.register("/tune/notify.js", notifyJs);
@@ -138,6 +147,7 @@ public class TuningWebApp {
             manager.register("/tune/ack", ack);
             manager.register("/tune/rec.csv", rec);
             manager.register("/tune/color.csv", color);
+            manager.register("/tune/regression.csv", regCsv);
             RobotLog.ii(TAG, "Mechanism tuning dashboard registered at /tune");
         } catch (RuntimeException e) {
             // A failure here must never prevent the Robot Controller from starting.

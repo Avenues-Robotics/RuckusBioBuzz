@@ -139,6 +139,7 @@
   <button data-tab="color">Intake &amp; color</button>
   <button data-tab="breakin">Intake break-in</button>
   <button data-tab="zone">Zone map</button>
+  <button data-tab="reg">Regression</button>
   <button data-tab="swerve">Swerve</button>
   <button data-tab="export">Export</button>
 </nav>
@@ -565,6 +566,68 @@
 </div>
 
 <!-- ======================================================== SWERVE -->
+<!-- ======================================================== REGRESSION -->
+<div class="tab" id="tab-reg">
+  <section>
+    <h2>Shooting regression</h2>
+    <p class="hint" style="margin-top:0">Find the flywheel speed that scores from several distances, then fit
+      <code>ticks/s = c0 + c1·d (+ c2·d² + c3·d³)</code> per wheel. <code>d</code> is the same distance
+      <code>Turret</code> aims with: turret pivot (mount offset from the Turrets tab) to the hive, from the Pinpoint pose.</p>
+    <ol style="margin:6px 0 0 18px;padding:0;font-size:13px">
+      <li>Pick the alliance and hive, check the pose (set it if the Pinpoint was power-cycled), turn on <b>Aim turrets</b>.</li>
+      <li>At one spot: set a wheel's speed, <b>Spin</b>, shoot (<b>Shoot once</b>, or feed by hand), adjust until it scores.</li>
+      <li><b>Record</b> that wheel. Move to another distance and repeat. Spread the spots over the range you shoot from.</li>
+      <li>Pick linear or polynomial, check the curve and residuals, then <b>Save fit</b>, and on the laptop run the export command at the bottom.</li>
+    </ol>
+  </section>
+  <div class="grid">
+    <section style="margin-top:14px">
+      <h2>Target</h2>
+      <div class="row"><span class="hint" style="width:70px">alliance</span>
+        <button class="small" id="regRed" onclick="cmd('alliance',{side:'RED'})">RED</button>
+        <button class="small" id="regBlue" onclick="cmd('alliance',{side:'BLUE'})">BLUE</button></div>
+      <div class="row"><span class="hint" style="width:70px">hive</span>
+        <button class="small" id="regHAUTO" onclick="cmd('regHive',{hive:'AUTO'})">AUTO (shipped rule)</button>
+        <button class="small" id="regHUP" onclick="cmd('regHive',{hive:'UP'})">UP</button>
+        <button class="small" id="regHDOWN" onclick="cmd('regHive',{hive:'DOWN'})">DOWN</button></div>
+      <div class="row"><span class="hint" style="width:70px">turrets</span>
+        <button class="small" id="regAimBtn" onclick="cmd('regAim',{on:S && S.reg && S.reg.aim ? 0 : 1})">Aim turrets</button>
+        <span class="hint">tracks the hive with the Turrets-tab calibration, inside the marked limits</span></div>
+      <div id="regTarget" style="margin-top:8px"></div>
+      <details><summary>Set pose</summary><div class="body">
+        <p class="hint">Field frame used by <code>HivePosition</code> (inches, heading in degrees). Only needed if the
+          Pinpoint lost its pose — it keeps whatever the last OpMode left.</p>
+        <div class="row">
+          <label class="inline">x <input type="number" id="regPx" step="0.5"></label>
+          <label class="inline">y <input type="number" id="regPy" step="0.5"></label>
+          <label class="inline">heading <input type="number" id="regPh" step="1"></label>
+          <button class="small primary" onclick="cmd('setPose',{x:num('regPx'),y:num('regPy'),deg:num('regPh')})">Set pose</button>
+        </div></div></details>
+    </section>
+    <section style="margin-top:14px">
+      <h2>From here</h2>
+      <div id="regLive"></div>
+      <div class="row">
+        <button class="primary" onclick="regShoot()">Shoot once (both wheels)</button>
+        <button onclick="cmd('flyOff',{wheel:'both'})">Wheels off</button>
+      </div>
+      <p class="hint">Shoot once runs the Shooting tab's gate sequence at both speeds below (needs the gate marked).</p>
+    </section>
+  </div>
+  <div class="grid" id="regWheels"></div>
+  <section>
+    <h2>Save to ShootingRegression.java</h2>
+    <p class="hint" style="margin-top:0">The robot can't write into the repo, so <b>Save fit</b> stages the
+      coefficients for export (also on the Export tab). Then, from a laptop on the robot WiFi with this OpMode still running:</p>
+    <div class="msg"><code>python tools/mechtune/mechtune.py export --only regression</code> (dry run), then the same with <code>--write</code>.
+      It rewrites <code>POLLEN_/NECTAR_COEFFS</code> and <code>_RANGE</code> in <code>modules/ShootingRegression.java</code>.
+      A <b>shipped</b> change: build, commit with the samples (<a href="/tune/regression.csv" target="_blank">regression.csv</a>).</div>
+    <pre id="regJava" style="margin-top:10px"></pre>
+    <div class="row"><button class="small" onclick="copy('regJava', this)">Copy as Java</button>
+      <span class="hint" id="regFile"></span></div>
+  </section>
+</div>
+
 <div class="tab" id="tab-swerve">
   <section>
     <h2>Swerve drivetrain</h2>
@@ -1095,8 +1158,140 @@ color:
 '`mechtune.py export --only ColorCheck --write`, built, committed with the confusion counts, then pushed.'
 };
 
-buildWheelCards(); buildTurretCards(); buildLimitCards(); buildServoCards();
+buildWheelCards(); buildTurretCards(); buildLimitCards(); buildServoCards(); buildRegCards();
 prompts();
+
+// ---------------------------------------------------------------- regression
+var REG_W = ['pollen', 'nectar'];
+function buildRegCards() {
+  $('regWheels').innerHTML = REG_W.map(function (w) {
+    return '<section class="card" style="margin:14px 0 0"><h3><span style="color:var(--' + w + ')">●</span>' + w +
+      ' <span id="regBadge_' + w + '"></span></h3>' +
+      '<div class="row"><label class="inline">speed <input type="number" id="regVel_' + w + '" value="1500" step="25"> ticks/s</label>' +
+      '<button class="small primary" onclick="cmd(\'fly\',{wheel:\'' + w + '\',vel:num(\'regVel_' + w + '\')})">Spin</button>' +
+      '<button class="small" onclick="regNudge(\'' + w + '\',-25)">−25</button><button class="small" onclick="regNudge(\'' + w + '\',25)">+25</button>' +
+      '<button class="small" onclick="cmd(\'flyOff\',{wheel:\'' + w + '\'})">Off</button></div>' +
+      '<div class="row"><button class="primary" onclick="cmd(\'regRecord\',{wheel:\'' + w + '\'})">Record (it scored)</button>' +
+      '<button class="small" onclick="cmd(\'regSpinFit\',{wheel:\'' + w + '\'})">Spin at fit for this distance</button></div>' +
+      '<div id="regNow_' + w + '" class="hint"></div>' +
+      '<div class="row"><span class="hint">fit</span>' +
+      '<select id="regDeg_' + w + '" onchange="cmd(\'regDegree\',{wheel:\'' + w + '\',degree:this.value})">' +
+      '<option value="1">linear</option><option value="2">polynomial, degree 2</option><option value="3">polynomial, degree 3</option></select>' +
+      '<button class="small primary" onclick="cmd(\'regSave\',{wheel:\'' + w + '\'})">Save fit</button>' +
+      '<button class="small" onclick="cmd(\'regUnsave\',{wheel:\'' + w + '\'})">Revert to shipped</button></div>' +
+      '<div id="regFit_' + w + '" style="font-size:13px"></div>' +
+      '<div class="legend"><span><i style="border-color:var(--' + w + ')"></i>this fit</span>' +
+      '<span><i class="dash" style="border-color:var(--good)"></i>saved</span>' +
+      '<span><i class="dash" style="border-color:var(--muted)"></i>in the code</span>' +
+      '<span><i class="dash" style="border-color:#c9d1d9"></i>you are here</span></div>' +
+      '<canvas id="regChart_' + w + '"></canvas>' +
+      '<div class="tablewrap" style="margin-top:8px;max-height:260px;overflow-y:auto"><table id="regTable_' + w + '"></table></div>' +
+      '<div class="row"><button class="small" onclick="if(confirmClear(\'' + w + '\'))cmd(\'regClear\',{wheel:\'' + w + '\'})">Clear ' + w + ' samples</button></div>' +
+      '</section>';
+  }).join('');
+}
+var regClearArm = {};
+function confirmClear(w) {
+  // No browser confirm() (it blocks the page); a second click within 3 s confirms.
+  var now = Date.now();
+  if (regClearArm[w] && now - regClearArm[w] < 3000) { regClearArm[w] = 0; return true; }
+  regClearArm[w] = now; say('Click Clear ' + w + ' samples again within 3 s to delete them all.'); return false;
+}
+function regNudge(w, d) { var e = $('regVel_' + w); e.value = (parseFloat(e.value) || 0) + d; cmd('fly', {wheel: w, vel: parseFloat(e.value)}); }
+function regShoot() { cmd('shoot', {pollen: num('regVel_pollen'), nectar: num('regVel_nectar'), count: 1, feed: 1}); }
+function polyEval(c, d) { var v = 0; for (var i = c.length - 1; i >= 0; i--) v = v * d + c[i]; return v; }
+function clampEval(c, r, d) { if (r) d = Math.max(Math.min(r[0], r[1]), Math.min(Math.max(r[0], r[1]), d)); return Math.max(0, polyEval(c, d)); }
+function sig(v) { return v == null ? '–' : Math.abs(v) >= 1e4 || (Math.abs(v) < 1e-3 && v !== 0) ? v.toExponential(4) : (+v.toPrecision(6)).toString(); }
+function eqText(c) {
+  if (!c) return '–';
+  return 'v = ' + c.map(function (k, i) { return sig(k) + (i === 0 ? '' : i === 1 ? '·d' : '·d' + (i === 2 ? '²' : '³')); }).join(' + ').replace(/\+ -/g, '− ');
+}
+function arrSrc(v) { return '{' + v.map(String).join(', ') + '}'; }
+function renderReg() {
+  var R = S.reg; if (!R) return;
+  ['regRed', 'regBlue'].forEach(function (id) { $(id).classList.toggle('on', id === 'reg' + (R.alliance === 'RED' ? 'Red' : 'Blue')); });
+  ['AUTO', 'UP', 'DOWN'].forEach(function (h) { $('regH' + h).classList.toggle('on', R.hive === h); });
+  $('regAimBtn').classList.toggle('on', !!R.aim);
+  setText('regAimBtn', R.aim ? 'Aiming — click to stop' : 'Aim turrets');
+  if (!R.poseOk) {
+    setHtml('regTarget', '<div class="msg bad">No pose: ' + esc(R.poseError || 'Pinpoint unavailable') + '</div>');
+    setHtml('regLive', '');
+  } else {
+    var zero = Math.abs(R.x) < 0.01 && Math.abs(R.y) < 0.01 && Math.abs(R.h) < 0.05;
+    setHtml('regTarget', '<div class="kv"><span>robot pose</span><span>x ' + f(R.x, 1) + ' · y ' + f(R.y, 1) + ' in · ' + f(R.h, 1) + '°</span></div>' +
+      '<div class="kv"><span>aiming at</span><span>' + R.alliance + ' ' + R.hiveUsed + ' hive (' + f(R.hiveX, 1) + ', ' + f(R.hiveY, 1) + ')</span></div>' +
+      (zero ? '<div class="tip warn">Pose is exactly 0, 0, 0 — the Pinpoint was probably reset. Set the pose before recording.</div>' : '') +
+      (R.hive !== 'AUTO' ? '<div class="tip">Hive forced to ' + R.hive + '. Competition code picks the hive by robot y (AUTO).</div>' : ''));
+    setHtml('regLive', '<table><tr><th>turret</th><th>distance</th><th>bearing</th><th>this fit</th><th>in the code</th></tr>' +
+      R.turrets.map(function (t, i) {
+        return '<tr><td style="color:var(--' + REG_W[i] + ')">' + REG_W[i] + '</td><td><b>' + f(t.dist, 1) + ' in</b></td><td>' + f(t.deg, 1) + '°' +
+          (R.aim && !t.reachable ? ' <span class="badge bad">out of reach</span>' : '') + '</td><td>' + f(t.fitVel) + '</td><td>' + f(t.shippedVel) + '</td></tr>';
+      }).join('') + '</table><p class="hint">Speeds in ticks/s at the current distance.</p>');
+  }
+  var java = [];
+  R.data.wheels.forEach(function (W, i) {
+    var w = W.name, ws = wheelState(w), fit = W.fit;
+    if (document.activeElement !== $('regDeg_' + w)) $('regDeg_' + w).value = W.degree;
+    setHtml('regBadge_' + w, W.saved ? '<span class="badge good">fit saved for export</span>' : '<span class="badge">not saved</span>');
+    setHtml('regNow_' + w, ws ? 'now: ' + ws.mode + ' · target ' + f(ws.target) + ' · measured ' + f(ws.vel) + ' ticks/s' +
+      (ws.atSpeed ? ' <span class="badge good">at speed</span>' : '') : '');
+    setHtml('regFit_' + w, fit.coeffs
+      ? '<div><code>' + esc(eqText(fit.coeffs)) + '</code></div><div class="hint">n ' + fit.n + ' · R² ' + (fit.r2 == null ? '–' : fit.r2.toFixed(4)) +
+        ' · RMSE ' + f(fit.rmse, 1) + ' ticks/s · range ' + f(fit.dmin, 1) + '–' + f(fit.dmax, 1) + ' in' +
+        (fit.n <= fit.coeffs.length + 1 ? ' · <b style="color:var(--warn)">barely more samples than coefficients — R² means little yet</b>' : '') + '</div>'
+      : '<div class="hint">' + esc(fit.error || 'no samples') + '</div>');
+    var rows = R.data.samples.filter(function (s) { return s.wheel === w; });
+    setHtml('regTable_' + w, rows.length ? '<tr><th>#</th><th>distance</th><th>ticks/s</th><th>measured</th><th>residual</th><th>pose</th><th>target</th><th>V</th><th></th></tr>' +
+      rows.slice().reverse().map(function (s) {
+        return '<tr><td>' + s.id + '</td><td>' + f(s.dist, 1) + '</td><td>' + f(s.vel) + '</td><td>' + f(s.meas) + '</td><td>' + f(s.resid) + '</td><td>' +
+          f(s.x, 0) + ', ' + f(s.y, 0) + ', ' + f(s.h, 0) + '°</td><td>' + esc(s.alliance + ' ' + s.hive) + '</td><td>' + f(s.volts, 2) +
+          '</td><td><button class="small" onclick="cmd(\'regDelete\',{id:' + s.id + '})">✕</button></td></tr>';
+      }).join('') : '<tr><td class="hint">No samples yet.</td></tr>');
+    drawReg(w, W, rows, R.poseOk ? R.turrets[i].dist : null);
+    var src = W.saved || W.shipped, P = w.toUpperCase();
+    java.push('public static double[] ' + P + '_COEFFS = ' + arrSrc(src.coeffs) + ';' + (W.saved ? '' : '   // not saved: as shipped'));
+    java.push('public static double[] ' + P + '_RANGE = ' + arrSrc(src.range) + ';');
+  });
+  setText('regJava', java.join('\n'));
+  setHtml('regFile', R.data.fileError ? '<span style="color:var(--bad)">' + esc(R.data.fileError) + '</span>' : 'Samples kept on the hub in ' + esc(R.data.file));
+}
+function drawReg(w, W, rows, here) {
+  var fr = prep($('regChart_' + w)); if (!fr) return;
+  var g = fr.g, Wd = fr.W, H = fr.H, L = 52, Rm = 10, T = 10, B = 24;
+  var ds = rows.map(function (s) { return s.dist; }), vs = rows.map(function (s) { return s.vel; });
+  if (here != null) ds.push(here);
+  var d0 = ds.length ? Math.min.apply(null, ds) : 0, d1 = ds.length ? Math.max.apply(null, ds) : 100;
+  var pad = Math.max(5, (d1 - d0) * 0.15); d0 = Math.max(0, d0 - pad); d1 = d1 + pad;
+  var curves = [];
+  if (W.fit.coeffs) curves.push([W.fit.coeffs, [W.fit.dmin, W.fit.dmax], COL[w], [], true]);
+  if (W.saved) curves.push([W.saved.coeffs, W.saved.range, COL.good, [6, 4], true]);
+  // The shipped curve only sets the scale when there is nothing else (the placeholder v = d would flatten real data).
+  curves.push([W.shipped.coeffs, W.shipped.range, COL.muted, [2, 4], curves.length === 0 && !rows.length]);
+  var N = 80, ys = vs.slice();
+  curves.forEach(function (c) { if (c[4]) for (var k = 0; k <= N; k++) ys.push(clampEval(c[0], c[1], d0 + (d1 - d0) * k / N)); });
+  var v0 = ys.length ? Math.min.apply(null, ys) : 0, v1 = ys.length ? Math.max.apply(null, ys) : 3000;
+  if (v1 - v0 < 50) { v0 -= 25; v1 += 25; }
+  var vp = (v1 - v0) * 0.08; v0 -= vp; v1 += vp;
+  var x = function (d) { return L + (d - d0) / (d1 - d0) * (Wd - L - Rm); };
+  var y = function (v) { return T + (1 - (v - v0) / (v1 - v0)) * (H - T - B); };
+  g.strokeStyle = COL.grid; g.fillStyle = COL.muted; g.lineWidth = 1;
+  for (var i = 0; i <= 4; i++) {
+    var vv = v0 + (v1 - v0) * i / 4, dd = d0 + (d1 - d0) * i / 4;
+    g.beginPath(); g.moveTo(L, y(vv)); g.lineTo(Wd - Rm, y(vv)); g.stroke();
+    g.fillText(vv.toFixed(0), 4, y(vv) + 4);
+    g.fillText(dd.toFixed(0) + (i === 4 ? ' in' : ''), x(dd) - (i === 4 ? 30 : 8), H - 6);
+  }
+  g.save(); g.beginPath(); g.rect(L, T, Wd - L - Rm, H - T - B); g.clip();
+  curves.forEach(function (c) {
+    g.strokeStyle = c[2]; g.lineWidth = 2; g.setLineDash(c[3]); g.beginPath();
+    for (var k = 0; k <= N; k++) { var d = d0 + (d1 - d0) * k / N, px = x(d), py = y(clampEval(c[0], c[1], d)); if (k) g.lineTo(px, py); else g.moveTo(px, py); }
+    g.stroke();
+  });
+  g.setLineDash([]); g.restore();
+  if (here != null) { g.strokeStyle = '#c9d1d9'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x(here), T); g.lineTo(x(here), H - B); g.stroke(); g.setLineDash([]); }
+  g.fillStyle = COL[w]; g.strokeStyle = '#0c1015';
+  rows.forEach(function (s) { g.beginPath(); g.arc(x(s.dist), y(s.vel), 4, 0, 2 * Math.PI); g.fill(); g.stroke(); });
+}
 
 // ---------------------------------------------------------------- live charts
 function prep(c) {
@@ -1538,6 +1733,7 @@ function render() {
   setText('exportJava', Object.keys(byFile).map(function (k) { return '// ' + k + '\n' + byFile[k].join('\n'); }).join('\n\n'));
   var only = Object.keys(files);
   setText('exportCmd', 'python tools/mechtune/mechtune.py export' + (only.length && !showAll ? ' --only ' + only.join(',') : ''));
+  renderReg();
 }
 function fillColorInputs(force) {
   if (!S || !S.live) return;

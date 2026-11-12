@@ -42,7 +42,7 @@ import java.util.Map;
  * shooting sequence ({@code shooter.java}'s gate logic: entry band, hold band, minimum open time,
  * fed by the shipped intake), both turret servos (center, direction, gear ratio, mount offset),
  * the gate and scoopula servo positions, and the intake (color thresholds with labelled samples,
- * reverse brake, live reject check through the shipped {@link Intake} class). The drivetrain is
+ * reverse brake, per-motor direction, live reject check through the shipped {@link Intake} class). The drivetrain is
  * never touched: swerve tuning stays in Swerve Bring-Up.
  *
  * <p>Starting values are read from the shipped statics at init, and anything changed here is
@@ -98,6 +98,11 @@ public class MechanismTuner extends OpMode {
     private String breakInEnd = "";
     private final double[] intakeAmps = new double[2];
     private final double[] intakeMaxAmps = new double[2];
+    // Intake direction tab: run LEFT, RIGHT or BOTH motors open loop (direction flags applied) to
+    // see which roller pulls the wrong way. "" = off.
+    private String intakeTest = "";
+    private double intakeTestPower = 0.4;
+    private boolean origIntakeRev, origIntakeLeftRev, origIntakeRightRev;
 
     private int[][] origMapPollen, origMapNectar;
     private int origXQuality, origYQuality, origOffPollen, origOffNectar;
@@ -200,6 +205,9 @@ public class MechanismTuner extends OpMode {
         origBlueOverRed = SystemConstants.ColorCheck.BLUE_OVER_RED;
         origMaxDist = SystemConstants.ColorCheck.MAX_DIST_CM;
         origBrakeMs = SystemConstants.Intake.REVERSE_BRAKE_MS;
+        origIntakeRev = SystemConstants.Intake.INTAKE_REVERSED;
+        origIntakeLeftRev = SystemConstants.Intake.INTAKE_LEFT_REVERSED;
+        origIntakeRightRev = SystemConstants.Intake.INTAKE_RIGHT_REVERSED;
         origMapPollen = copyMap(SystemConstants.Zone.mapPollen);
         origMapNectar = copyMap(SystemConstants.Zone.mapNectar);
         origXQuality = SystemConstants.Zone.xQuality;
@@ -264,6 +272,9 @@ public class MechanismTuner extends OpMode {
         SystemConstants.ColorCheck.BLUE_OVER_RED = origBlueOverRed;
         SystemConstants.ColorCheck.MAX_DIST_CM = origMaxDist;
         SystemConstants.Intake.REVERSE_BRAKE_MS = origBrakeMs;
+        SystemConstants.Intake.INTAKE_REVERSED = origIntakeRev;
+        SystemConstants.Intake.INTAKE_LEFT_REVERSED = origIntakeLeftRev;
+        SystemConstants.Intake.INTAKE_RIGHT_REVERSED = origIntakeRightRev;
         SystemConstants.Zone.mapPollen = origMapPollen;
         SystemConstants.Zone.mapNectar = origMapNectar;
         SystemConstants.Zone.xQuality = origXQuality;
@@ -312,7 +323,7 @@ public class MechanismTuner extends OpMode {
             readIntakeAmps();
         }
 
-        boolean anythingMoving = breakIn || (intakeSys != null && !"OFF".equals(intakeMode));
+        boolean anythingMoving = breakIn || !intakeTest.isEmpty() || (intakeSys != null && !"OFF".equals(intakeMode));
         for (Wheel w : wheels) {
             w.update(now);
             anythingMoving |= w.mode != MODE_OFF;
@@ -327,6 +338,13 @@ public class MechanismTuner extends OpMode {
 
         if (breakIn) {
             intakeMode = "OFF";
+        } else if (!intakeTest.isEmpty()) {
+            // Re-applied every loop so a direction tick-box takes effect while the motors run.
+            for (int i = 0; i < 2; i++) {
+                if (intakeMotors[i] == null) continue;
+                boolean on = "BOTH".equals(intakeTest) || ("LEFT".equals(intakeTest) ? i == 0 : "RIGHT".equals(intakeTest) && i == 1);
+                intakeMotors[i].setPower(on ? intakeTestPower * intakeSign(i) : 0);
+            }
         } else if (intakeSys != null && shootState != 0 && shootFeed) {
             // As TeleOp: the intake feeds while SHOOT holds, and idles (reject logic still live) otherwise.
             intakeSys.update(false, shootState == 2);
@@ -419,7 +437,7 @@ public class MechanismTuner extends OpMode {
     private static boolean isMotion(String action) {
         switch (action) {
             case "fly": case "flyPower": case "step": case "kick": case "ffSweep":
-            case "turretPos": case "turretDeg": case "servoPos": case "gatePulse": case "intake":
+            case "turretPos": case "turretDeg": case "servoPos": case "gatePulse": case "intake": case "intakeTest":
             case "shoot": case "breakInStart": case "regAim": case "regSpinFit":
                 return true;
             default:
@@ -431,7 +449,7 @@ public class MechanismTuner extends OpMode {
     private static boolean endsShoot(String action) {
         switch (action) {
             case "flyPower": case "flyOff": case "step": case "ffSweep": case "servoPos":
-            case "gatePulse": case "intake": case "shoot":
+            case "gatePulse": case "intake": case "intakeTest": case "shoot":
                 return true;
             default:
                 return false;
@@ -448,8 +466,12 @@ public class MechanismTuner extends OpMode {
         if (isMotion(action)) {
             watchdogTripped = false;
         }
-        if (breakIn && ("intake".equals(action) || "shoot".equals(action) || "breakInStart".equals(action))) {
+        if (breakIn && ("intake".equals(action) || "intakeTest".equals(action) || "shoot".equals(action)
+                || "breakInStart".equals(action))) {
             endBreakIn("interrupted by " + action);
+        }
+        if (!intakeTest.isEmpty() && ("intake".equals(action) || "shoot".equals(action) || "breakInStart".equals(action))) {
+            endIntakeTest();
         }
         if ("breakInStart".equals(action) && shootState != 0) {
             message = "REFUSED breakInStart: stop the shoot sequence first.";
@@ -711,6 +733,40 @@ public class MechanismTuner extends OpMode {
                 message = "Color samples cleared" + (label == null ? "." : " for " + label + ".");
                 break;
             }
+            case "intakeTest": {
+                String m = c.get("motor") == null ? "OFF" : c.get("motor").toUpperCase(java.util.Locale.US);
+                if (!Arrays.asList("OFF", "LEFT", "RIGHT", "BOTH").contains(m)) {
+                    message = "intakeTest motor= must be OFF, LEFT, RIGHT or BOTH.";
+                    break;
+                }
+                if ("OFF".equals(m)) {
+                    endIntakeTest();
+                    message = "Intake direction test stopped.";
+                    break;
+                }
+                if (intakeMotors[0] == null && intakeMotors[1] == null) {
+                    message = "Intake test unavailable: no intakeLeft / intakeRight motor.";
+                    break;
+                }
+                if (intakeSys != null && !"OFF".equals(intakeMode)) {
+                    stopIntake();
+                }
+                intakeMode = "OFF";
+                intakeTestPower = clamp(num(c, "power", intakeTestPower), 0.05, 1);
+                intakeTest = m;
+                message = "Intake direction test: " + m + " at power " + FlyRecorder.r(intakeTestPower, 2)
+                        + " (intake direction, flags applied).";
+                break;
+            }
+            case "intakeDir":
+                SystemConstants.Intake.INTAKE_LEFT_REVERSED = num(c, "left", SystemConstants.Intake.INTAKE_LEFT_REVERSED ? 1 : 0) != 0;
+                SystemConstants.Intake.INTAKE_RIGHT_REVERSED = num(c, "right", SystemConstants.Intake.INTAKE_RIGHT_REVERSED ? 1 : 0) != 0;
+                SystemConstants.Intake.INTAKE_REVERSED = num(c, "both", SystemConstants.Intake.INTAKE_REVERSED ? 1 : 0) != 0;
+                message = "Intake direction: left " + (SystemConstants.Intake.INTAKE_LEFT_REVERSED ? "REVERSED" : "normal")
+                        + ", right " + (SystemConstants.Intake.INTAKE_RIGHT_REVERSED ? "REVERSED" : "normal")
+                        + ", overall " + (SystemConstants.Intake.INTAKE_REVERSED ? "REVERSED" : "normal")
+                        + " - applied live (restored on STOP unless exported).";
+                break;
             case "intakeParams":
                 SystemConstants.Intake.REVERSE_BRAKE_MS = clamp(num(c, "brakeMs", SystemConstants.Intake.REVERSE_BRAKE_MS), 0, 1000);
                 message = "Intake REVERSE_BRAKE_MS " + FlyRecorder.r(SystemConstants.Intake.REVERSE_BRAKE_MS, 0)
@@ -939,6 +995,7 @@ public class MechanismTuner extends OpMode {
         if (breakIn) {
             endBreakIn("everything stopped");
         }
+        endIntakeTest();
         if (intakeSys != null) {
             stopIntake();
         }
@@ -1002,11 +1059,26 @@ public class MechanismTuner extends OpMode {
         setIntakePower(0);
     }
 
+    /** Positive p = the intake direction, with the shipped direction flags applied per motor (as Intake.update does). */
     private void setIntakePower(double p) {
-        for (DcMotorEx m : intakeMotors) {
-            if (m != null) {
-                m.setPower(p);
+        for (int i = 0; i < 2; i++) {
+            if (intakeMotors[i] != null) {
+                intakeMotors[i].setPower(p * intakeSign(i));
             }
+        }
+    }
+
+    /** -1 when motor i (0 left, 1 right) runs reversed under the live SystemConstants.Intake flags. */
+    private static double intakeSign(int i) {
+        boolean motorRev = i == 0 ? SystemConstants.Intake.INTAKE_LEFT_REVERSED : SystemConstants.Intake.INTAKE_RIGHT_REVERSED;
+        return (motorRev ^ SystemConstants.Intake.INTAKE_REVERSED) ? -1 : 1;
+    }
+
+    private void endIntakeTest() {
+        if (intakeTest.isEmpty()) return;
+        intakeTest = "";
+        for (DcMotorEx m : intakeMotors) {
+            if (m != null) m.setPower(0);
         }
     }
 
@@ -2196,7 +2268,13 @@ public class MechanismTuner extends OpMode {
                 .append(",\"error\":\"").append(TuningHub.esc(intakeError))
                 .append("\",\"mode\":\"").append(intakeMode)
                 .append("\",\"alliance\":\"").append(alliance)
-                .append("\",\"brakeMs\":").append(FlyRecorder.r(SystemConstants.Intake.REVERSE_BRAKE_MS, 1)).append('}');
+                .append("\",\"brakeMs\":").append(FlyRecorder.r(SystemConstants.Intake.REVERSE_BRAKE_MS, 1))
+                .append(",\"motorsOk\":[").append(intakeMotors[0] != null).append(',').append(intakeMotors[1] != null)
+                .append("],\"leftRev\":").append(SystemConstants.Intake.INTAKE_LEFT_REVERSED)
+                .append(",\"rightRev\":").append(SystemConstants.Intake.INTAKE_RIGHT_REVERSED)
+                .append(",\"rev\":").append(SystemConstants.Intake.INTAKE_REVERSED)
+                .append(",\"test\":\"").append(intakeTest.isEmpty() ? "OFF" : intakeTest)
+                .append("\",\"testPower\":").append(FlyRecorder.r(intakeTestPower, 2)).append('}');
 
         sb.append(",\"breakIn\":{\"ok\":").append(intakeMotors[0] != null || intakeMotors[1] != null)
                 .append(",\"running\":").append(breakIn)
@@ -2310,6 +2388,9 @@ public class MechanismTuner extends OpMode {
         out.add(new String[]{cc, "BLUE_OVER_RED", trim(SystemConstants.ColorCheck.BLUE_OVER_RED)});
         out.add(new String[]{cc, "MAX_DIST_CM", trim(SystemConstants.ColorCheck.MAX_DIST_CM)});
         out.add(new String[]{in, "REVERSE_BRAKE_MS", trim(SystemConstants.Intake.REVERSE_BRAKE_MS)});
+        out.add(new String[]{in, "INTAKE_REVERSED", Boolean.toString(SystemConstants.Intake.INTAKE_REVERSED)});
+        out.add(new String[]{in, "INTAKE_LEFT_REVERSED", Boolean.toString(SystemConstants.Intake.INTAKE_LEFT_REVERSED)});
+        out.add(new String[]{in, "INTAKE_RIGHT_REVERSED", Boolean.toString(SystemConstants.Intake.INTAKE_RIGHT_REVERSED)});
         String zn = "zone";
         out.add(new String[]{zn, "xQuality", Integer.toString(SystemConstants.Zone.xQuality)});
         out.add(new String[]{zn, "yQuality", Integer.toString(SystemConstants.Zone.yQuality)});

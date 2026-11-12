@@ -136,6 +136,7 @@
   <button data-tab="shoot">Shooting</button>
   <button data-tab="turret">Turrets &amp; servos</button>
   <button data-tab="tlimits">Turret limits</button>
+  <button data-tab="intakedir">Intake direction</button>
   <button data-tab="color">Intake &amp; color</button>
   <button data-tab="breakin">Intake break-in</button>
   <button data-tab="zone">Zone map</button>
@@ -426,6 +427,42 @@
       everything else on this dashboard is held inside them. <b>Start</b> is commanded when the turret is built at
       OpMode INIT. Nothing ships until you export (Export tab).</p>
     <div class="grid" id="limitCards"></div>
+  </section>
+</div>
+
+<!-- ======================================================== INTAKE DIRECTION -->
+<div class="tab" id="tab-intakedir">
+  <section>
+    <h2>Intake motor direction</h2>
+    <p class="hint" style="margin-top:0">If the two intake motors fight each other (rollers turn opposite ways, the
+      intake buzzes or stalls, both currents high), one of them is wired or mounted the other way. Run each motor
+      <b>alone</b> and watch which way its roller turns. Every button runs the <b>intake</b> direction with the flags
+      below applied, exactly as <code>Intake.java</code> applies them.</p>
+    <ol class="hint">
+      <li><b>Left only</b>: does that roller pull a piece <i>in</i>? If not, tick <b>left reversed</b>.</li>
+      <li><b>Right only</b>: same for the right roller; tick <b>right reversed</b> if it pushes out.</li>
+      <li><b>Both</b>: they should now pull together, with no fighting, and current about the same on each side.</li>
+      <li>If both pull the right way but <i>Intake</i> on the Intake &amp; color tab spits pieces out, tick <b>reverse both</b> instead of the two motor boxes.</li>
+    </ol>
+    <div class="row">
+      <label class="inline">power <input type="number" id="idPower" step="0.05" min="0.05" max="1" value="0.4"></label>
+      <button class="small" onclick="intakeTest('LEFT')">Left only</button>
+      <button class="small" onclick="intakeTest('RIGHT')">Right only</button>
+      <button class="small" onclick="intakeTest('BOTH')">Both</button>
+      <button class="stop" onclick="cmd('intakeTest',{motor:'OFF'})">Stop</button>
+      <span class="stat" id="idTestInfo"></span>
+    </div>
+    <div class="row">
+      <label class="inline"><input type="checkbox" id="idLeft" onchange="intakeDir()"> left reversed <code>INTAKE_LEFT_REVERSED</code></label>
+      <label class="inline"><input type="checkbox" id="idRight" onchange="intakeDir()"> right reversed <code>INTAKE_RIGHT_REVERSED</code></label>
+      <label class="inline"><input type="checkbox" id="idBoth" onchange="intakeDir()"> reverse both <code>INTAKE_REVERSED</code></label>
+    </div>
+    <p class="hint">Ticks apply live (even while a motor is running) and are restored when the OpMode stops. Ship them
+      from the Export tab. Keep this page open: the watchdog stops everything after 30 s with no web client.</p>
+  </section>
+  <section>
+    <h2>Live</h2>
+    <div class="card" id="idLive"></div>
   </section>
 </div>
 
@@ -793,6 +830,9 @@ var CHECKS = [
     {id: 'sc', what: 'Scoop / unscoop positions', f: ['scoopPos', 'unscoopPos'], how: 'Slide it, then Mark scoop and Mark unscoop.'}
   ]},
   {g: 'Intake', tab: 'color', items: [
+    {id: 'idir', what: 'Motor directions (no fighting)', tab: 'intakedir',
+      f: ['INTAKE_LEFT_REVERSED', 'INTAKE_RIGHT_REVERSED', 'INTAKE_REVERSED'],
+      how: 'Intake direction tab: run each motor alone, tick reversed for the one that pushes out, then Both must pull together.'},
     {id: 'col', what: 'Color ratios and distance gate', f: ['RED_OVER_BLUE', 'BLUE_OVER_RED', 'MAX_DIST_CM'],
       how: 'Capture RED, BLUE, EMPTY and anything else the sensor sees; apply the suggestion once it calls every sample right.'},
     {id: 'rej', what: 'Live reject check, both alliances', f: [],
@@ -1027,6 +1067,27 @@ function dirtyShoot() {
 }
 function shoot(count) {
   cmd('shoot', {pollen: num('shP'), nectar: num('shN'), count: count, feed: chk('shFeed') ? 1 : 0});
+}
+function intakeTest(m) { cmd('intakeTest', {motor: m, power: num('idPower')}); }
+function intakeDir() {
+  cmd('intakeDir', {left: $('idLeft').checked ? 1 : 0, right: $('idRight').checked ? 1 : 0, both: $('idBoth').checked ? 1 : 0});
+}
+function renderIntakeDir() {
+  var it = S.intake, b = S.breakIn; if (!it || !it.motorsOk) return;
+  // Mirror the hub, except while the operator is clicking a box.
+  [['idLeft', it.leftRev], ['idRight', it.rightRev], ['idBoth', it.rev]].forEach(function (p) {
+    if (document.activeElement !== $(p[0])) $(p[0]).checked = p[1];
+  });
+  fillOnce('intakeDir', function () { $('idPower').value = it.testPower; });
+  setText('idTestInfo', it.test === 'OFF' ? 'stopped' : 'running ' + it.test + ' @ ' + it.testPower);
+  var dir = function (rev) { return rev !== it.rev ? 'reversed' : 'normal'; };
+  setHtml('idLive',
+    '<div class="kv"><span>motors found (intakeLeft / intakeRight)</span><span>' + it.motorsOk[0] + ' / ' + it.motorsOk[1] + '</span></div>' +
+    '<div class="kv"><span>test</span><span>' + it.test + '</span></div>' +
+    '<div class="kv"><span>left motor runs</span><span>' + dir(it.leftRev) + '</span></div>' +
+    '<div class="kv"><span>right motor runs</span><span>' + dir(it.rightRev) + '</span></div>' +
+    '<div class="kv"><span>current left / right</span><span>' + (b ? f(b.amps[0], 2) + ' / ' + f(b.amps[1], 2) : '–') + ' A</span></div>' +
+    '<div class="kv"><span>battery</span><span>' + f(S.volts, 2) + ' V</span></div>');
 }
 function breakInStart() {
   cmd('breakInStart', {power: num('biPower'), totalS: num('biMin') * 60, flipS: num('biFlip'), restS: num('biRest'),
@@ -1747,6 +1808,7 @@ function render() {
   setText('intakeInfo', S.intake.ok ? 'intake ' + S.intake.mode + ' · alliance ' + S.intake.alliance : 'intake unavailable: ' + S.intake.error);
   fillOnce('brake', function () { $('brakeMs').value = S.intake.brakeMs; });
   renderBreakIn();
+  renderIntakeDir();
   renderZone();
   setText('sampleInfo', c.sampling ? 'capturing ' + c.samplingLabel + '… ' + c.sampling + ' left' : c.samples + ' samples stored');
   var sm = c.summary || {labels: []};

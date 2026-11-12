@@ -33,7 +33,8 @@ public class Intake {
         intakeRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         colorCheck = new ColorCheck(colorSensor, alliance);
 
-        //intakeRight.setDirection(DcMotor.Direction.REVERSE);
+        // Per-motor direction is SystemConstants.Intake.INTAKE_LEFT/RIGHT_REVERSED, applied in update()
+        // (not setDirection) so a live edit from the Mechanism Tuner takes effect without a rebuild.
     }
 
     /** Runtime alliance change; only the Mechanism Tuner needs it (OpModes pass it to the constructor). */
@@ -63,11 +64,11 @@ public class Intake {
         if (SystemConstants.Intake.INTAKE_REVERSED) {
             power = -power;
         }
-        double powerL = power;
-        double powerR = power;
+        double powerL = SystemConstants.Intake.INTAKE_LEFT_REVERSED ? -power : power;
+        double powerR = SystemConstants.Intake.INTAKE_RIGHT_REVERSED ? -power : power;
 
         long now = System.nanoTime();
-        int sign = (int) Math.signum(powerL);
+        int sign = (int) Math.signum(power);
         if (sign != 0 && lastSign != 0 && sign != lastSign && now - lastDriveNanos < SystemConstants.Intake.REVERSE_BRAKE_MS * 1e6) {
             powerL = 0;
             powerR = 0;

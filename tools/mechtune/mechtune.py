@@ -70,7 +70,7 @@ EXIT_OK, EXIT_UNREACHABLE, EXIT_NOT_LIVE, EXIT_NOT_STARTED, EXIT_REFUSED, EXIT_S
 # Commands that move something. Sent once: a retried spin or kick that lands late is worse than
 # a dropped packet.
 MOTION = {"fly", "flyPower", "step", "kick", "ffSweep", "turretPos", "turretDeg", "servoPos",
-          "gatePulse", "intake"}
+          "gatePulse", "intake", "intakeTest"}
 
 
 class RobotError(Exception):

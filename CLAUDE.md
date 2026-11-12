@@ -85,7 +85,7 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 ├── diagnostics/tests/                   blobDetectionTest, colorTunerTest, rangeTest, spinUpTest
 ├── diagnostics/tuning/                  DIAGNOSTIC ONLY — "Mechanism Tuner" OpMode + /tune dashboard: flywheel PIDF
 │                                         (step / kick / shot recovery / ff sweep, step-trial overlay), shooter gate
-│                                         sequence + idle fraction, turrets (+offsets), gate, scoopula, intake color + brake, intake break-in, shooting-zone map editor;
+│                                         sequence + idle fraction, turrets (+offsets), gate, scoopula, intake color + brake, intake motor direction, intake break-in, shooting-zone map editor;
 │                                         app-level operator banners (/tune/notify, notify.js - also on /swerve)
 ├── diagnostics/swerve/                  DIAGNOSTIC ONLY — never ships
 │   ├── SwerveBringUp.java               (~193 KB) bring-up OpMode + HTTP server

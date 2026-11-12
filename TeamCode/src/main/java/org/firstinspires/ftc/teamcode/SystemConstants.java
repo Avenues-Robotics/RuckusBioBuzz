@@ -76,7 +76,11 @@ public final class SystemConstants {
     @Configurable
     public static class Intake {
         public static double INTAKE_FEED_POWER = 1.0;
+        /** Flips BOTH motors: which way is "intake" vs "reject". */
         public static boolean INTAKE_REVERSED = false;
+        /** Per-motor flips so the two rollers pull the same way (they fight if one is wrong). Mechanism Tuner, Intake direction tab. */
+        public static boolean INTAKE_LEFT_REVERSED = false;
+        public static boolean INTAKE_RIGHT_REVERSED = true;
         public static double REVERSE_BRAKE_MS = 60;
     }
 

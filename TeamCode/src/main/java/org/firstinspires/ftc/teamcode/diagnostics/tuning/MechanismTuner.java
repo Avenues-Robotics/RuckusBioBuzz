@@ -85,6 +85,7 @@ public class MechanismTuner extends OpMode {
     private final ServoCal[] servos = new ServoCal[2];
 
     private Intake intakeSys;
+    private PortMotorTest portTest;
     private String intakeError = "";
     private String intakeMode = "OFF";
 
@@ -174,6 +175,7 @@ public class MechanismTuner extends OpMode {
         for (LynxModule hub : hubs) {
             hub.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         }
+        portTest = new PortMotorTest(hardwareMap);
         voltageSensor = hardwareMap.voltageSensor.iterator().hasNext()
                 ? hardwareMap.voltageSensor.iterator().next() : null;
 
@@ -323,7 +325,9 @@ public class MechanismTuner extends OpMode {
             readIntakeAmps();
         }
 
-        boolean anythingMoving = breakIn || !intakeTest.isEmpty() || (intakeSys != null && !"OFF".equals(intakeMode));
+        portTest.update(now, slow);
+        boolean anythingMoving = breakIn || !intakeTest.isEmpty() || portTest.running()
+                || (intakeSys != null && !"OFF".equals(intakeMode));
         for (Wheel w : wheels) {
             w.update(now);
             anythingMoving |= w.mode != MODE_OFF;
@@ -428,6 +432,9 @@ public class MechanismTuner extends OpMode {
             telemetry.addData("Regression aim", alliance + " " + hiveFor().name + " hive  pollen "
                     + FlyRecorder.r(aim(turrets[0])[0], 1) + " in  nectar " + FlyRecorder.r(aim(turrets[1])[0], 1) + " in");
         }
+        if (portTest.running()) {
+            telemetry.addData("Motor port test", "RUNNING - see /tune Motor ports tab");
+        }
         telemetry.addData("Message", message);
         telemetry.update();
     }
@@ -438,7 +445,7 @@ public class MechanismTuner extends OpMode {
         switch (action) {
             case "fly": case "flyPower": case "step": case "kick": case "ffSweep":
             case "turretPos": case "turretDeg": case "servoPos": case "gatePulse": case "intake": case "intakeTest":
-            case "shoot": case "breakInStart": case "regAim": case "regSpinFit":
+            case "shoot": case "breakInStart": case "regAim": case "regSpinFit": case "motorPort":
                 return true;
             default:
                 return false;
@@ -449,7 +456,7 @@ public class MechanismTuner extends OpMode {
     private static boolean endsShoot(String action) {
         switch (action) {
             case "flyPower": case "flyOff": case "step": case "ffSweep": case "servoPos":
-            case "gatePulse": case "intake": case "intakeTest": case "shoot":
+            case "gatePulse": case "intake": case "intakeTest": case "shoot": case "motorPort":
                 return true;
             default:
                 return false;
@@ -472,6 +479,9 @@ public class MechanismTuner extends OpMode {
         }
         if (!intakeTest.isEmpty() && ("intake".equals(action) || "shoot".equals(action) || "breakInStart".equals(action))) {
             endIntakeTest();
+        }
+        if (portTest.running() && isMotion(action) && !"motorPort".equals(action)) {
+            portTest.stop("interrupted by " + action);
         }
         if ("breakInStart".equals(action) && shootState != 0) {
             message = "REFUSED breakInStart: stop the shoot sequence first.";
@@ -786,6 +796,20 @@ public class MechanismTuner extends OpMode {
                         + " (intake direction, flags applied).";
                 break;
             }
+            case "motorPort":
+                // Any motor may be one a flywheel / intake / break-in is driving: stop all of them first.
+                stopMechanisms();
+                message = portTest.start((int) num(c, "hub", -1), (int) num(c, "port", -1),
+                        num(c, "power", 0), num(c, "seconds", 3));
+                break;
+            case "motorPortStop":
+                if (!portTest.running()) {
+                    message = "Motor port test was not running.";
+                    break;
+                }
+                portTest.stop("Stop pressed");
+                message = "Motor port test - " + portTest.lastEnd + ".";
+                break;
             case "intakeDir":
                 SystemConstants.Intake.INTAKE_LEFT_REVERSED = num(c, "left", SystemConstants.Intake.INTAKE_LEFT_REVERSED ? 1 : 0) != 0;
                 SystemConstants.Intake.INTAKE_RIGHT_REVERSED = num(c, "right", SystemConstants.Intake.INTAKE_RIGHT_REVERSED ? 1 : 0) != 0;
@@ -1012,6 +1036,12 @@ public class MechanismTuner extends OpMode {
     }
 
     private void stopAll() {
+        portTest.stop("everything stopped");
+        stopMechanisms();
+    }
+
+    /** Everything except the motor-port test. */
+    private void stopMechanisms() {
         regAim = false;
         if (shootState != 0) {
             endShoot("everything stopped");
@@ -2303,6 +2333,8 @@ public class MechanismTuner extends OpMode {
                 .append(",\"rev\":").append(SystemConstants.Intake.INTAKE_REVERSED)
                 .append(",\"test\":\"").append(intakeTest.isEmpty() ? "OFF" : intakeTest)
                 .append("\",\"testPower\":").append(FlyRecorder.r(intakeTestPower, 2)).append('}');
+
+        sb.append(",\"ports\":").append(portTest.json());
 
         sb.append(",\"breakIn\":{\"ok\":").append(intakeMotors[0] != null || intakeMotors[1] != null)
                 .append(",\"running\":").append(breakIn)

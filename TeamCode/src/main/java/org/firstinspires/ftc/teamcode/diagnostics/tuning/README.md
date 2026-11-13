@@ -17,6 +17,7 @@ Diagnostic only — never ships. Tunes everything except the drivetrain (that is
 | Turret limits | Per turret: jog (allowed past the limits) and mark the wiring limit on each side and the start position (`*_TURRET_MIN/MAX/START`); every other turret move on the dashboard is held inside the marked limits |
 | Intake direction | Run left / right / both intake motors alone and tick `INTAKE_LEFT_REVERSED` / `INTAKE_RIGHT_REVERSED` / `INTAKE_REVERSED` live until the rollers stop fighting (also applied to break-in) |
 | Intake & color | Live raw RGB, what the shipped `ColorCheck` rule calls it, intake run through the shipped `intake` class, `REVERSE_BRAKE_MS`, labelled samples and a ratio + distance-gate suggestion (`/tune/color.csv`) |
+| Motor ports | Pick Control Hub / Expansion Hub and port 0-3 (configured name shown), run that one motor at raw power, direction flags ignored, for N s or until Stop; live encoder ticks, velocity, current. Unconfigured ports run through the hub's motor controller (needs at least one motor configured on that hub). Starting it stops every other mechanism; any other motion command stops it. `PortMotorTest.java` |
 | Swerve | Whether Swerve Bring-Up is running, link to `/swerve`, Claude prompt |
 | Regression | Pick alliance + hive (AUTO = shipped rule by robot y, or force UP/DOWN), Pinpoint pose (settable), turrets tracking the hive; per wheel: set a speed, shoot, **Record** (target ticks/s at the turret-to-hive distance), linear or degree 2/3 least-squares fit with R²/RMSE/residuals, **Save fit** → export group `regression` → `modules/ShootingRegression.java`. Samples persist on the hub in `FIRST/mechtune_regression.csv` (`/tune/regression.csv`) |
 | Export | Every value next to what the code had at init, changed rows highlighted, the `--only` command for the changed files |
@@ -37,5 +38,5 @@ includes it (this one and `/swerve`). `await=shot:<wheel>` notes close themselve
 flywheel's dip detector logs a shot. Host side: `mechtune.py ask` / `say` / `clear`.
 
 Files: `MechanismTuner.java` (OpMode), `TuningHub.java` (state, command queue, notes),
-`TuningWebApp.java` (routes), `FlyRecorder.java` (6000-sample trace, does not wrap),
+`TuningWebApp.java` (routes), `PortMotorTest.java` (Motor ports tab), `FlyRecorder.java` (6000-sample trace, does not wrap),
 `tuning.html`, `notify.js`. Procedure for a Claude session: `MECHANISM_TUNING_TASK.md`.

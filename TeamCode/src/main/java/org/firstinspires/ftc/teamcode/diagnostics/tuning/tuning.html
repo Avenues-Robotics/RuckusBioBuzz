@@ -139,6 +139,7 @@
   <button data-tab="intakedir">Intake direction</button>
   <button data-tab="color">Intake &amp; color</button>
   <button data-tab="breakin">Intake break-in</button>
+  <button data-tab="ports">Motor ports</button>
   <button data-tab="zone">Zone map</button>
   <button data-tab="reg">Regression</button>
   <button data-tab="swerve">Swerve</button>
@@ -571,6 +572,39 @@
     <div class="grid">
       <div class="card" id="biLive"></div>
     </div>
+  </section>
+</div>
+
+<!-- ======================================================== MOTOR PORTS -->
+<div class="tab" id="tab-ports">
+  <section>
+    <h2>Run any motor by hub and port</h2>
+    <p class="hint" style="margin-top:0">Raw open-loop power on one motor port. <b>Every direction flag is ignored</b>:
+      positive power is the port's own forward. Use it to find which port a motor is on, whether it is
+      wired, and which way it turns. One port runs at a time; starting one stops every other mechanism on this
+      dashboard, and any other motion command stops it.</p>
+    <div class="msg warn">Control Hub ports 0–3 are the <b>drive motors</b> (<code>sm0</code>–<code>sm3</code>). Put the
+      robot on blocks before running them, or it will drive.</div>
+    <div class="row" style="margin-top:10px">
+      <label class="inline">hub <select id="mpHub" onchange="renderPorts()"></select></label>
+      <span class="stat" id="mpHubInfo"></span>
+    </div>
+    <div class="row" id="mpPorts"></div>
+    <div class="row">
+      <label class="inline">power <input type="number" id="mpPower" step="0.05" min="-1" max="1" value="0.3"></label>
+      <label class="inline">run for <input type="number" id="mpSecs" step="0.5" min="0" max="120" value="3"> s
+        <span class="hint">(0 = until Stop)</span></label>
+      <button class="primary" onclick="motorPort(1)">Run</button>
+      <button onclick="motorPort(-1)">Run reversed</button>
+      <button class="stop" onclick="cmd('motorPortStop')">Stop</button>
+    </div>
+    <p class="hint">A port with nothing configured is still driven, through the hub's motor controller. Ticks and
+      velocity are only meaningful when an encoder is plugged into that port. Keep this page open: the watchdog stops
+      everything after 30 s with no web client.</p>
+  </section>
+  <section>
+    <h2>Live</h2>
+    <div class="card" id="mpLive"></div>
   </section>
 </div>
 
@@ -1088,6 +1122,37 @@ function renderIntakeDir() {
     '<div class="kv"><span>right motor runs</span><span>' + dir(it.rightRev) + '</span></div>' +
     '<div class="kv"><span>current left / right</span><span>' + (b ? f(b.amps[0], 2) + ' / ' + f(b.amps[1], 2) : '–') + ' A</span></div>' +
     '<div class="kv"><span>battery</span><span>' + f(S.volts, 2) + ' V</span></div>');
+}
+var mpPort = 0;
+function motorPort(sign) {
+  cmd('motorPort', {hub: $('mpHub').value, port: mpPort, power: sign * Math.abs(num('mpPower')), seconds: num('mpSecs')});
+}
+function pickPort(p) { mpPort = p; renderPorts(); }
+function renderPorts() {
+  var P = S && S.ports; if (!P) return;
+  var sel = $('mpHub');
+  var opts = P.hubs.map(function (h) { return '<option value="' + h.address + '">' + esc(h.label) + ' (module ' + h.address + ')</option>'; }).join('');
+  if (htmlCache.mpHub !== opts) { var keep = sel.value; sel.innerHTML = opts; htmlCache.mpHub = opts; if (keep) sel.value = keep; }
+  var hub = P.hubs.filter(function (h) { return String(h.address) === sel.value; })[0];
+  setText('mpHubInfo', P.error ? 'error: ' + P.error : !hub ? 'no hubs found' :
+    hub.reachable ? '' : 'no motor configured on this hub - its ports cannot be driven');
+  setHtml('mpPorts', hub ? hub.names.map(function (n, i) {
+    var on = P.running && P.address === hub.address && P.port === i;
+    return '<button class="small' + (i === mpPort ? ' on' : '') + '" onclick="pickPort(' + i + ')">port ' + i + ' · ' +
+      (n ? esc(n) : '<i>not configured</i>') + (on ? ' ▶' : '') + '</button>';
+  }).join('') : '');
+  var run = P.running ? P.hubs.filter(function (h) { return h.address === P.address; })[0] : null;
+  setHtml('mpLive', P.running
+    ? '<div class="kv"><span>running</span><span>' + esc(run ? run.label : P.address) + ' port ' + P.port +
+        (run && run.names[P.port] ? ' (' + esc(run.names[P.port]) + ')' : '') + '</span></div>' +
+      '<div class="kv"><span>power</span><span>' + f(P.power, 2) + '</span></div>' +
+      '<div class="kv"><span>time</span><span>' + f(P.elapsedS, 1) + (P.durationS > 0 ? ' / ' + f(P.durationS, 1) : '') + ' s</span></div>' +
+      '<div class="kv"><span>encoder ticks since start</span><span>' + P.ticks + '</span></div>' +
+      '<div class="kv"><span>velocity</span><span>' + f(P.vel) + ' ticks/s</span></div>' +
+      '<div class="kv"><span>current (peak)</span><span>' + f(P.amps, 2) + ' (' + f(P.maxAmps, 2) + ') A</span></div>' +
+      '<div class="kv"><span>battery</span><span>' + f(S.volts, 2) + ' V</span></div>'
+    : '<div class="kv"><span>running</span><span>nothing</span></div>' +
+      (P.lastEnd ? '<div class="hint">last: ' + esc(P.lastEnd) + '</div>' : ''));
 }
 function breakInStart() {
   cmd('breakInStart', {power: num('biPower'), totalS: num('biMin') * 60, flipS: num('biFlip'), restS: num('biRest'),
@@ -1809,6 +1874,7 @@ function render() {
   fillOnce('brake', function () { $('brakeMs').value = S.intake.brakeMs; });
   renderBreakIn();
   renderIntakeDir();
+  renderPorts();
   renderZone();
   setText('sampleInfo', c.sampling ? 'capturing ' + c.samplingLabel + '… ' + c.sampling + ' left' : c.samples + ' samples stored');
   var sm = c.summary || {labels: []};

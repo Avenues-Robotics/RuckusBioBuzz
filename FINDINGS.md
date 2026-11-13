@@ -715,3 +715,14 @@ does not match a plant fit made in `setPower` units. Find F closed-loop, with I 
 **Open.** NECTAR_PIDF still ships 500, 0, 0, 11.7: if that wheel is the same motor it will show
 the same limit cycle (expected, not measured). AT_SPEED_FRACTION stays 0.05. Gains are for
 this wheel at ~12 V; F is not voltage-compensated on the hub.
+
+### 2026-11-12 — rapid-fire check at 2400 ticks/s (shipped pollen gains 5, 0.1, 0, 12.4)
+
+Operator-fed pollen, free cadence, 289 s, 11.79-12.00 V, wheel on Control Hub port 0. 31 shots
+detected: recoverMs 100.0 mean, sd 6.5, 95% CI [97.6, 102.4], range 84-111 (n=30; one shot dipped
+only 7.5% and recovered in 28 ms, excluded as a glancing piece, all-31 mean 97.7). Dip 18.1% mean
+(15.8-20.0), post-recovery overshoot 1.4% mean (max 3.3%), 0 failures to recover. Closest shot
+pairs 0.8-0.9 s apart (7 pairs) each recovered fully. Not measured: shots closer than ~0.4 s
+(300 ms re-arm + ~100 ms recovery) are not scored separately, and the operator's own shot count
+was not recorded, so missed detections are unknown. 2400 is ~93% of the measured full-power speed
+(2582 ticks/s at 12.5 V); gains were searched at 1400-2200, so this extends them upward.

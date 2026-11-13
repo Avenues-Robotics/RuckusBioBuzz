@@ -666,3 +666,52 @@ detector. Expected effect on any flywheel measurement: none (the hub firmware PI
 either hub). Estimated, not measured. The gains tuned on port 0 apply to the same motor + wheel on
 any port. There are no earlier flywheel trials (`tools/mechtune/trials.jsonl` did not exist), so
 no dataset becomes non-comparable.
+
+## 2026-11-12 — Pollen flywheel velocity PIDF (Mechanism Tuner, Part A)
+
+Pollen wheel only, on **Control Hub motor port 0** (`sm0`, via `flyDevice`); no Expansion Hub,
+nectar not connected. Robot on its own battery, 13.2 V at start, 11.9-12.7 V during the tests.
+Hub velocity PIDF; tool loop 177-235 Hz true (`1/mean(dt)`). Velocity reads in 20 ticks/s steps,
+so ripple sd ~10 ticks/s is the resolution floor.
+
+**Incident.** Two 2 s-hold ff sweeps gave F 13.36 vs 14.23 (6.5% apart); the next two 5 s-hold
+sweeps ran with the wheel **jammed** (vel 0, 4.5 A at 50% power, battery to 11.9 V), about 60 s of
+stall in total. The operator cleared the jam. Those four sweeps are discarded. Stall guard
+(vel < 1 with > 3 A for 0.6 s -> stopAll) used for every spin afterwards.
+
+**Plant.** Two clean 5 s-hold sweeps after the fix: v ≈ 2970·p − 390 ticks/s (linear, large
+friction offset; wheel stalls below ~20% power from rest), 2582 ticks/s at full power (12.5 V),
+current 1.1-1.2 A at every level, each level settled to 98% in 0.13-0.25 s. F from full power
+12.65 / 12.73 (0.6% apart). T = 1800 ticks/s (70% of max; no operator target).
+
+**Shipped (500, 0, 0, 11.7) is unstable.** P saturates the output on a one-count error: ~5 Hz
+limit cycle between 0 and +380 ticks/s over target, full reverse each cycle, once ran at
+−400 ticks/s. Steps never settle (3/3). Never holds the band for the 300 ms the shot detector
+needs, so shipped cannot be compared on real shots at all.
+
+**Search** (steps 900→1800 n=3, plus 1400/2200; kicks 120 ms at 1800; overshoot is % of step):
+
+| P | I | D | F | overshoot | ss err @1800 | kick recover | note |
+|---|---|---|---|---|---|---|---|
+| 1.34 | 0.134 | 0 | 13.4 | 11-12% | +45…+84 | 210 ms | FIRST recipe |
+| 3 | 0.134 | 0 | 13.4 | 10-14% | | 192 ms | |
+| 3 | 0.5 | 0 | 13.4 | 16-20% | +32 | 203 ms | more I = more windup |
+| 3 | 0 | 0 | 13.4 | 9.8% | +77 | — | F too hot at 1800 |
+| 3 | 0 | 0 | 12.7 | 0% | −14 | 236 ms | |
+| 8 | 0 | 0 | 12.7 | 11.8% | | 212 ms | |
+| 5 | 0 | 0 | 12.7 | 5.2% | | ~210 ms | −64 @1400 (4.5%, band edge) |
+| 5 | 0.1 | 0 | 12.7 | 5.9-8% | +24 | | |
+| 5 | 0.1 | 1 | 12.7 | 10% | +23 | | D hurts |
+| **5** | **0.1** | **0** | **12.4** | **3.9-8.2%** | **−12…+8** | **234 ms** | **shipped** |
+| 7 | 0.1 | 0 | 12.4 | 7.8-10.2% | −14…+1 | 214 ms | |
+
+The open-loop fit predicted F ≈ 13.4 at 1800; closed loop wanted 12.4. The hub's term scaling
+does not match a plant fit made in `setPower` units. Find F closed-loop, with I = 0.
+
+**Acceptance.** Shipped vs (5, 0.1, 0, 12.4): interleaved 4 s holds, in-band fraction 0.084 vs
+0.999, n=6/arm, t=116. Real shots, (5, 0.1, 0, 12.4) vs (7, 0.1, 0, 12.4), n=10/arm: 106.3 vs
+102.3 ms, B−A −3.9 ms, 95% CI [−10.0, +2.2], p=0.19, so P=7 is not shown better. Shipped in the commit "Flywheel: POLLEN_PIDF 500,0,0,11.7 -> 5,0.1,0,12.4".
+
+**Open.** NECTAR_PIDF still ships 500, 0, 0, 11.7: if that wheel is the same motor it will show
+the same limit cycle (expected, not measured). AT_SPEED_FRACTION stays 0.05. Gains are for
+this wheel at ~12 V; F is not voltage-compensated on the hub.

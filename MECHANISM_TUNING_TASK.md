@@ -57,7 +57,14 @@ is how a session begins.
 - Nothing moves before START. Motion commands in INIT come back `REFUSED`.
 - Every spinning command needs `--confirmed-clear`, which you may pass only after an `ask`
   in this session in which the operator confirmed hands, pieces and cables are clear of both
-  flywheels. Ask again after any battery swap or physical change.
+  flywheels. Ask again after any battery swap or physical change. **That one confirmation stands
+  otherwise** (operator feedback 2026-11-12): a finished command, a chat "stop", a redeploy or a
+  new test does not void it; a stall-guard trip does. Put every question in the first banner
+  (`SESSION_CHECKLIST.md` §B) instead of asking one at a time.
+- **Stall guard** (OpMode, since 2026-11-13): a wheel driven at ≥ 0.35 power or ≥ 300 ticks/s
+  that reads < 40 ticks/s for 0.6 s, or reads backwards against its velocity target for 0.3 s,
+  stops everything; `mechtune.py` aborts with the reason and `check` shows the trip count.
+  `cmd stallGuard on=0` disables it (say why in the report).
 - Velocity is capped at 3000 ticks/s in the OpMode. Everything stops if no client has read
   `/tune/state` or sent a command for 30 s (`mechtune.py` keeps it alive while it waits).
 - On any error or Ctrl-C, `mechtune.py` sends `flyOff` / `stopAll`. The Driver Station STOP is
@@ -87,9 +94,13 @@ is how a session begins.
 1. **Pre-flight.** `mechtune.py check`. One `ask`: confirm the robot is powered on a charged battery
    (reply volts), both flywheels clear, no pieces staged, gate closed. Record volts on every result
    (CLAUDE.md rule 7); `trials.jsonl` gets them automatically from the hub.
-2. **Direction.** `mechtune.py cmd flyPower wheel=pollen p=0.15` then `ask "Is the POLLEN wheel
-   spinning in the shooting direction?"`. Fix with `cmd flyDir wheel=pollen reversed=1`. Same for
-   nectar. Then `off`. A reversed wheel makes every later number meaningless.
+2. **Direction.** `mechtune.py dircheck pollen --ask --confirmed-clear`: spins at 0.5 power, checks
+   the encoder agrees with the motor (if not, velocity mode runs away and `flyDir` cannot fix it -
+   it flips both), and asks the operator once whether it is the shooting direction. Fix direction
+   with `cmd flyDir wheel=pollen reversed=1`. Same for nectar. A reversed wheel makes every later
+   number meaningless. (0.15 power was the old recipe: the 2026-11-12 pollen wheel does not break
+   away below ~0.2, so the operator judged direction off a stalled twitch.) If the wheel is not on
+   its configured port, `cmd flyDevice wheel=pollen device=NAME` first (saved on the hub).
 3. **Feed-forward.** `mechtune.py ff pollen --confirmed-clear` (and nectar). Takes ~12 s each.
    Gives `maxVelFit` and `fFromFit = 32767 / maxVelFit` (FIRST's hub velocity PIDF guide). Run it
    twice; if the two F values differ by more than 3%, the battery or the wheel is not steady —
@@ -102,10 +113,20 @@ is how a session begins.
    F from stage 3, P = 0.1 × F, I = 0.1 × P, D = 0 — and move one coefficient at a time
    (rule 4). Watch overshoot and steady-state ripple on steps, recovery on kicks. If ripple grows
    as P rises, back off. Write down every candidate you try, including losers.
+   **Shortcut:** `mechtune.py autotune pollen --target T --confirmed-clear` runs stages 3 and 5
+   unattended (~4 min): ff ×2, F found closed-loop with I = 0 (on 2026-11-12 the open-loop
+   recipe gave 13.4 and the wheel wanted 12.4), then a 4-candidate grid with steps at 0.78T / T /
+   1.22T and kicks, and prints the recommendation and the validation command. It only searches.
 6. **Validate on real shots.** `mechtune.py ab pollen --a "<shipped>" --b "<candidate>" --test shots
    --target T --n 10 --confirmed-clear`. Randomised interleaved blocks; prints mean, sd, 95% CI,
    Welch t and p. That output is the evidence. If the CI straddles 0, the candidate is not shown to
-   be better — do not ship it on a point estimate.
+   be better — do not ship it on a point estimate. A trial whose gains never held the band is
+   counted as a **failure for that arm** (printed per arm), not dropped. If the shipped gains
+   cannot hold speed at all (2026-11-12: P = 500 limit-cycled), shots cannot measure them; compare
+   with `mechtune.py hold pollen --a "<shipped>" --b "<candidate>" --target T --n 6
+   --confirmed-clear` (in-band fraction, interleaved) and run the shots A/B between candidates.
+   `mechtune.py rapidfire pollen --target T --confirmed-clear` is the operator's free-cadence demo;
+   every shot lands in `trials.jsonl`.
 7. **Band.** Only if the data supports it: if steady-state ripple at the accepted gains is well
    inside `AT_SPEED_FRACTION`, a tighter band means more consistent exit velocity per shot; if
    ripple keeps leaving the band at rest, the band is too tight and the gate will chatter.

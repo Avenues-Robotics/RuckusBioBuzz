@@ -726,3 +726,27 @@ pairs 0.8-0.9 s apart (7 pairs) each recovered fully. Not measured: shots closer
 (300 ms re-arm + ~100 ms recovery) are not scored separately, and the operator's own shot count
 was not recorded, so missed detections are unknown. 2400 is ~93% of the measured full-power speed
 (2582 ticks/s at 12.5 V); gains were searched at 1400-2200, so this extends them upward.
+
+## 2026-11-13 — Mechanism Tuner / mechtune.py streamlining (rule 9 declaration)
+
+Diagnostic only. Built and checked against a host-side simulated `/tune` server; **not yet run on
+the robot** (it was off the network). What changes and what it does to measurements:
+
+- **OpMode stall guard.** A wheel driven at ≥ 0.35 power or ≥ 300 ticks/s reading < 40 ticks/s for
+  0.6 s, or reading > 100 ticks/s backwards against its target for 0.3 s, calls `stopAll()`.
+  Excluded during a kick. Effect on measurements: none unless it trips; a trip ends the test.
+  Risk: a wheel that legitimately sits below 40 ticks/s at ≥ 0.35 power for 0.6 s would be
+  stopped. On 2026-11-12 the pollen wheel left rest within ~0.6 s at 0.5 power (ff traces), so a
+  slow spin-up at 0.35-0.45 power could trip it. `cmd stallGuard on=0` if so.
+- **`flyDevice` persists** in `FIRST/mechtune_devices.txt`; `check` prints the bindings. No effect
+  on measurements.
+- **`ab`**: a trial whose gains never armed the dip detector is now a counted failure for its arm
+  (it used to abort the whole A/B); `recoverMs = -1` trials are also counted per arm. The means
+  and CIs are computed over the same trials as before (failures were already excluded); the
+  failure counts are new output. Past A/B outputs stay comparable.
+- **`ff` default powers 0.3,0.45,... → 0.5,0.6,0.7,0.8,0.9,1.0.** `fFromFull` is unaffected;
+  `fFromFit` (a slope through the origin) **changes** with the level set: with the friction
+  offset measured on 2026-11-12 (v ≈ 2970·p − 390), dropping the low levels raises the fitted
+  slope. Compare `fFromFit` only between sweeps with the same `levels`.
+- **New commands** `dircheck`, `hold`, `rapidfire`, `autotune` (procedures already used by hand on
+  2026-11-12, now logged to `trials.jsonl`). `autotune` is a search only; acceptance is unchanged.

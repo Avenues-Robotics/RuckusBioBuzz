@@ -22,7 +22,21 @@ library only. See MECHANISM_TUNING_TASK.md at repo root for the procedure this s
     python mechtune.py shots WHEEL --target 2000 [--n 5] --confirmed-clear
     python mechtune.py ff WHEEL [--powers 0.3,0.5,0.7,0.9,1.0] [--hold 2] --confirmed-clear
     python mechtune.py ab WHEEL --a "P I D F" --b "P I D F" --test kick|step|shots --target 2000 [--n 10] --confirmed-clear
+                                                   (an arm that never holds speed counts as a failure, not a crash)
+    python mechtune.py dircheck WHEEL [--power 0.5] [--ask] --confirmed-clear
+                                                   encoder-vs-motor sign check; --ask: one "shooting direction?" banner
+    python mechtune.py autotune WHEEL --target T --confirmed-clear
+                                                   unattended SEARCH: ff x2, closed-loop F, 4-candidate grid,
+                                                   recommendation + the shots A/B command to validate it
+    python mechtune.py hold WHEEL --a "P I D F" --b "P I D F" --target T [--n 6] [--sec 4] --confirmed-clear
+                                                   interleaved holds: in-band fraction (when an arm cannot arm for shots)
+    python mechtune.py rapidfire WHEEL --target T --confirmed-clear
+                                                   hold speed, log every shot, operator presses Done to stop
     python mechtune.py events                      the shot/kick event table
+
+  Device bindings and the stall guard (OpMode side):
+    python mechtune.py cmd flyDevice wheel=pollen device=sm0      saved on the hub (device=default undoes)
+    python mechtune.py cmd stallGuard on=0|1                      on by default; trips stop everything
     python mechtune.py pull LABEL                  recorder CSV -> runs/LABEL.csv, prints loop_hz_true
 
   Color sensor:
@@ -71,6 +85,11 @@ EXIT_OK, EXIT_UNREACHABLE, EXIT_NOT_LIVE, EXIT_NOT_STARTED, EXIT_REFUSED, EXIT_S
 # a dropped packet.
 MOTION = {"fly", "flyPower", "step", "kick", "ffSweep", "turretPos", "turretDeg", "servoPos",
           "gatePulse", "intake", "intakeTest"}
+
+
+# Host commands that spin a flywheel: they need --confirmed-clear, arm the stall-guard baseline,
+# and send flyOff if they fail.
+SPINNING = {"spin", "step", "kick", "shots", "ff", "ab", "dircheck", "hold", "rapidfire", "autotune"}
 
 
 class RobotError(Exception):
@@ -258,23 +277,53 @@ def need_clear(args) -> None:
                          "hands and pieces are clear of the flywheel (use `ask`).")
 
 
+class NotArmed(RobotError):
+    """The wheel never held the at-speed band long enough to arm the dip detector."""
+
+
+# Stall-guard trip counts per wheel when the current command started; a higher count in /state
+# means the OpMode's guard stopped everything (jam, no encoder, encoder backwards).
+_GUARD_BASE: dict[str, int] = {}
+
+
+def arm_guard() -> None:
+    s = state()
+    for w in s.get("wheels", []):
+        _GUARD_BASE[w["name"]] = w.get("stallTrips", 0)
+
+
+def check_guard(s: dict) -> None:
+    for w in s.get("wheels", []):
+        if w.get("stallTrips", 0) > _GUARD_BASE.get(w["name"], w.get("stallTrips", 0)):
+            _GUARD_BASE[w["name"]] = w["stallTrips"]
+            raise RobotError(f"STALL GUARD tripped on {w['name']}: {w.get('lastStall', '')}. "
+                             "Everything is stopped. Ask the operator to check the wheel before spinning again.")
+
+
+def gstate() -> dict:
+    """state() that raises if the OpMode's stall guard tripped since the command began."""
+    s = state()
+    check_guard(s)
+    return s
+
+
 def wait_armed(wheel: str, timeout: float = 8.0) -> dict:
     """Waits until the wheel has sat in its at-speed band long enough for the dip detector."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        s = state()
+        s = gstate()
         if wheel_of(s, wheel)["dipState"] == 1:
             return s
         time.sleep(0.05)
-    w = wheel_of(state(), wheel)
-    raise RobotError(f"{wheel} never armed (vel {w['vel']} vs target {w['target']}). The wheel "
-                     "is not holding inside the at-speed band - check PIDF / band / target.")
+    w = wheel_of(gstate(), wheel)
+    raise NotArmed(f"{wheel} never armed (vel {w['vel']} vs target {w['target']}). The wheel "
+                   "is not holding inside the at-speed band - check PIDF / band / target.")
 
 
 def wait_event(wheel: str, after_count: int, timeout: float) -> dict | None:
     deadline = time.time() + timeout
     while time.time() < deadline:
-        s = state()
+        s = gstate()
         if s["eventCount"] > after_count:
             for e in reversed(s["events"]):
                 if e["id"] > after_count and e["wheel"] == wheel:
@@ -291,7 +340,7 @@ def run_step(wheel: str, to: float, frm: float | None, pre: float, sec: float) -
     send("step", **params)
     deadline = time.time() + (pre if frm is not None else 0) + sec + 5
     while time.time() < deadline:
-        w = wheel_of(state(), wheel)
+        w = wheel_of(gstate(), wheel)
         if w["stepPhase"] == 0 and w["lastStep"] and w["lastStep"] != before:
             return w["lastStep"]
         time.sleep(0.1)
@@ -423,6 +472,14 @@ def cmd_check(_args) -> int:
     print(f"OK - running, battery {s['volts']:.2f} V, loop {s['loopHzTrue']} Hz true "
           f"(dt mean {s['dtMeanMs']} ms, p90 {s['dtP90Ms']} ms)." +
           (f" Missing devices: {', '.join(missing)}" if missing else ""))
+    dev = s.get("deviceFile", "{}")
+    if dev not in ("", "{}"):
+        print(f"  flywheel device bindings from the hub file: {dev}")
+    if not s.get("stallGuard", True):
+        print("  WARNING: stall guard is OFF (cmd stallGuard on=1)")
+    for w in s["wheels"]:
+        if w.get("stallTrips"):
+            print(f"  {w['name']}: stall guard tripped {w['stallTrips']}x, last: {w.get('lastStall')}")
     return EXIT_OK
 
 
@@ -553,7 +610,7 @@ def cmd_ff(args) -> int:
     n = len(powers.split(","))
     deadline = time.time() + n * args.hold + 10
     while time.time() < deadline:
-        w = wheel_of(state(), args.wheel)
+        w = wheel_of(gstate(), args.wheel)
         if not w["ffRunning"] and w["ff"]:
             print(json.dumps(w["ff"], indent=1))
             log_trial("ff", {"wheel": args.wheel, **w["ff"]})
@@ -571,6 +628,11 @@ def cmd_ab(args) -> int:
         if len(v) != 4:
             raise RobotError(f"--{k.lower()} needs four numbers: P I D F")
     data: dict[str, list[float]] = {"A": [], "B": []}
+    # Trials that produced no number because the gains failed (never held the band, or never got
+    # back inside it within 3 s). Counted per arm, never silently dropped: a broken arm must not
+    # look better by losing its worst trials (2026-11-12: shipped pollen gains never armed).
+    failed = {"A": 0, "B": 0}
+    before = wheel_of(state(), args.wheel)["pidf"]
     rng = random.Random(args.seed)
     print(f"A/B {args.test} on {args.wheel}, metric {args.metric}, n={args.n}/arm, seed {args.seed}")
     for block in range(args.n):
@@ -579,29 +641,346 @@ def cmd_ab(args) -> int:
         for arm in order:
             set_pidf(args.wheel, arms[arm])
             time.sleep(0.3)
-            if args.test == "kick":
-                r = run_kick(args.wheel, args.target, args.ms)
-            elif args.test == "shots":
-                r = run_shot(args.wheel, args.target, block * 2 + order.index(arm) + 1,
-                             args.n * 2, args.timeout)
-                if r is None:
-                    print(f"  block {block + 1} {arm}: shot not detected, dropped")
-                    continue
-            else:
-                r = run_step(args.wheel, args.target, args.frm, args.pre, args.sec)
+            try:
+                if args.test == "kick":
+                    r = run_kick(args.wheel, args.target, args.ms)
+                elif args.test == "shots":
+                    r = run_shot(args.wheel, args.target, block * 2 + order.index(arm) + 1,
+                                 args.n * 2, args.timeout)
+                    if r is None:
+                        print(f"  block {block + 1} {arm}: shot not detected (operator/detector), dropped")
+                        continue
+                else:
+                    r = run_step(args.wheel, args.target, args.frm, args.pre, args.sec)
+            except NotArmed as e:
+                failed[arm] += 1
+                print(f"  block {block + 1} {arm}: FAILED - {e}")
+                log_trial(f"ab-{args.test}", {"wheel": args.wheel, "arm": arm, "pidf": arms[arm],
+                                              "block": block, "seed": args.seed, "failed": "never armed"})
+                continue
             v = r.get(args.metric)
             print(f"  block {block + 1} {arm}: {args.metric}={v}  volts={r.get('volts')}")
             log_trial(f"ab-{args.test}", {"wheel": args.wheel, "arm": arm, "pidf": arms[arm],
                                           "block": block, "seed": args.seed, **r})
-            if v is not None and not (args.metric == "recoverMs" and v < 0):
+            if v is None or (args.metric == "recoverMs" and v < 0):
+                failed[arm] += 1
+            else:
                 data[arm].append(float(v))
     send("flyOff", wheel=args.wheel)
-    print(f"A {arms['A']}: {describe(data['A'])}")
-    print(f"B {arms['B']}: {describe(data['B'])}")
+    set_pidf(args.wheel, before)
+    print(f"(gains restored to {before})")
+    print(f"A {arms['A']}: {describe(data['A'])}   failed {failed['A']}/{args.n}")
+    print(f"B {arms['B']}: {describe(data['B'])}   failed {failed['B']}/{args.n}")
+    if failed["A"] or failed["B"]:
+        print("  Failures are excluded from the means above; compare the failure counts first. "
+              "If one arm cannot hold speed at all, use `hold` for that comparison.")
     if len(data["A"]) >= 2 and len(data["B"]) >= 2:
         w = welch(data["A"], data["B"])
         print(f"B - A = {w['diff']:+.2f}, 95% CI [{w['ci'][0]:+.2f}, {w['ci'][1]:+.2f}], "
               f"t={w['t']:.2f}, p={w['p']:.3g}, Welch df={w['df'] and round(w['df'], 1)}")
+    return EXIT_OK
+
+
+def cmd_dircheck(args) -> int:
+    """Open-loop spin: checks the encoder agrees with the motor (else velocity mode runs away) and,
+    with --ask, asks the operator ONCE whether it is the shooting direction."""
+    need_clear(args)
+    send("flyPower", wheel=args.wheel, p=args.power)
+    vels, v, reply = [], 0.0, None
+    try:
+        t0 = time.time()
+        while time.time() - t0 < args.sec:
+            vels.append(wheel_of(gstate(), args.wheel)["vel"])
+            time.sleep(0.1)
+        v = statistics.fmean(vels[len(vels) // 2:])
+        if args.ask and abs(v) >= 100:
+            n = ask(f"The {args.wheel.upper()} wheel is spinning now at {int(args.power * 100)}% power. "
+                    "Is it turning in the SHOOTING direction? Reply yes or no.", 300)
+            reply = (n.get("reply") or n["resolution"]).strip().lower()
+    finally:
+        send("flyOff", wheel=args.wheel)
+    if abs(v) < 100:
+        verdict = (f"NOT TURNING at power {args.power}: {v:.0f} ticks/s. Below breakaway, jammed, or no "
+                   "encoder. Try a higher --power, then check the wheel and encoder cable.")
+    elif v < 0:
+        verdict = (f"ENCODER BACKWARDS: +{args.power} power reads {v:.0f} ticks/s. Velocity mode would run "
+                   "away. flyDir flips motor AND encoder together, so this needs a wiring/encoder fix.")
+    else:
+        verdict = f"encoder agrees with motor: +{args.power} power -> {v:.0f} ticks/s."
+    if reply is not None:
+        verdict += f" Operator says shooting direction: {reply!r}" + (
+            "" if reply.startswith(("y", "done")) else " -> run `cmd flyDir wheel=.. reversed=1` and re-check.")
+    print(verdict)
+    log_trial("dircheck", {"wheel": args.wheel, "power": args.power, "vel": round(v, 1),
+                           "operator": reply})
+    return EXIT_OK
+
+
+def _hold_metrics(label: str, target: float, band: float, window: float) -> tuple[list, dict]:
+    with open(os.path.join(RUNS, f"{label}.csv"), encoding="utf-8") as fh:
+        rows = [r for r in fh.read().splitlines() if r and not r.startswith("#")]
+    head = rows[0].split(",")
+    ix = {k: head.index(k) for k in ("t", "dtMs", "pVel", "nVel", "volts")}
+    data = [r.split(",") for r in rows[1:]]
+    t = [float(r[ix["t"]]) for r in data]
+    win = [r for r, tt in zip(data, t) if tt >= t[-1] - window]
+    return win, ix
+
+
+def cmd_hold(args) -> int:
+    """Randomised interleaved velocity holds: fraction of time inside the at-speed band, longest
+    unbroken in-band stretch, velocity sd, whether the dip detector armed. The comparison to use
+    when one arm cannot hold speed at all (then shots/kicks cannot run on it)."""
+    need_clear(args)
+    arms = {"A": [float(x) for x in args.a.split()], "B": [float(x) for x in args.b.split()]}
+    col = "pVel" if args.wheel == "pollen" else "nVel"
+    before = wheel_of(state(), args.wheel)["pidf"]
+    rng = random.Random(args.seed)
+    res: dict[str, list[float]] = {"A": [], "B": []}
+    print(f"hold A/B on {args.wheel} at {args.target:.0f} ticks/s, {args.sec:.1f} s holds, "
+          f"n={args.n}/arm, seed {args.seed}")
+    for block in range(args.n):
+        order = ["A", "B"]
+        rng.shuffle(order)
+        for arm in order:
+            set_pidf(args.wheel, arms[arm])
+            send("flyOff", wheel=args.wheel)
+            time.sleep(1.5)
+            label = f"hold-{args.wheel}-{args.seed}-{arm}-{block}"
+            send("recStart", label=label)
+            send("fly", wheel=args.wheel, vel=args.target)
+            armed = False
+            t0 = time.time()
+            while time.time() - t0 < args.sec:
+                s = gstate()
+                armed |= wheel_of(s, args.wheel)["dipState"] in (1, 2, 3)
+                time.sleep(0.1)
+            band = s["atSpeedFrac"] * args.target
+            send("recStop")
+            send("flyOff", wheel=args.wheel)
+            cmd_pull(argparse.Namespace(label=label), quiet=True)
+            win, ix = _hold_metrics(label, args.target, band, args.sec - 1.5)
+            run = best = in_t = tot = 0.0
+            vs = []
+            for r in win:
+                dt = float(r[ix["dtMs"]]) / 1000
+                v = float(r[ix[col]])
+                vs.append(v)
+                tot += dt
+                if abs(v - args.target) <= band:
+                    in_t += dt
+                    run += dt
+                    best = max(best, run)
+                else:
+                    run = 0.0
+            frac = in_t / tot if tot else 0.0
+            rec = {"wheel": args.wheel, "arm": arm, "pidf": arms[arm], "block": block, "seed": args.seed,
+                   "target": args.target, "band": band, "inBandFrac": round(frac, 4),
+                   "longestInBandMs": round(best * 1000), "velSd": round(statistics.pstdev(vs), 1),
+                   "armed": armed, "volts": float(win[-1][ix["volts"]]), "label": label}
+            log_trial("hold", rec)
+            res[arm].append(frac)
+            print(f"  block {block + 1} {arm} {arms[arm]}: inBand {frac:.3f}  longest {rec['longestInBandMs']} ms  "
+                  f"velSd {rec['velSd']}  armed={armed}  {rec['volts']:.2f} V")
+    set_pidf(args.wheel, before)
+    print(f"(gains restored to {before})")
+    for k in ("A", "B"):
+        xs = res[k]
+        sd = statistics.stdev(xs) if len(xs) > 1 else 0.0
+        print(f"{k} {arms[k]}: inBandFrac n={len(xs)}, mean {statistics.fmean(xs):.3f}, sd {sd:.3f}, "
+              f"range {min(xs):.3f}-{max(xs):.3f}")
+    if len(res["A"]) >= 2 and len(res["B"]) >= 2:
+        w = welch(res["A"], res["B"])
+        print(f"B - A = {w['diff']:+.3f}, 95% CI [{w['ci'][0]:+.3f}, {w['ci'][1]:+.3f}], "
+              f"t={w['t']:.2f}, p={w['p']:.3g}")
+    return EXIT_OK
+
+
+def cmd_rapidfire(args) -> int:
+    """Holds the wheel at --target while the operator fires at their own pace; logs every detected
+    shot; ends when the operator presses Done on the banner (or the stall guard trips)."""
+    need_clear(args)
+    count = state()["eventCount"]
+    send("fly", wheel=args.wheel, vel=args.target)
+    piece = "POLLEN" if args.wheel == "pollen" else "NECTAR"
+    nid = post_note(f"RAPID FIRE: {args.wheel.upper()} wheel holding {int(args.target)} ticks/s. Fire as many "
+                    f"{piece} as you like. Press Done when finished and the wheel stops.", "action", "ack")
+    print(f"[asked operator #{nid}] rapid fire at {args.target:.0f}", flush=True)
+    evs, t0, seen = [], time.time(), count
+    try:
+        while True:
+            s = gstate()
+            for e in s["events"]:
+                if e["id"] > seen and e["wheel"] == args.wheel:
+                    seen = e["id"]
+                    if e["source"] != "shot":
+                        continue
+                    evs.append(e)
+                    log_trial("rapidfire-shot", {"wheel": args.wheel, "tSession": round(time.time() - t0, 2), **e})
+                    print(f"t={time.time() - t0:6.1f}s shot: dip {e['dipPct']}%  back at speed {e['recoverMs']} ms  "
+                          f"over {e['overPct']}%  {e['volts']} V", flush=True)
+            notes = json.loads(_get("/notes", {"since": nid - 1}))["notes"]
+            note = next((x for x in notes if x["id"] == nid), None)
+            if note and note["resolved"]:
+                if note.get("reply"):
+                    print(f"[operator #{nid}] {note['resolution']}: \"{note['reply']}\"")
+                break
+            if wheel_of(s, args.wheel)["mode"] != "VEL":
+                print("wheel left VEL mode: " + s["message"])
+                break
+            time.sleep(0.1)
+    finally:
+        send("flyOff", wheel=args.wheel)
+        _get("/ack", {"id": nid, "resolution": "cleared"}, retries=1)
+    rec = [e["recoverMs"] for e in evs if e["recoverMs"] >= 0]
+    print(f"{len(evs)} shots detected in {time.time() - t0:.0f} s; not back at speed: {len(evs) - len(rec)}")
+    print(f"recoverMs  {describe(rec)}")
+    print(f"dipPct     {describe([e['dipPct'] for e in evs])}")
+    print(f"overPct    {describe([e['overPct'] for e in evs if e['overPct'] is not None])}")
+    print("Shots closer together than ~0.4 s (300 ms re-arm + recovery) are not scored separately.")
+    return EXIT_OK
+
+
+def _step_summary(rs: list[dict]) -> dict:
+    return {"overshoot": statistics.fmean(r["overshootPct"] for r in rs),
+            "overshootMax": max(r["overshootPct"] for r in rs),
+            "ssMean": statistics.fmean(r["ssErrMean"] for r in rs),
+            "ssStd": statistics.fmean(r["ssErrStd"] for r in rs),
+            "settled": sum(1 for r in rs if r.get("settleS") is not None), "n": len(rs),
+            "settleMax": max((r["settleS"] for r in rs if r.get("settleS") is not None), default=None)}
+
+
+def cmd_autotune(args) -> int:
+    """The 2026-11-12 pollen search as one unattended command (search only - validate on real shots):
+    1. ff sweep x2 (must agree within 3%) -> F0 = 32767 / velocity at full power
+    2. F closed loop: P=3 I=0 D=0, step 0.5T -> T, secant on steady-state error until |ss| <= 1% of T
+       (the open-loop fit was 8% off on 2026-11-12: 13.4 predicted, 12.4 shipped)
+    3. grid around it, I=0.1: (5, F), (5, 0.975F), (7, 0.975F), (3, 0.975F); each gets 3 steps at T,
+       one each at 0.78T and 1.22T, and --kicks synthetic kicks at T
+    4. pass = all settled, mean overshoot <= --max-overshoot, ss sd <= band/3 at T, and the wheel stays
+       inside the at-speed band at every target: |ss mean| + 2 ss sd <= band (2026-11-12 shipped
+       gains: 1800 -> 12 + 2*10 <= 90, 1400 -> 33 + 2*15 <= 70); recommend the passing candidate
+       with the fastest kick recovery."""
+    need_clear(args)
+    T = args.target
+    w0 = wheel_of(state(), args.wheel)
+    print(f"autotune {args.wheel} at T={T:.0f} ticks/s, starting gains {w0['pidf']}")
+    # 1. feed-forward
+    if args.f0:
+        f0, vmax = args.f0, None
+        print(f"[1] skipped ff sweep, F0={f0}")
+    else:
+        fs, vmaxs = [], []
+        for k in range(args.ff_runs):
+            send("ffSweep", wheel=args.wheel, powers=args.powers, hold=args.hold)
+            deadline = time.time() + len(args.powers.split(",")) * args.hold + 10
+            while True:
+                w = wheel_of(gstate(), args.wheel)
+                if not w["ffRunning"] and w["ff"]:
+                    break
+                if time.time() > deadline:
+                    raise RobotError("ff sweep did not finish")
+                time.sleep(0.25)
+            log_trial("ff", {"wheel": args.wheel, "autotune": True, **w["ff"]})
+            ff = w["ff"]
+            if not ff.get("fFromFull"):
+                raise RobotError(f"ff sweep {k + 1} has no full-power level / zero velocity: {ff['levels']}")
+            fs.append(ff["fFromFull"])
+            vmaxs.append(ff["maxVelAtFull"])
+            print(f"[1] ff {k + 1}: levels {[(l[0], l[1]) for l in ff['levels']]}  F_full {ff['fFromFull']}")
+        spread = (max(fs) - min(fs)) / statistics.fmean(fs)
+        if spread > 0.03:
+            raise RobotError(f"ff sweeps disagree by {spread * 100:.1f}% (> 3%): battery or wheel not steady "
+                             "(2026-11-12 this was a jam). Find out why before tuning.")
+        f0, vmax = statistics.fmean(fs), statistics.fmean(vmaxs)
+        print(f"[1] F0 = {f0:.3f} (spread {spread * 100:.1f}%), max {vmax:.0f} ticks/s; T is {T / vmax * 100:.0f}% of max")
+        if T > 0.95 * vmax:
+            print("    WARNING: T is above 95% of max - no headroom to recover after a shot.")
+
+    def steps(pidf, to, n):
+        set_pidf(args.wheel, pidf)
+        out = []
+        for _ in range(n):
+            r = run_step(args.wheel, to, 0.5 * T, 1.5, 3.0)
+            log_trial("step", {"wheel": args.wheel, "autotune": True, **r})
+            out.append(r)
+        send("flyOff", wheel=args.wheel)
+        return out
+
+    # 2. F closed loop (P=3, I=0)
+    fa = f0
+    ssa = statistics.fmean(r["ssErrMean"] for r in steps([3, 0, 0, fa], T, 1))
+    print(f"[2] F={fa:.3f}: ss {ssa:+.1f}")
+    fb = fa * T / (T + ssa)
+    f_best, ss_best = fa, ssa
+    for it in range(args.f_iters):
+        ssb = statistics.fmean(r["ssErrMean"] for r in steps([3, 0, 0, round(fb, 3)], T, 1))
+        print(f"[2] F={fb:.3f}: ss {ssb:+.1f}")
+        if abs(ssb) < abs(ss_best):
+            f_best, ss_best = fb, ssb
+        if abs(ssb) <= 0.01 * T or ssb == ssa:
+            break
+        fa, ssa, fb = fb, ssb, fb - ssb * (fb - fa) / (ssb - ssa)
+        fb = min(max(fb, 0.7 * f0), 1.3 * f0)
+    f1 = round(f_best, 2)
+    print(f"[2] closed-loop F = {f1} (ss {ss_best:+.1f} ticks/s at P=3 I=0)")
+
+    # 3. grid
+    grid = [[5, 0.1, 0, f1], [5, 0.1, 0, round(0.975 * f1, 2)], [7, 0.1, 0, round(0.975 * f1, 2)],
+            [3, 0.1, 0, round(0.975 * f1, 2)]]
+    band = state()["atSpeedFrac"]
+    rows = []
+    for pidf in grid:
+        main_steps = steps(pidf, T, 3)
+        side = {}
+        for frac in (0.78, 1.22):
+            to = round(frac * T)
+            if vmax and to > 0.95 * vmax:
+                continue
+            side[frac] = steps(pidf, to, 1)[0]
+        set_pidf(args.wheel, pidf)
+        kicks = []
+        for _ in range(args.kicks):
+            try:
+                e = run_kick(args.wheel, T, 120)
+            except NotArmed:
+                kicks.append(None)
+                continue
+            log_trial("kick", {"wheel": args.wheel, "ms": 120, "autotune": True, **e})
+            kicks.append(e)
+        send("flyOff", wheel=args.wheel)
+        st = _step_summary(main_steps)
+        good = [k["recoverMs"] for k in kicks if k and k["recoverMs"] >= 0]
+        all_ss = [(T, st["ssMean"], st["ssStd"])] + [(round(f * T), r["ssErrMean"], r["ssErrStd"])
+                                                     for f, r in side.items()]
+        holds = all(abs(m) + 2 * sd <= band * tgt for tgt, m, sd in all_ss)
+        ok = (st["settled"] == st["n"] and all(r.get("settleS") is not None for r in side.values())
+              and st["overshoot"] <= args.max_overshoot and st["ssStd"] <= band * T / 3
+              and holds and len(good) == len(kicks))
+        row = {"pidf": pidf, "pass": ok, **st, "side": {str(k): v["ssErrMean"] for k, v in side.items()},
+               "kickMean": statistics.fmean(good) if good else None,
+               "kickSd": statistics.stdev(good) if len(good) > 1 else None, "kickFails": len(kicks) - len(good)}
+        rows.append(row)
+        log_trial("autotune-candidate", {"wheel": args.wheel, "target": T, **row})
+        print(f"[3] {pidf}: {'PASS' if ok else 'fail'}  overshoot {st['overshoot']:.1f}% (max {st['overshootMax']:.1f})  "
+              f"ss {st['ssMean']:+.1f} sd {st['ssStd']:.1f}  side ss {row['side']}  "
+              f"kick {row['kickMean'] and round(row['kickMean'])} ms (fails {row['kickFails']})")
+    passing = [r for r in rows if r["pass"] and r["kickMean"] is not None]
+    if not passing:
+        near = [r for r in rows if r["kickMean"] is not None and r["settled"] == r["n"]]
+        print("[4] no candidate passed - read the table, adjust one coefficient, re-run steps/kicks by hand.")
+        if near:
+            c = min(near, key=lambda r: (r["overshoot"], r["kickMean"]))
+            print(f"    closest: {c['pidf']} (overshoot {c['overshoot']:.1f}%, side ss {c['side']}, "
+                  f"kick {round(c['kickMean'])} ms)")
+        send("flyOff", wheel=args.wheel)
+        return EXIT_OK
+    best = min(passing, key=lambda r: r["kickMean"])
+    set_pidf(args.wheel, best["pidf"])
+    p = " ".join(str(x) for x in best["pidf"])
+    print(f"[4] RECOMMENDED {best['pidf']} (live in the tool now). SEARCH ONLY - validate on real shots:")
+    print(f"    mechtune.py ab {args.wheel} --a \"<shipped P I D F>\" --b \"{p}\" --test shots --target {T:.0f} --n 10 --confirmed-clear")
+    print(f"    (if shipped cannot hold speed: mechtune.py hold {args.wheel} --a \"<shipped>\" --b \"{p}\" --target {T:.0f} --n 6 --confirmed-clear)")
     return EXIT_OK
 
 
@@ -611,7 +990,7 @@ def cmd_events(_args) -> int:
     return EXIT_OK
 
 
-def cmd_pull(args) -> int:
+def cmd_pull(args, quiet: bool = False) -> int:
     body = _get("/rec.csv", timeout=10)
     os.makedirs(RUNS, exist_ok=True)
     path = os.path.join(RUNS, f"{args.label}.csv")
@@ -619,6 +998,8 @@ def cmd_pull(args) -> int:
         fh.write(body)
     rows = [ln.split(",") for ln in body.splitlines() if ln and not ln.startswith(("#", "t,"))]
     dts = sorted(float(r[1]) for r in rows[1:] if r[1])
+    if quiet:
+        return EXIT_OK
     print(f"saved {path} ({len(rows)} samples)")
     if dts:
         mean = statistics.fmean(dts)
@@ -701,7 +1082,8 @@ def main(argv: list[str]) -> int:
     p = sub.add_parser("shots"); wheel(p); p.add_argument("--target", type=float, required=True)
     p.add_argument("--n", type=int, default=5); p.add_argument("--timeout", type=float, default=120)
     p.add_argument("--keep-spinning", action="store_true"); clear(p); p.set_defaults(fn=cmd_shots)
-    p = sub.add_parser("ff"); wheel(p); p.add_argument("--powers", default="0.3,0.45,0.6,0.75,0.9,1.0")
+    # Starts at 0.5: the pollen wheel did not break away at 0.2 (2026-11-12) and the guard stops a stall.
+    p = sub.add_parser("ff"); wheel(p); p.add_argument("--powers", default="0.5,0.6,0.7,0.8,0.9,1.0")
     p.add_argument("--hold", type=float, default=2.0); clear(p); p.set_defaults(fn=cmd_ff)
     p = sub.add_parser("ab"); wheel(p); p.add_argument("--a", required=True); p.add_argument("--b", required=True)
     p.add_argument("--test", choices=["kick", "step", "shots"], default="kick")
@@ -709,6 +1091,21 @@ def main(argv: list[str]) -> int:
     p.add_argument("--target", type=float, required=True); p.add_argument("--ms", type=float, default=120)
     p.add_argument("--n", type=int, default=10); p.add_argument("--timeout", type=float, default=120)
     p.add_argument("--seed", type=int, default=None); steppy(p); clear(p); p.set_defaults(fn=cmd_ab)
+    p = sub.add_parser("dircheck"); wheel(p); p.add_argument("--power", type=float, default=0.5)
+    p.add_argument("--sec", type=float, default=1.5); p.add_argument("--ask", action="store_true")
+    clear(p); p.set_defaults(fn=cmd_dircheck)
+    p = sub.add_parser("hold"); wheel(p); p.add_argument("--a", required=True); p.add_argument("--b", required=True)
+    p.add_argument("--target", type=float, required=True); p.add_argument("--sec", type=float, default=4.0)
+    p.add_argument("--n", type=int, default=6); p.add_argument("--seed", type=int, default=None)
+    clear(p); p.set_defaults(fn=cmd_hold)
+    p = sub.add_parser("rapidfire"); wheel(p); p.add_argument("--target", type=float, required=True)
+    clear(p); p.set_defaults(fn=cmd_rapidfire)
+    p = sub.add_parser("autotune"); wheel(p); p.add_argument("--target", type=float, required=True)
+    p.add_argument("--powers", default="0.5,0.6,0.7,0.8,0.9,1.0"); p.add_argument("--hold", type=float, default=2.0)
+    p.add_argument("--ff-runs", type=int, default=2); p.add_argument("--f0", type=float, default=None)
+    p.add_argument("--f-iters", type=int, default=4); p.add_argument("--kicks", type=int, default=5)
+    p.add_argument("--max-overshoot", type=float, default=5.0)
+    clear(p); p.set_defaults(fn=cmd_autotune)
     sub.add_parser("events").set_defaults(fn=cmd_events)
     p = sub.add_parser("pull"); p.add_argument("label"); p.set_defaults(fn=cmd_pull)
     p = sub.add_parser("color"); p.add_argument("what", choices=["show", "sample", "apply", "csv"])
@@ -718,20 +1115,31 @@ def main(argv: list[str]) -> int:
     p.add_argument("--only", help="comma list of: " + ", ".join(FILE_KEYS)); p.set_defaults(fn=cmd_export)
 
     args = ap.parse_args(argv)
+    if getattr(args, "command", None) == "hold" and args.seed is None:
+        args.seed = random.randrange(1 << 30)
     if getattr(args, "command", None) == "ab":
         if args.metric is None:
             args.metric = "settleS" if args.test == "step" else "recoverMs"
         if args.seed is None:
             args.seed = random.randrange(1 << 30)
     try:
+        if args.command in SPINNING and getattr(args, "confirmed_clear", False):
+            arm_guard()
         return args.fn(args)
     except TimeoutError as e:
         print(f"TIMEOUT: {e}")
         return EXIT_TIMEOUT
+    except KeyboardInterrupt:
+        print("interrupted - stopping the flywheels")
+        try:
+            _get("/cmd", {"action": "flyOff", "wheel": "both"}, retries=2)
+        except RobotError:
+            pass
+        return EXIT_REFUSED
     except RobotError as e:
         print(f"ERROR: {e}")
         # Never leave a wheel spinning because the host script fell over.
-        if getattr(args, "command", "") in ("spin", "step", "kick", "shots", "ff", "ab"):
+        if getattr(args, "command", "") in SPINNING:
             try:
                 _get("/cmd", {"action": "flyOff", "wheel": "both"}, retries=2)
             except RobotError:

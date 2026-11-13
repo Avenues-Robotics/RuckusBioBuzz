@@ -37,7 +37,7 @@ public final class SystemConstants {
         public static boolean NECTAR_FLYWHEEL_REVERSED = false;
         public static double AT_SPEED_FRACTION = 0.05;
         public static double IDLE_FRACTION = 0.5;
-        public static PIDFCoefficients POLLEN_PIDF = new PIDFCoefficients(500, 0, 0, 11.7);
+        public static PIDFCoefficients POLLEN_PIDF = new PIDFCoefficients(5, 0.1, 0, 12.4);
         public static PIDFCoefficients NECTAR_PIDF = new PIDFCoefficients(500, 0, 0, 11.7);
     }
 

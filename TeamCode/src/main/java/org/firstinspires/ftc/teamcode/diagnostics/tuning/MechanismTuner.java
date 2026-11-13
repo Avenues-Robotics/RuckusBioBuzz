@@ -526,6 +526,34 @@ public class MechanismTuner extends OpMode {
                 }
                 message = "Flywheel direction updated.";
                 break;
+            case "flyDevice": {
+                // Re-bind a wheel to another motor name in the active config (e.g. a flywheel moved to
+                // Control Hub port 0, which the built-in config calls sm0). Same hub velocity PIDF, same
+                // sampling - only which port is driven changes. Lasts until the OpMode restarts.
+                String dev = c.get("device");
+                if (dev == null || dev.isEmpty()) {
+                    message = "flyDevice needs device=NAME (a motor name in the active config).";
+                    break;
+                }
+                StringBuilder m = new StringBuilder();
+                for (Wheel w : wheelsFor(c)) {
+                    int i = w == wheels[0] ? 0 : 1;
+                    w.cancelTests();
+                    w.off();
+                    Wheel nw = new Wheel(w.name, dev, w.reversed,
+                            i == 0 ? SystemConstants.Flywheel.POLLEN_PIDF : SystemConstants.Flywheel.NECTAR_PIDF);
+                    nw.kP = w.kP;
+                    nw.kI = w.kI;
+                    nw.kD = w.kD;
+                    nw.kF = w.kF;
+                    nw.applyPidf();
+                    wheels[i] = nw;
+                    m.append(w.name).append(" -> ").append(dev)
+                            .append(nw.motor == null ? " (NOT FOUND: " + nw.error + ")" : " ok").append(". ");
+                }
+                message = "Flywheel device: " + m.toString().trim();
+                break;
+            }
             case "pidf":
                 for (Wheel w : wheelsFor(c)) {
                     w.kP = num(c, "p", w.kP);

@@ -653,3 +653,16 @@ now refuse to run: under Pedro 3 their `pedroPidf dp/dd/df/cent` are ignored rob
 migration compare identical controllers and should not be read as a gain effect. `trans` now
 stops if `pedroStart` did not start the follower (`activate=transheading` is refused on Pedro 3),
 so `trans` rows written after that migration also timed a follower that never ran.
+
+## 2026-11-12 — Mechanism Tuner `flyDevice` (rule 9 declaration)
+
+Diagnostic only. New command `cmd flyDevice wheel=pollen device=NAME` re-binds a tuner wheel to
+another motor name in the active config, until the OpMode restarts. Reason: on 2026-11-12 the
+pollen flywheel is wired to **Control Hub motor port 0** (config name `sm0`), not Expansion Hub
+port 3 (`pollenTurret`), and there is no Expansion Hub on the robot, so `check` reported
+`pollenTurret` missing. The flywheel is still run by the hub's own velocity PIDF
+(`RUN_USING_ENCODER`, `setVelocity`), sampled once per loop with the same bulk read and dip
+detector. Expected effect on any flywheel measurement: none (the hub firmware PIDF is the same on
+either hub). Estimated, not measured. The gains tuned on port 0 apply to the same motor + wheel on
+any port. There are no earlier flywheel trials (`tools/mechtune/trials.jsonl` did not exist), so
+no dataset becomes non-comparable.

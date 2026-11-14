@@ -74,7 +74,9 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 │                                         telemetry throttled (TELEMETRY_INTERVAL_MS) and shows loop Hz = 1/mean(dt), dt mean/p90;
 │                                         flywheel velocity + turret servo writes deduped, color read throttled - all through
 │                                         modules/Cache, switches in SystemConstants.Cache
-├── auto/{RedPollenAuto,shortAutoRed,redOption2,ExampleSwerveAuto,PathStep}.java   Red only, no mirroring
+├── auto/{RedSoloAuto,BlueSoloAuto}.java   competition autos, Constants.createFollower + modules/AutoMechanisms
+│   ├── modules/{AutoMechanisms,PathStep}.java   AutoMechanisms builds systems/Shooter, Intake, Scoopula for autos
+│   ├── legacy/{shortAutoRed,redOption2,ExampleSwerveAuto}.java   older autos
 │   └── visualizerAutos/*.pp             visualizer sources the auto .java files are exported from
 ├── modules/                             compute only, no hardware: predictiveAiming, shootingRegression, zoneCheck
 ├── systems/                             mechanisms (write hardware): intake, shooter (flywheels; owns turret), turret (aiming, was modules/aimingSystem), gate, scoopula

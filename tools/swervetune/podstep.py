@@ -107,6 +107,93 @@ def cmd_run(a) -> int:
     return 0
 
 
+def cmd_ab(a) -> int:
+    """Randomised, interleaved A/B: gains are re-applied before EVERY trial, so drift (battery,
+    warm plant) lands on both arms alike. Each arm gets n trials per pod per direction."""
+    pods = [int(x) for x in a.pods.split(",")]
+    arms = {"A": parse_gains(a.a), "B": parse_gains(a.b)}
+    bench = sb.Bench()
+    os.makedirs(OUT_DIR, exist_ok=True)
+    path = os.path.join(OUT_DIR, f"podstep_{a.tag}.jsonl")
+    trials = [(arm, p, d) for arm in "AB" for p in pods for d in (+1, -1) for _ in range(a.n)]
+    random.Random(a.seed).shuffle(trials)
+    try:
+        for i, (arm, pod, d) in enumerate(trials):
+            bench.set_pidf(scope="all", **arms[arm])
+            base, target = (0.0, a.step) if d > 0 else (a.step, 0.0)
+            r = one_trial(bench, pod, base, target, a.hold, f"{a.tag}_{arm}_p{pod}_{i}")
+            r["tag"] = a.tag
+            r["arm"] = arm
+            r["arm_gains"] = a.a if arm == "A" else a.b
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(r) + "\n")
+            s = r["score"]
+            if s.get("ok"):
+                print(f"[{i+1}/{len(trials)}] {arm} pod {pod} {base:g}->{target:g} V={r['voltage_mean']:.2f} "
+                      f"pp={s['post_settle_pp_deg']:.2f} ss={s['steady_state_deg']:.2f} over={s['overshoot_pct']:.1f}%",
+                      flush=True)
+            else:
+                print(f"[{i+1}/{len(trials)}] {arm} pod {pod} NOT SCORED: {s.get('reason')}", flush=True)
+    finally:
+        try:
+            bench.cmd("stop")
+        except Exception:
+            pass
+    print("wrote", path)
+    return cmd_abreport(argparse.Namespace(tag=a.tag))
+
+
+def _welch(xa, xb):
+    """B - A difference, Welch 95% CI (normal approx for df >= ~20) and two-sided p."""
+    ma, mb = statistics.mean(xa), statistics.mean(xb)
+    va, vb = statistics.variance(xa), statistics.variance(xb)
+    se = math.sqrt(va / len(xa) + vb / len(xb))
+    d = mb - ma
+    t = d / se if se > 0 else float("inf")
+    p = math.erfc(abs(t) / math.sqrt(2))
+    return d, d - 1.96 * se, d + 1.96 * se, t, p
+
+
+def cmd_abreport(a) -> int:
+    path = os.path.join(OUT_DIR, f"podstep_{a.tag}.jsonl")
+    with open(path, encoding="utf-8") as f:
+        rows = [json.loads(line) for line in f if line.strip()]
+    by = {arm: [r for r in rows if r.get("arm") == arm and r["score"].get("ok")] for arm in "AB"}
+    for arm in "AB":
+        g = next((r.get("arm_gains") for r in rows if r.get("arm") == arm), "")
+        print(f"arm {arm}: n={len(by[arm])}  gains {g}")
+    volts = [r["voltage_mean"] for r in rows if r.get("voltage_mean")]
+    print(f"volts {min(volts):.2f}-{max(volts):.2f}")
+    for key, fn in (("post_settle_pp_deg", lambda s: s["post_settle_pp_deg"]),
+                    ("|steady_state_deg|", lambda s: abs(s["steady_state_deg"])),
+                    ("overshoot_pct", lambda s: s["overshoot_pct"]),
+                    ("rise_10_90_s", lambda s: s["rise_10_90_s"])):
+        xa = [fn(r["score"]) for r in by["A"]]
+        xb = [fn(r["score"]) for r in by["B"]]
+        xa = [x for x in xa if not math.isnan(x)]
+        xb = [x for x in xb if not math.isnan(x)]
+        if len(xa) < 2 or len(xb) < 2:
+            continue
+        d, lo, hi, t, p = _welch(xa, xb)
+        print(f"  {key:22} A {statistics.mean(xa):7.3f}  B {statistics.mean(xb):7.3f}  B-A {d:+.3f} "
+              f"[{lo:+.3f}, {hi:+.3f}]  t={t:.2f} p={p:.2g}")
+    la = sum(r["score"]["post_settle_pp_deg"] >= 2.0 for r in by["A"])
+    lb = sum(r["score"]["post_settle_pp_deg"] >= 2.0 for r in by["B"])
+    print(f"  loose (pp >= 2 deg): A {la}/{len(by['A'])} (Wilson upper {wilson_upper(la, len(by['A'])):.2f})  "
+          f"B {lb}/{len(by['B'])} (Wilson upper {wilson_upper(lb, len(by['B'])):.2f})")
+    return 0
+
+
+def wilson_upper(k: int, n: int, z: float = 1.96) -> float:
+    if n == 0:
+        return 1.0
+    p = k / n
+    denom = 1 + z * z / n
+    centre = p + z * z / (2 * n)
+    spread = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return (centre + spread) / denom
+
+
 def _ci(xs):
     n = len(xs)
     if n < 2:
@@ -140,6 +227,39 @@ def cmd_report(a) -> int:
     return 0
 
 
+def cmd_summary(a) -> int:
+    """One line per cell (tag): loose count, post-settle p-p with 95% CI, mean |ss|, per-pod loose."""
+    print(f"{'cell':16} {'n':>5} {'loose':>5}  {'pp mean [95% CI]':>20} {'|ss|':>5} {'rise':>6} {'over%':>6} "
+          f"{'s1.0 (n)':>9} {'flips':>5} {'V':>6}")
+    for tag in a.tags:
+        path = os.path.join(OUT_DIR, f"podstep_{tag}.jsonl")
+        with open(path, encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f if line.strip()]
+        ok = [r["score"] for r in rows if r["score"].get("ok")]
+        if not ok:
+            print(f"{tag:16} no scored trials")
+            continue
+        pp = [s["post_settle_pp_deg"] for s in ok]
+        ss = [abs(s["steady_state_deg"]) for s in ok]
+        s10 = [s["settle_1_0"] for s in ok if not math.isnan(s["settle_1_0"])]
+        lo, hi = _ci(pp)
+        volts = statistics.mean(r["voltage_mean"] for r in rows)
+        print(f"{tag:16} {len(ok):>2}/{len(rows):<2} {sum(p >= 2.0 for p in pp):>5}  {statistics.mean(pp):5.2f} "
+              f"[{lo:5.2f},{hi:5.2f}] {statistics.mean(ss):5.2f} "
+              f"{statistics.mean(s['rise_10_90_s'] for s in ok):6.3f} "
+              f"{statistics.mean(s['overshoot_pct'] for s in ok):6.1f} "
+              f"{(statistics.mean(s10) if s10 else float('nan')):5.2f} ({len(s10)}) "
+              f"{sum(s['flip_events'] for s in ok):>5} {volts:6.2f}")
+        per = []
+        for p in sorted({r["pod"] for r in rows}):
+            mine = [r["score"] for r in rows if r["pod"] == p and r["score"].get("ok")]
+            if mine:
+                per.append(f"p{p}: loose {sum(s['post_settle_pp_deg'] >= 2.0 for s in mine)}/{len(mine)} "
+                           f"|ss| {statistics.mean(abs(s['steady_state_deg']) for s in mine):.2f}")
+        print("    " + "  ".join(per))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -155,6 +275,22 @@ def main() -> int:
     p = sub.add_parser("report")
     p.add_argument("files", nargs="+")
     p.set_defaults(fn=cmd_report)
+    p = sub.add_parser("ab", help="randomised interleaved A/B, gains re-applied every trial")
+    p.add_argument("tag")
+    p.add_argument("--a", required=True)
+    p.add_argument("--b", required=True)
+    p.add_argument("--pods", default="0,1,2,3")
+    p.add_argument("--n", type=int, default=3, help="trials per arm per pod per direction")
+    p.add_argument("--step", type=float, default=90.0)
+    p.add_argument("--hold", type=float, default=4.0)
+    p.add_argument("--seed", type=int, default=7)
+    p.set_defaults(fn=cmd_ab)
+    p = sub.add_parser("abreport")
+    p.add_argument("tag")
+    p.set_defaults(fn=cmd_abreport)
+    p = sub.add_parser("summary", help="compare cells by tag")
+    p.add_argument("tags", nargs="+")
+    p.set_defaults(fn=cmd_summary)
     a = ap.parse_args()
     return a.fn(a)
 

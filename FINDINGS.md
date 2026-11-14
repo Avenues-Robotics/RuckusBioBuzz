@@ -830,3 +830,36 @@ cell, 2 each direction): 0.020-0.035 power at 20 ms moves 0.06-0.09 deg mean (~e
 BR 0.39, FR 0.45, FL 0.76, BL 1.47 deg mean. Travel near breakaway is stick-slip: the same pulse
 moves nothing or several degrees. The shipped 0.035 x 20 ms pulse is now below breakaway, and no
 single pulse lands reliably inside a 0.6 deg tolerance.
+
+### 2026-11-14 — rebuilt pods: turn-gain SEARCH on blocks (podstep, single pod, PSU 12.45 V)
+
+SEARCH only - TUNING_TASK acceptance (pedrocheck on the floor) is not possible today (no battery).
+90 deg steps, n=16 per cell (4 per pod, 2 each way), cells run back to back:
+
+| cell | loose (pp>=2) | post-settle pp mean [95% CI] | mean abs ss |
+|---|---|---|---|
+| shipped (pulsed 6/0.6/0.035x20ms, kP .38 kD .022 kS .022) | 10/16 | 3.05 [1.86, 4.23] | 0.41 |
+| pulsed OFF, kP .38 kD .022 kS .022 | 1/16 | 0.57 [0.24, 0.91] | 0.73 |
+| pulsed OFF, kP .19 kD .011 kS .022 | 0/16 | 0.36 [0.17, 0.54] | **3.58** (stops short) |
+| pulsed 0.045x20ms, tol 1.0 deg | 6/16 | 2.05 [0.59, 3.51] | 0.55 |
+| pulsed OFF, kP .50 | 0/16 | 0.31 [0.09, 0.52] | 0.88 |
+| pulsed OFF, kS .035 | 0/16 | 0.39 [0.18, 0.60] | 0.65 |
+| pulsed OFF, kD .035 | 1/16 | 0.96 [-0.19, 2.10] | 0.60 |
+
+**Randomised interleaved A/B** (`podstep.py ab`, gains re-applied before every trial, seed 41),
+A = shipped, B = pulsed OFF + kS 0.035 (rest shipped), n=24 per arm (3 per pod per direction),
+12.45 V throughout:
+- post-settle p-p: A 2.35, B 0.41 deg; B-A **-1.94 [-2.82, -1.07]**, t=-4.34, p=1.4e-5
+- loose runs: A 12/24, B 1/24 (Wilson upper 0.20)
+- abs steady state: A 0.38, B 0.54; B-A +0.16 [-0.02, +0.34], p=0.074 (not shown worse)
+- overshoot, rise 10-90: no difference (p >= 0.35); B worst-case abs ss 1.13-1.36 deg on 3 runs.
+
+Reading: on the rebuilt (faster, stickier) pods the pulsed final approach causes the hunting -
+the pulse is below breakaway until it isn't (stick-slip, see pulse travel above). Candidate for
+the floor: **pulsed approach OFF (ships as pulseBandDeg = 0: CoaxialPod enters pulsed mode only
+when |err| < pulseBandRad), kS 0.035**, kP/kD unchanged. Tool live gains set to B and saved.
+Caveats: single-pod steps on blocks only, no drive load, unstrapped chassis, PSU not battery,
+n=24/arm. Must be validated with pedrocheck --pods live on the floor before export.
+
+Shipped today from stage 1 only: podZeroDeg, podMinV, podMaxV, podDriveReversed (4 commits,
+4417f950..cc1b1ff7). Gains NOT shipped.

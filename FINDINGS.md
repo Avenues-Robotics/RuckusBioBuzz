@@ -863,3 +863,54 @@ n=24/arm. Must be validated with pedrocheck --pods live on the floor before expo
 
 Shipped today from stage 1 only: podZeroDeg, podMinV, podMaxV, podDriveReversed (4 commits,
 4417f950..cc1b1ff7). Gains NOT shipped.
+
+### 2026-11-14 — rebuilt pods ON THE FLOOR (parked steering), podstep, PSU 12.47-12.48 V
+
+Operator moved the robot to the floor (surface type not stated - tiles assumed, unconfirmed) and
+asked for the gains to be retuned for floor friction; the blocks result is only a baseline.
+Parked steering is the regime these gains own: `TURN_GAIN_SCHEDULING` gives full authority at
+zero drive power and scales to 0.24 once rolling/swinging, and the pulsed branch is gated off
+above 0.08 drive power.
+
+Floor is far harder than blocks. 8-16 trials per cell (2-4 per pod), back to back:
+
+| cell | loose | pp mean | abs ss |
+|---|---|---|---|
+| shipped (pulsed 6/0.6/0.035x20) | 6/8 | 6.15 | 2.54 |
+| blocks winner B (no pulse, kS .035/2) | 4/8 | 4.36 | 3.62 |
+| no pulse kS .06/2 | 3/8 | 5.28 | 1.28 |
+| no pulse kS .09/2 | 5/8 | 13.47 | 0.74 |
+| no pulse kS .06/5 | 2/8 | 2.10 | 1.78 |
+| no pulse kS .08/6 | 2/8 | 2.03 | 1.50 |
+| no pulse kS .06/8 | 4/8 | 3.01 | 3.38 |
+| kS .08/6 + parked deadband (pband 2.5 / ptol 2.0) | 3/16 | 1.39 | 1.71 |
+| kS .08/6 + parked deadband (pband 3.5 / ptol 3.0) | 3/16 | 1.27 | 1.73 |
+| kS .08/6 + parked deadband (pband 5.5 / ptol 5.0) | 3/16 | 1.40 | 3.61 |
+
+Left pods only (FL, BL), kS .08/6: kD .010 / .022 / .035 -> 4/8, 5/8, 6/8 loose; kP .30 -> 4/8.
+
+**Mechanism (trace podstep fl_db3 trial 14, FL 90->0):** the pod swings +/-4 deg at ~10 Hz while
+the commanded power is ZERO: the controller pushes (0.07) and twists the tyre without moving the
+contact patch, and the twist springs back the moment power drops. So parked precision on the
+floor is bounded by tyre torsional compliance (~4 deg here), and near-zero-error gain makes it
+worse: kS*tanh(err/band) has slope kS/band at zero, 0.035/2deg = 1.0 per rad, already 2.6x kP;
+widening the band (2 -> 5-6 deg) is what cut the chatter. No cell removed it entirely.
+**FL (pod 2) was loose in about half its runs in EVERY cell** - check that pod mechanically
+(tyre, belt, gear lash) before tuning around it.
+
+**Floor A/B, randomised interleaved** (`podstep.py ab floor_ab_shipped_vs_db3`, seed 121, gains
+re-applied every trial), n=24 per arm (3 per pod per direction), 12.47-12.48 V PSU:
+A = shipped; B = kP .38, kD .015, kS .08 / 6 deg, pulsed band 3.5 / tol 3.0 / 0.045 x 20 ms.
+- post-settle p-p: A 4.96, B 1.40 deg; B-A **-3.57 [-5.41, -1.73]**, p=0.00014
+- abs steady state: A 3.68, B 1.70 deg; B-A **-1.98 [-3.38, -0.59]**, p=0.0054
+- rise 10-90: A 0.311, B 0.216 s; B-A -0.095 [-0.175, -0.014], p=0.021; overshoot n.s.
+- loose: A 17/24, B 6/24 (B: BR 3/6, FR 0/6, FL 3/6, BL 0/6)
+Robot creep over ~25 min of floor steering: < 0.4 in x/y, heading within ~1 deg (Pinpoint).
+
+**Candidate F = arm B is the floor search winner.** Tool live gains set to F and saved;
+`robot.py constants` dry run carries exactly turnKD/KS/KSBand per pod + pulseBand/Tolerance/Power
+(tools/swervetune/runs/constants_20261114_143756.java). **NOT SHIPPED**: TUNING_TASK accepts gains
+only on pedrocheck (real Follower, driving), which needs a battery - today is PSU-tethered.
+Rolling side unvalidated: kS .08 scales to ~.019 at SCHED_FLOOR .24 when rolling, but the schedule
+(floor, velocity leg 22 deg/s) was sized for the old 214 deg/s pods.
+Supersedes the blocks candidate (pulsed off, kS .035) for the floor.

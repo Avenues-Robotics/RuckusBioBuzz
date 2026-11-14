@@ -27,6 +27,14 @@ import org.firstinspires.ftc.teamcode.systems.Intake;
 import org.firstinspires.ftc.teamcode.systems.Shooter;
 import org.firstinspires.ftc.teamcode.systems.Turret;
 
+import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -65,6 +73,19 @@ public class MechanismTuner extends OpMode {
 
     // Dip detector: a wheel must sit in its at-speed band this long before a drop counts as a shot.
     static final long ARM_NS = 300_000_000L;
+    /** flyDevice bindings that survive restarts (wheel=deviceName per line). */
+    static final File DEVICE_FILE = new File(AppUtil.FIRST_FOLDER, "mechtune_devices.txt");
+    // Stall / encoder guard (2026-11-13): a jammed pollen wheel took full power for ~60 s on
+    // 2026-11-12 because nothing here noticed vel = 0. Thresholds: the wheel broke away at 0.5 power
+    // but not at 0.2, and the hub reports velocity in 20 ticks/s steps.
+    static final double STALL_MIN_POWER = 0.35;
+    static final double STALL_MIN_TARGET_TPS = 300;
+    static final double STALL_VEL_TPS = 40;
+    static final long STALL_NS = 600_000_000L;
+    static final double WRONG_SIGN_TPS = 100;
+    static final long WRONG_SIGN_NS = 300_000_000L;
+    private boolean stallGuard = true;
+    private String deviceFileSummary = "{}";
     static final long DIP_TIMEOUT_NS = 3_000_000_000L;
     static final long POST_WINDOW_NS = 300_000_000L;
     static final int MAX_EVENTS = 60;
@@ -184,10 +205,18 @@ public class MechanismTuner extends OpMode {
         idleFrac = SystemConstants.Flywheel.IDLE_FRACTION;
         holdFrac = SystemConstants.Shooter.HOLD_SPEED_FRACTION;
         minGateOpenS = SystemConstants.Shooter.MIN_GATE_OPEN_S;
-        wheels[0] = new Wheel("pollen", "pollenTurret", SystemConstants.Flywheel.POLLEN_FLYWHEEL_REVERSED,
+        Map<String, String> boundDevices = loadDeviceFile();
+        deviceFileSummary = boundDevices.toString();
+        String pollenDev = boundDevices.containsKey("pollen") ? boundDevices.get("pollen") : "pollenTurret";
+        String nectarDev = boundDevices.containsKey("nectar") ? boundDevices.get("nectar") : "nectarTurret";
+        wheels[0] = new Wheel("pollen", pollenDev, SystemConstants.Flywheel.POLLEN_FLYWHEEL_REVERSED,
                 SystemConstants.Flywheel.POLLEN_PIDF);
-        wheels[1] = new Wheel("nectar", "nectarTurret", SystemConstants.Flywheel.NECTAR_FLYWHEEL_REVERSED,
+        wheels[1] = new Wheel("nectar", nectarDev, SystemConstants.Flywheel.NECTAR_FLYWHEEL_REVERSED,
                 SystemConstants.Flywheel.NECTAR_PIDF);
+        if (!boundDevices.isEmpty()) {
+            message = "Flywheel devices from " + DEVICE_FILE.getName() + ": " + boundDevices
+                    + " (cmd flyDevice wheel=.. device=default undoes it).";
+        }
 
         turrets[0] = new TurretCal("pollen", "pollenTurretServo", SystemConstants.Turret.POLLEN_TURRET_CENTER,
                 SystemConstants.Turret.POLLEN_TURRET_REVERSED, SystemConstants.Turret.POLLEN_TURRET_GEAR_RATIO,
@@ -539,15 +568,23 @@ public class MechanismTuner extends OpMode {
             case "flyDevice": {
                 // Re-bind a wheel to another motor name in the active config (e.g. a flywheel moved to
                 // Control Hub port 0, which the built-in config calls sm0). Same hub velocity PIDF, same
-                // sampling - only which port is driven changes. Lasts until the OpMode restarts.
-                String dev = c.get("device");
-                if (dev == null || dev.isEmpty()) {
-                    message = "flyDevice needs device=NAME (a motor name in the active config).";
+                // sampling - only which port is driven changes. Saved to the hub file DEVICE_FILE so it
+                // survives restarts and redeploys; device=default goes back to the built-in name.
+                String req = c.get("device");
+                if (req == null || req.isEmpty()) {
+                    message = "flyDevice needs device=NAME (a motor name in the active config) or device=default.";
                     break;
                 }
+                Map<String, String> bound = loadDeviceFile();
                 StringBuilder m = new StringBuilder();
                 for (Wheel w : wheelsFor(c)) {
                     int i = w == wheels[0] ? 0 : 1;
+                    String dev = "default".equals(req) ? (i == 0 ? "pollenTurret" : "nectarTurret") : req;
+                    if ("default".equals(req)) {
+                        bound.remove(w.name);
+                    } else {
+                        bound.put(w.name, dev);
+                    }
                     w.cancelTests();
                     w.off();
                     Wheel nw = new Wheel(w.name, dev, w.reversed,
@@ -561,9 +598,14 @@ public class MechanismTuner extends OpMode {
                     m.append(w.name).append(" -> ").append(dev)
                             .append(nw.motor == null ? " (NOT FOUND: " + nw.error + ")" : " ok").append(". ");
                 }
-                message = "Flywheel device: " + m.toString().trim();
+                message = "Flywheel device: " + m.toString().trim() + saveDeviceFile(bound);
+                deviceFileSummary = bound.toString();
                 break;
             }
+            case "stallGuard":
+                stallGuard = num(c, "on", 1) != 0;
+                message = "Stall guard " + (stallGuard ? "ON" : "OFF (nothing stops a jammed wheel now)") + ".";
+                break;
             case "pidf":
                 for (Wheel w : wheelsFor(c)) {
                     w.kP = num(c, "p", w.kP);
@@ -1032,6 +1074,43 @@ public class MechanismTuner extends OpMode {
             default:
                 message = "UNKNOWN COMMAND: \"" + action + "\" - nothing was done.";
                 break;
+        }
+    }
+
+    private static Map<String, String> loadDeviceFile() {
+        Map<String, String> m = new LinkedHashMap<>();
+        if (!DEVICE_FILE.exists()) return m;
+        try (BufferedReader in = new BufferedReader(new FileReader(DEVICE_FILE))) {
+            String line;
+            while ((line = in.readLine()) != null) {
+                line = line.trim();
+                int eq = line.indexOf('=');
+                if (line.isEmpty() || line.startsWith("#") || eq <= 0) continue;
+                String k = line.substring(0, eq).trim();
+                String v = line.substring(eq + 1).trim();
+                if (("pollen".equals(k) || "nectar".equals(k)) && !v.isEmpty()) m.put(k, v);
+            }
+        } catch (IOException e) {
+            // An unreadable file means no overrides: the built-in names apply.
+        }
+        return m;
+    }
+
+    private static String saveDeviceFile(Map<String, String> m) {
+        try {
+            if (m.isEmpty()) {
+                return DEVICE_FILE.exists() && !DEVICE_FILE.delete()
+                        ? " (could NOT delete the hub file)" : " (hub file cleared)";
+            }
+            try (Writer out = new FileWriter(DEVICE_FILE)) {
+                out.write("# Mechanism Tuner flywheel device bindings (cmd flyDevice). Diagnostic only.\n");
+                for (Map.Entry<String, String> e : m.entrySet()) {
+                    out.write(e.getKey() + "=" + e.getValue() + "\n");
+                }
+            }
+            return " (saved to hub, survives restarts)";
+        } catch (IOException e) {
+            return " (NOT saved: " + e.getMessage() + ")";
         }
     }
 
@@ -1521,6 +1600,11 @@ public class MechanismTuner extends OpMode {
         long kickEndNs;
         boolean kicking;
 
+        // stall / encoder guard
+        long stallSinceNs, wrongSignSinceNs;
+        int stallTrips;
+        String lastStall = "";
+
         // step test: 0 none, 1 pre (holding from), 2 running
         int stepPhase;
         long phaseEndNs;
@@ -1701,6 +1785,49 @@ public class MechanismTuner extends OpMode {
             recorder.mark(4);
         }
 
+        /**
+         * Stops everything when this wheel is driven but not turning (jam, stall below breakaway, or
+         * no encoder), or turning against its velocity target (encoder backwards: the hub PIDF would
+         * run away). Not during a kick: the motor is deliberately disabled then.
+         */
+        boolean guardTripped(long now) {
+            if (!stallGuard || kicking || mode == MODE_OFF) {
+                stallSinceNs = 0;
+                wrongSignSinceNs = 0;
+                return false;
+            }
+            boolean velDriven = mode == MODE_VEL && Math.abs(target) >= STALL_MIN_TARGET_TPS;
+            boolean driven = velDriven || (mode == MODE_POWER && Math.abs(power) >= STALL_MIN_POWER);
+            if (driven && Math.abs(vel) < STALL_VEL_TPS) {
+                if (stallSinceNs == 0) stallSinceNs = now;
+            } else {
+                stallSinceNs = 0;
+            }
+            if (velDriven && vel * Math.signum(target) < -WRONG_SIGN_TPS) {
+                if (wrongSignSinceNs == 0) wrongSignSinceNs = now;
+            } else {
+                wrongSignSinceNs = 0;
+            }
+            String why = null;
+            if (stallSinceNs != 0 && now - stallSinceNs >= STALL_NS) {
+                why = "NOT TURNING (jam, below breakaway, or encoder unplugged): commanded "
+                        + (mode == MODE_VEL ? FlyRecorder.r(target, 0) + " ticks/s" : "power " + FlyRecorder.r(power, 2))
+                        + ", read " + FlyRecorder.r(vel, 0) + " ticks/s for " + (STALL_NS / 1_000_000) + " ms"
+                        + (Double.isNaN(cur) ? "" : ", " + FlyRecorder.r(cur, 2) + " A");
+            } else if (wrongSignSinceNs != 0 && now - wrongSignSinceNs >= WRONG_SIGN_NS) {
+                why = "ENCODER BACKWARDS vs motor: target " + FlyRecorder.r(target, 0) + " ticks/s, read "
+                        + FlyRecorder.r(vel, 0) + " (flyDir flips both; this needs a wiring/encoder fix)";
+            }
+            if (why == null) return false;
+            stallSinceNs = 0;
+            wrongSignSinceNs = 0;
+            stallTrips++;
+            lastStall = why;
+            stopAll();
+            message = "GUARD stopped everything - " + name + " " + why + ". Clear it before spinning again.";
+            return true;
+        }
+
         void update(long now) {
             if (motor == null) return;
 
@@ -1709,6 +1836,10 @@ public class MechanismTuner extends OpMode {
                 // Re-issue the target: whether the hub keeps it across a disable is not documented.
                 motor.setVelocity(target);
                 kicking = false;
+            }
+
+            if (guardTripped(now)) {
+                return;
             }
 
             if (stepPhase == 1 && now >= phaseEndNs) {
@@ -2204,7 +2335,9 @@ public class MechanismTuner extends OpMode {
                 .append(",\"clientAgeMs\":").append(TuningHub.INSTANCE.msSinceClient())
                 .append(",\"clientTimeoutMs\":").append(CLIENT_TIMEOUT_MS)
                 .append(",\"velCap\":").append(VEL_CAP_TPS)
-                .append(",\"atSpeedFrac\":").append(FlyRecorder.r(atSpeedFrac, 4));
+                .append(",\"atSpeedFrac\":").append(FlyRecorder.r(atSpeedFrac, 4))
+                .append(",\"stallGuard\":").append(stallGuard)
+                .append(",\"deviceFile\":\"").append(TuningHub.esc(deviceFileSummary)).append('"');
 
         sb.append(",\"wheels\":[");
         for (int i = 0; i < wheels.length; i++) {
@@ -2223,6 +2356,8 @@ public class MechanismTuner extends OpMode {
                     .append(",\"cur\":").append(nanToNull(w.cur, 2))
                     .append(",\"atSpeed\":").append(atSpeed)
                     .append(",\"reversed\":").append(w.reversed)
+                    .append(",\"stallTrips\":").append(w.stallTrips)
+                    .append(",\"lastStall\":\"").append(TuningHub.esc(w.lastStall)).append('"')
                     .append(",\"kicking\":").append(w.kicking)
                     .append(",\"pidf\":[").append(w.kP).append(',').append(w.kI).append(',')
                     .append(w.kD).append(',').append(w.kF).append(']')

@@ -1,0 +1,4 @@
+{
+  "shipped": [["setPidf", {"scope": "all", "kp": 0.38, "kd": 0.022, "ks": 0.022, "ksband": 2.0, "pulsed": "true", "pband": 6.0, "ptol": 0.6, "ppow": 0.035, "pms": 20, "pcoast": 100, "floor": 0.24}]],
+  "F":       [["setPidf", {"scope": "all", "kp": 0.38, "kd": 0.015, "ks": 0.08,  "ksband": 6.0, "pulsed": "true", "pband": 3.5, "ptol": 3.0, "ppow": 0.045, "pms": 20, "pcoast": 100, "floor": 0.24}]]
+}

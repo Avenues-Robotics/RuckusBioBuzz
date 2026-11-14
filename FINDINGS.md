@@ -1036,3 +1036,32 @@ the fence clamped 3-7 of 7 ticks in blocks 2-3 (per-axis clamping rotates the co
 targets move mid-drive). Block 1 alone (6 deg off-axis less, 0-3 clamps): 0.24 frozen (err sd
 0.1, 0 reversals, |err| 5.2), 0.50 tracking (|err| 2.3-3.2). Needs a bigger clean area or
 pedrocheck to settle. Floor restored to 0.24. Traces runs/20261114-18*_fl{024,050,100}_*.csv.gz.
+
+### 2026-11-14 (evening) — pedrocheck hold/turn in the 2x2, shipped pod gains vs candidate F
+
+`pedrocheck.py suite --pods live --surface tiles --only hold,turn --step 6 --n 3 --arms
+current_runs/arms_shipped_vs_F.json` (label pc2x2_ShipVsF), battery 12.9 -> 12.8 V, tiles, border
+fence 47.16 in, zeroTrim -3.9, SCHED_FLOOR 0.24 both arms. hold+-x / hold+y were mostly REFUSED by
+the fence (6 in margin in a 2x2 - nothing moved), so hold is hold-y (n=3/arm) + 3 hold+x.
+
+| arm / trial | heading overshoot deg | heading residual deg | settle 2 deg | translational residual in |
+|---|---|---|---|---|
+| shipped / turn+ (90) | 10.5 +/- 2.4 | 4.9 +/- 1.1 | never | 0.41 |
+| shipped / turn- | 12.6 +/- 3.8 | 5.4 +/- 2.9 | never | 0.25 |
+| F / turn+ | 9 +/- 15 | 4.5 +/- 7.4 | once (b1) | 0.39 |
+| F / turn- | 11.7 +/- 7.7 | 4.7 +/- 2.0 | never | 0.17 |
+| shipped / hold-y | - | 3.3 | - | 0.32 (1 FAIL 0.515) |
+| F / hold-y | - | 1.1 | - | 0.43 (1 FAIL 0.671) |
+
+(mean +/- 95% CI half-width, n = 3; the script's own summary.) **No pod-gain difference is
+claimable at n = 3** (rule 2 / TUNING_TASK stage 4 want n >= 10). **Both arms fail every turn**:
+9-15 deg overshoot, 4-6 deg residual, never inside 2 deg. That is follower-level, not pod gains:
+Pedro's heading kP 1.20 turns a 5 deg (0.087 rad) residual into ~0.10 of rotation demand, below
+the ~0.2-0.3 drive power this drivetrain needs to break loose on tiles (FINDINGS above), so the
+robot stops short and stays there. The Foresight constants are still placeholders
+(maxAchievable*Velocity = PLACEHOLDER 73.9). Pod tracking while Pedro drives: pod_err_p95
+29-57 deg in both arms (turn transitions included).
+**Process gap:** TUNING_TASK stage 6 (Foresight Tuner, operator-run AutoTune) cannot run as written -
+the tuner was removed with Sloth 2026-11-01 (branch autotune-sloth, CLAUDE.md platform table).
+Heading kP is still reachable through stage 7 (`pedroPidf hp=` arms), but turns need the 2x2.
+Data: current_runs/pedrocheck.jsonl (label pc2x2_ShipVsF), runs/20261114-183*_pc2x2_ShipVsF_*.

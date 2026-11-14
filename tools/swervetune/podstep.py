@@ -64,8 +64,9 @@ def one_trial(bench: sb.Bench, pod: int, base: float, target: float, hold_s: flo
     trace = sb.parse_csv(csv_text)
     scored = sb.score_step(trace, expected_step_deg=abs(target - base))
     mine = next((p for p in scored["pods"] if p.get("pod") == pod), {"ok": False, "reason": "pod missing"})
+    trace_file = sb._archive(csv_text, {"label": label})  # raw trace kept, gzipped, in runs/
     return {
-        "kind": "podstep", "pod": pod, "base_deg": base, "target_deg": target,
+        "kind": "podstep", "pod": pod, "base_deg": base, "target_deg": target, "trace_file": trace_file,
         "voltage_before": volts, "gains": gains, "label": label,
         "loop_hz_true": scored.get("loop_hz_true"), "voltage_mean": scored.get("voltage_mean"),
         "score": mine, "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),

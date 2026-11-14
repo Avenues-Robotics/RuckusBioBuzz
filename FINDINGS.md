@@ -762,3 +762,27 @@ claimed.
 
 Also seen: under the OLD apk, FTC Dashboard warned "Error communicating with I2C device(s)
 'colorSensor'". Not seen since install; recheck under Mechanism Tuner.
+
+### 2026-11-14 — Phase 0 wiring check, mechanisms (Mechanism Tuner, build a78f9a16, PSU 12.4-12.5 V)
+
+Expansion Hub (address 2) reachable. `motorPort hub=2 port=N power=0.2 seconds=1.5`, one at a time,
+operator watching ("all good" to every row):
+
+| EH port | name | ticks in 1.5 s | peak A | operator |
+|---|---|---|---|---|
+| 0 | intakeLeft | 0 (no encoder) | 0.35 | left roller |
+| 1 | pollenTurret (flywheel) | 441, 340 ticks/s | 0.82 | pollen flywheel |
+| 2 | nectarTurret | 0 | 0.01 | nothing (not plugged in, placeholder) |
+| 3 | intakeRight | 0 (no encoder) | 1.72 | right roller; 5x the left's current, operator says fine |
+
+`intakeTest motor=BOTH power=0.3`, 2 s, with the shipped INTAKE_*_REVERSED flags: rollers
+counter-rotate, both pulling inward (operator).
+
+Detected but deliberately NOT moved: pollenTurretServo (limits 0.45-0.55 = +/-18.7 deg are a
+guess, not measured), turretGate (open/close marks both unset). Not mounted: nectar flywheel,
+nectar turret servo, scoopula. Skipped at the operator's word: colorSensor (unplugged); note the
+built-in config types it `<ColorSensor>`, which is the SDK's **Modern Robotics** color sensor,
+while an older hub config (Abracadabratestbot.xml) has it as `RevColorSensorV3` - fix the tag
+when it is plugged in. Pinpoint: detected, pose/heading ok; directions and offsets need the floor.
+SystemConstants.Flywheel.NECTAR_PIDF ships (500, 0, 0, 11.7), not the (5, 0.1, 0, 12.4) the run
+prompt assumed.

@@ -48,10 +48,13 @@ public final class SystemConstants {
         public static double[] pollenTurretOffset = {-5.91, 0};
         public static double POLLEN_TURRET_CENTER = 0.5;
         public static double NECTAR_TURRET_CENTER = 0.5;
-        public static double POLLEN_TURRET_MIN = 0.0;
-        public static double POLLEN_TURRET_MAX = 1.0;
-        public static double NECTAR_TURRET_MIN = 0.0;
-        public static double NECTAR_TURRET_MAX = 1.0;
+        // Wire limits, servo units. 2026-11-14: operator does not know the safe range yet, so these are
+        // a deliberately narrow start (~+/-17 deg of turret around 0.5: 0.05 x 358.6 x 355/370, computed), to be widened in small steps
+        // with the operator watching the wires. NOT a measured limit.
+        public static double POLLEN_TURRET_MIN = 0.45;
+        public static double POLLEN_TURRET_MAX = 0.55;
+        public static double NECTAR_TURRET_MIN = 0.45;
+        public static double NECTAR_TURRET_MAX = 0.55;
         public static double POLLEN_TURRET_START = 0.5;
         public static double NECTAR_TURRET_START = 0.5;
         public static boolean POLLEN_TURRET_REVERSED = false;

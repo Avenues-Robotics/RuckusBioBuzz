@@ -989,3 +989,30 @@ Scale (taped line, 1%) NOT tested; goBILDA 4-bar pod type unchanged; hand pushes
 +/-12% of a tile (push error), so no gross pod-type error.
 Traces: runs/20261114-180958_rot1, -1810{58}/-1811{02,06}_rot{2,3,4},
 -1811{53}/-181202_spin{ccw,cw}.csv.gz. Fit: rotfit (scratch), model above.
+
+### 2026-11-14 (evening) — crab check: zeroTrim -3.9 deg kept; the rest is rolling steering error
+
+Battery ~13.0 V, FTC tiles, border fence, candidate F gains live, odometry as committed (7edafdba..).
+Six 0.8 s drives at f = +/-0.30 (3 back + 3 forward, interleaved) along the field y axis
+(heading 87-96 deg) per cell. Crab = robot-frame direction of travel minus commanded, from the
+recorded pose after a 0.25 s settle (window ~0.55 s, ~5-6 in); + = CCW. scratch crab.py.
+
+| cell | crab mean [95% CI] | sd | fleet steering err (wheel - tgt) | yaw per run |
+|---|---|---|---|---|
+| calibration as shipped | **-3.88 [-5.30, -2.46]** | 1.35 | -1.4 | +0.1..+2.7 |
+| zeroTrim -3.9 | **-1.28 [-1.78, -0.78]** | 0.48 | -4.6 | -0.4..+0.6 |
+| zeroTrim -3.9 -1.3 | -1.30 [-1.39, -1.21] | 0.09 | -4.8 | -0.4..+0.1 |
+
+The first trim moved the crab +2.6 deg (Welch t ~ 4.5, n = 6/6) and cut the yaw while driving;
+the second trim moved it 0.0 - **reverted, total trim -3.9 kept** (tool cal on the hub; ships
+with the next `robot.py constants` export as podZeroDeg). Criterion (< 1 deg) NOT met.
+
+Why the second trim did nothing: while rolling the pods do not track. Per-pod mean steering
+error over the drives (trimmed cells): BR +2 to +3, FR -5 to -7, FL -3 to -4.5, **BL -11.5 deg**.
+TURN_GAIN_SCHEDULING cuts turn authority to SCHED_FLOOR 0.24 by 0.10 drive power; at F's gains
+that is ~0.02-0.04 servo power for a 5-10 deg error - below floor friction - so the pods stay
+roughly where they were when the drive started (IDLE leaves the servos limp) and a 1.3 deg zero
+change is invisible. The floor (0.24) was sized 2026-08-15 for the OLD 214 deg/s pods, where full
+authority limit-cycled while rolling. Next: SEARCH the floor on the rebuilt pods (setPidf floor=),
+then accept through pedrocheck.
+Traces: runs/20261114-1817*_crab{B,F}{1,2,3}, -1818*_trim{B,F}*, -1819*_trim2{B,F}*.csv.gz.

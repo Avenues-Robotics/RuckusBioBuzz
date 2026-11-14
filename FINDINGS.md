@@ -914,3 +914,24 @@ only on pedrocheck (real Follower, driving), which needs a battery - today is PS
 Rolling side unvalidated: kS .08 scales to ~.019 at SCHED_FLOOR .24 when rolling, but the schedule
 (floor, velocity leg 22 deg/s) was sized for the old 214 deg/s pods.
 Supersedes the blocks candidate (pulsed off, kS .035) for the floor.
+
+### 2026-11-14 — odometry push test: Pinpoint frame is rotated 90 deg from the robot's front
+
+Battery (13.3 V), FTC tiles, Swerve Bring-Up idle, operator pushing by hand inside a 2x2-tile area;
+pose logged from `/state` at ~7 Hz; moves converted to the robot frame with the Pinpoint's own
+heading at the start (-91.5 deg; heading changed < 3 deg per push).
+
+| operator push | expected (robot frame) | Pinpoint measured |
+|---|---|---|
+| forward 1 tile | forward +23.6 | forward -2.2, **left -22.7** (two stages, 5.3 + 17.4) |
+| right 1 tile | left -23.6 | **forward -26.5**, left -2.0 |
+| return, first leg | | left +27.3 (laptop Wi-Fi dropped 14:46:54, rest lost) |
+
+measured (forward, left) = (true left, -true forward): a 90 deg rotation, not a sign error, so
+`pinpointX/YPodReversed` cannot fix it. Most likely the X and Y pod cables are swapped on the
+Pinpoint (or the pods are mounted rotated). The wheel zeros and drive directions follow the
+operator's front, so drive and odometry frames currently disagree by 90 deg - nothing that
+uses the pose (fence, Pedro, TeleOp field-centric) can be trusted until this is fixed.
+Hand pushes are not a scale test (26.5 vs 23.6 in is push error). Asked the operator to check
+the Pinpoint ports; the operator's new offsets (-2.84 / -5.988, uncommitted) depend on which pod
+is X and will need re-deriving.

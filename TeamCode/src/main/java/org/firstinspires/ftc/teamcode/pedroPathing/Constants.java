@@ -82,7 +82,7 @@ public class Constants {
     public static final double[] podMinV = {0.072, 0.094, 0.091, 0.106};
     public static final double[] podMaxV = {3.236, 3.302, 3.289, 3.297};
     public static final boolean[] podDriveReversed = {false, true, false, true};
-    public static final String[] podEncoderNames = {"se1", "se0", "se3", "se2"};
+    public static final String[] podEncoderNames = {"se0", "se2", "se3", "se1"};
     public static final double turnServoCaching = 0.01;
 
     // Pulsed final approach, shared by all four pods (see buildPod)

@@ -806,3 +806,27 @@ applies only to the shelved positional variant.
 - **Drive direction** (`pulseMotor`, operator says which way it would push the robot): BR back, FR
   forward, FL back, BL back -> `setDriveReversed` true on pods 0, 2, 3. Saved.
 - Not done (needs the floor / a battery): crawl crab check + `zeroTrim`.
+
+## 2026-11-14 — `podstep.py`: single-pod step trials (rule 9 declaration)
+
+New tool `tools/swervetune/podstep.py`: one pod per trial (`pidStep pod=N`), same recorder, same
+`swervebench.score_step`, pods and step directions in seeded random order. Written because the
+chassis is on blocks **unstrapped** and the rebuilt pods slew ~2.5x faster than the pods the
+"pidStepAll walks the chassis" warning was written for. Expected effect vs the archive's
+`pidStepAll` steps: only one servo loads the rail and the chassis feels one reaction, so rise
+times may read faster and post-settle motion smaller than an all-four step. Do not compare its
+numbers with pre-2026-11-14 `pidStepAll` trials; compare cells within it.
+
+### 2026-11-14 — rebuilt pods: shipped gains, and single-pulse travel (blocks, PSU 12.45 V)
+
+**Shipped gains on the rebuilt pods** (kP 0.38, kD 0.022, kS 0.022 / 2 deg, cache 0.01, pulsed
+6 deg / 0.6 deg / 0.035 x 20 ms), podstep, 90 deg steps, n=4 per pod (2 each way): **10/16 runs
+loose** (post-settle p-p >= 2 deg); BL one run 82% overshoot with 2 flips; p-p up to 7.1 deg.
+Steady-state |err| mostly < 0.5 deg - the problem is hunting after arrival, not the final error.
+
+**Single open-loop pulse travel from rest** (`phase4_pulsecal.one_pulse`, 4 pulses per pod per
+cell, 2 each direction): 0.020-0.035 power at 20 ms moves 0.06-0.09 deg mean (~encoder noise);
+0.045 x 20 ms 0.29 mean (0.00-1.84); 0.045 x 40 ms 0.77 mean (0.07-3.68). Per pod at 0.045 x 40:
+BR 0.39, FR 0.45, FL 0.76, BL 1.47 deg mean. Travel near breakaway is stick-slip: the same pulse
+moves nothing or several degrees. The shipped 0.035 x 20 ms pulse is now below breakaway, and no
+single pulse lands reliably inside a 0.6 deg tolerance.

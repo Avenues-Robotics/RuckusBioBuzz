@@ -14,10 +14,16 @@
     Names must match the hardwareMap.get() calls in code.
 
     Control Hub (module 173):
-      sm0-sm3            drive motors        motor ports 0-3
-      ss0-ss3            turn servos         servo ports 1-4   (needs the servo power module)
+      Swerve names follow the CORNER Constants.java assigns them (sm#/ss# = pod index; pod 0 BR,
+      1 FR, 2 FL, 3 BL), not the port order. Mapped live 2026-11-14 by pulsing one device at a
+      time with the operator naming the corner (tools log: RUN_STATE.md / FINDINGS.md):
+        corner  motor          servo          encoder (Constants.podEncoderNames)
+        BR      sm0 port 3     ss0 port 3     se0 analog 0
+        FR      sm1 port 0     ss1 port 1     se2 analog 2
+        FL      sm2 port 1     ss2 port 2     se3 analog 3
+        BL      sm3 port 2     ss3 port 4     se1 analog 1
+      se0-se3            Axon absolute enc.  analog ports 0-3  (name = analog port number)
       pollenTurretServo  pollen turret       servo port 5      (systems/turret)
-      se0-se3            Axon absolute enc.  analog ports 0-3  (spliced two per analog port)
       pinpoint           goBILDA Pinpoint    I2C bus 0
       colorSensor        intake color        I2C bus 1         (systems/intake)
 
@@ -34,13 +40,13 @@
 <Robot type="FirstInspires-FTC">
     <LynxUsbDevice name="Control Hub Portal" serialNumber="(embedded)" parentModuleAddress="173">
         <LynxModule name="Control Hub" port="173">
-            <Motor name="sm0" port="0" />
-            <Motor name="sm1" port="1" />
-            <Motor name="sm2" port="2" />
-            <Motor name="sm3" port="3" />
-            <ContinuousRotationServo name="ss0" port="1" />
-            <ContinuousRotationServo name="ss1" port="2" />
-            <ContinuousRotationServo name="ss2" port="3" />
+            <Motor name="sm1" port="0" />
+            <Motor name="sm2" port="1" />
+            <Motor name="sm3" port="2" />
+            <Motor name="sm0" port="3" />
+            <ContinuousRotationServo name="ss1" port="1" />
+            <ContinuousRotationServo name="ss2" port="2" />
+            <ContinuousRotationServo name="ss0" port="3" />
             <ContinuousRotationServo name="ss3" port="4" />
             <Servo name="pollenTurretServo" port="5" />
             <AnalogInput name="se0" port="0" />

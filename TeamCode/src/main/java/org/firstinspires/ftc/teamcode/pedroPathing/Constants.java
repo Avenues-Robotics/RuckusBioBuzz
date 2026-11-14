@@ -70,7 +70,7 @@ public class Constants {
     // Localizer (Pinpoint), inches
     public static final double pinpointXPodOffset = 7.2;
     public static final double pinpointYPodOffset = -15.21;
-    public static final boolean pinpointXPodReversed = true;
+    public static final boolean pinpointXPodReversed = false;
     public static final boolean pinpointYPodReversed = false;
 
     // Pods, indexed by servo number ss0..ss3 (0=RB, 1=RF, 2=LF, 3=LB)

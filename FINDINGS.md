@@ -935,3 +935,57 @@ uses the pose (fence, Pedro, TeleOp field-centric) can be trusted until this is 
 Hand pushes are not a scale test (26.5 vs 23.6 in is push error). Asked the operator to check
 the Pinpoint ports; the operator's new offsets (-2.84 / -5.988, uncommitted) depend on which pod
 is X and will need re-deriving.
+
+### 2026-11-14 (evening) — odometry fixed: X/Y cables swapped, X direction flipped, offsets validated
+
+Battery 13.2–13.9 V, FTC tiles, 2x2-tile area, Swerve Bring-Up, border fence 47.16 x 47.16 in armed
+for every drive (start pose = operator: back-right tile, facing up -> (35.37, 11.79) at 90 deg,
+tile centre assumed, about +/-2 in). Candidate F gains live in the tool.
+
+**Power.** The robot lost power completely at ~17:51:50: both hubs rebooted, logcat
+`HubPowerCycle: Expansion Hub 2 regained power after a complete power loss`. Operator: the battery
+connection is sensitive; re-seated. The 14:46 "laptop Wi-Fi drop" in the first push test was most
+likely the same thing (the robot's AP vanished). A sudden disconnect = suspect power first.
+
+**Cables.** Operator swapped the Pinpoint X and Y pod cables (the 90 deg rotation above).
+
+**Drive breakaway (rebuilt pods, tiles).** f = 0.12 for 1.5 s and f = 0.20 for 1.0 s did not move
+the robot at all (pose and IMU heading unchanged to 0.02 in / 0.02 deg); battery current rose
++0.37 A and +1.3 A, which is what four stalled motors draw at those duties, and the IMU showed no
+yaw, so it is breakaway friction, not pods fighting (operator: "it went forward" at 0.30).
+f = 0.30 moves it. **ROBOT_CONTROL §3.5's 0.12 smoke-test power does not move this robot.**
+Also seen at f = 0.12: pod 0 parked 15 deg off its 90 deg target with 0.044 turn power -
+TURN_GAIN_SCHEDULING cuts authority to 0.24 at drive power >= 0.10 and floor friction wins.
+Traces: runs/20261114-1800{40,129}_fwdcrawl{1,2}.csv.gz.
+
+**Directions** (one change, one test each):
+
+| drive | odo flags | operator saw | Pinpoint (field, heading ~90) | verdict |
+|---|---|---|---|---|
+| f 0.30, 0.8 s | xRev **true**, yRev false | forward | dy **-4.1** in | X reads backward |
+| f 0.30, 1.0 s | xRev **false**, yRev false | forward | dy **+9.8**, dx +1.0 | X correct |
+| s 0.30, 0.8 + 1.0 s | xRev false, yRev false | left (asked for it) | dx -1.8, then **-9.0** (dy +0.8) | Y correct |
+
+Traces: runs/20261114-180420_fwdcrawl3, -180907_fwd4, -1809{20,33}_left{1,2}.csv.gz.
+
+**Offsets** (operator-measured -2.84 / -5.988 in, uncommitted until now). Turn-in-place fits of
+p(theta) = c + [[sin, cos], [-cos, sin]](a, b), where a = xPodOffset_cfg - true and
+b = true - yPodOffset_cfg (in/rad), per trace own c:
+
+| trace | turn | a | b | rms in |
+|---|---|---|---|---|
+| rot1..rot4 (four 90 deg, start/stop each) | +91, -90, -94, +92 | +1.02, -0.46, -1.16, +0.46 | -1.36, -0.19, +0.23, +0.03 | 0.04–0.17 |
+| spinccw (continuous) | +421 | +0.70 | -0.05 | 0.27 |
+| spincw (continuous) | -435 | -0.57 | +0.32 | 0.22 |
+| **joint, both spins** | | **+0.06** | **+0.14** | 0.51 |
+
+An offset error gives the same (a, b) in both directions; a flips sign with direction here, so the
+per-direction term is real robot motion (scrub while pods lag in the turn), not geometry. The joint
+fit's correction is < 0.14 in on both offsets - inside the scrub - so **the operator's offsets are
+kept**. Net pose change after a full turn: 1.3 in (+421 deg), 0.5 in (-435 deg); that is the
+robot actually walking, which the orbit criterion (<= 0.6 in per 45 deg) cannot separate from
+offset error on this drivetrain. Formal SEs are optimistic (autocorrelated residuals).
+Scale (taped line, 1%) NOT tested; goBILDA 4-bar pod type unchanged; hand pushes were within
++/-12% of a tile (push error), so no gross pod-type error.
+Traces: runs/20261114-180958_rot1, -1810{58}/-1811{02,06}_rot{2,3,4},
+-1811{53}/-181202_spin{ccw,cw}.csv.gz. Fit: rotfit (scratch), model above.

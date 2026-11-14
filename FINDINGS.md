@@ -726,3 +726,39 @@ pairs 0.8-0.9 s apart (7 pairs) each recovered fully. Not measured: shots closer
 (300 ms re-arm + ~100 ms recovery) are not scored separately, and the operator's own shot count
 was not recorded, so missed detections are unknown. 2400 is ~93% of the measured full-power speed
 (2582 ticks/s at 12.5 V); gains were searched at 1400-2200, so this extends them upward.
+
+## 2026-11-14 — Phase 0 wiring check after the rebuild (swerve)
+
+Blocks, NOT strapped (operator's call; single-device low-power pulses only), bench PSU 12.6 V /
+10 A limit (hub read 12.49 V), Swerve Bring-Up idle, build e631b9a8 + operator WIP. Hub had **no**
+`swerve_bringup_cal.txt` or `swerve_field_box.txt`: the tool ran on defaults, so stage 1
+calibration starts from scratch.
+
+Method: `rawServo pod=i pow=0.4 sec=1.0` / `pulseMotor pod=i` (0.25 x 0.6 s), one device at a
+time, 6-8 s apart; the operator named the corner; every encoder's volts logged from `/state`
+at ~8 Hz (mean dt 126 ms). The operator's own dashboard spins agreed with every row.
+
+| corner | drive motor | turn servo | encoder | shipped Constants expected |
+|---|---|---|---|---|
+| BR | CH motor 3 | CH servo 3 | analog 0 | sm0 / ss0 / se1 |
+| FR | CH motor 0 | CH servo 1 | analog 2 | sm1 / ss1 / se0 |
+| FL | CH motor 1 | CH servo 2 | analog 3 | sm2 / ss2 / se3 |
+| BL | CH motor 2 | CH servo 4 (moved there by the operator; was in another port) | analog 1 | sm3 / ss3 / se2 |
+
+Fix: config names follow Constants' corners (c989990b), `podEncoderNames` -> {se0, se2, se3, se1}
+(a78f9a16). Not yet checked: drive *directions*, servo directions (both stage 1 / wireScan).
+
+**Pod slew is not the 214 deg/s in CLAUDE.md.** Open loop at 0.4 power, 1 s: 549, 544, 522 deg/s
+(BR, FR, FL; net 593-629 deg each; assumes the encoder is still 1:1 and the default 0-3.3 V
+span). 2.5x faster at less than half power means the turn servos or the servo->pod gearing
+changed. Asked the operator; unanswered. Until answered, treat every turn gain and the 180 deg
+flip coverage (`verifyCoverage`) as unvalidated.
+
+**BL encoder (analog 1) is marginal.** Before the fix it sat at 3.69-3.73 V (above the 3.3 V
+span); during reseating it jumped 0 / 1.36 / 2.31 / 3.7 / 4.7 V. After the fix, at rest over 25 s:
+sd 7.3 mV, range 42 mV (~4.6 deg p-p) vs sd 0.5-1.9 mV on the other three. Reads, but the splice
+is suspect. Old "pod 1 intermittent residual" history was a different index and wiring; no link
+claimed.
+
+Also seen: under the OLD apk, FTC Dashboard warned "Error communicating with I2C device(s)
+'colorSensor'". Not seen since install; recheck under Mechanism Tuner.

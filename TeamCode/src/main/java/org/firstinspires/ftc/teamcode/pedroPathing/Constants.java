@@ -80,7 +80,7 @@ public class Constants {
     public static final double[] turnKSBandDegPerPod = {2.0, 2.0, 2.0, 2.0};
     public static final double[] podZeroDeg = {214.008701, 250.628678, 157.133917, 331.217849};
     public static final double[] podMinV = {0.083, 0.073, 0.145, 0.164};
-    public static final double[] podMaxV = {3.236, 3.302, 3.289, 3.297};
+    public static final double[] podMaxV = {3.301, 3.302, 3.341, 3.391};
     public static final boolean[] podDriveReversed = {false, true, false, true};
     public static final String[] podEncoderNames = {"se0", "se2", "se3", "se1"};
     public static final double turnServoCaching = 0.01;

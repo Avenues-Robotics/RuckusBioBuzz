@@ -68,7 +68,7 @@ public class Constants {
     public static final double translationalKD = 0.025;
 
     // Localizer (Pinpoint), inches
-    public static final double pinpointXPodOffset = 7.2;
+    public static final double pinpointXPodOffset = -2.84;
     public static final double pinpointYPodOffset = -15.21;
     public static final boolean pinpointXPodReversed = false;
     public static final boolean pinpointYPodReversed = false;

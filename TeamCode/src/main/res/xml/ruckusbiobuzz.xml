@@ -15,11 +15,11 @@
 
     Control Hub (module 173):
       sm0-sm3            drive motors        motor ports 0-3
-      ss0-ss3            turn servos         servo ports 0-3   (needs the servo power module)
-      nectarTurretServo  nectar turret       servo port 4      (systems/turret)
+      ss0-ss3            turn servos         servo ports 1-4   (needs the servo power module)
       pollenTurretServo  pollen turret       servo port 5      (systems/turret)
       se0-se3            Axon absolute enc.  analog ports 0-3  (spliced two per analog port)
       pinpoint           goBILDA Pinpoint    I2C bus 0
+      colorSensor        intake color        I2C bus 1         (systems/intake)
 
     Expansion Hub (module 2, the factory default address - check it if the hub was re-addressed):
       intakeLeft         intake              motor port 0      (systems/intake)
@@ -28,6 +28,7 @@
       pollenTurret       pollen flywheel     motor port 3      (systems/shooter)
       scoopula           flower intake drop  servo port 0      (systems/scoopula)
       turretGate         turret gate         servo port 1      (systems/gate)
+      nectarTurretServo  nectar turret       servo port 2      (systems/turret)
 -->
 <Robot type="FirstInspires-FTC">
     <LynxUsbDevice name="Control Hub Portal" serialNumber="(embedded)" parentModuleAddress="173">
@@ -36,11 +37,10 @@
             <Motor name="sm1" port="1" />
             <Motor name="sm2" port="2" />
             <Motor name="sm3" port="3" />
-            <ContinuousRotationServo name="ss0" port="0" />
-            <ContinuousRotationServo name="ss1" port="1" />
-            <ContinuousRotationServo name="ss2" port="2" />
-            <ContinuousRotationServo name="ss3" port="3" />
-            <Servo name="nectarTurretServo" port="4" />
+            <ContinuousRotationServo name="ss0" port="1" />
+            <ContinuousRotationServo name="ss1" port="2" />
+            <ContinuousRotationServo name="ss2" port="3" />
+            <ContinuousRotationServo name="ss3" port="4" />
             <Servo name="pollenTurretServo" port="5" />
             <AnalogInput name="se0" port="0" />
             <AnalogInput name="se1" port="1" />
@@ -57,6 +57,7 @@
             <Motor name="pollenTurret" port="3" />
             <Servo name="scoopula" port="0" />
             <Servo name="turretGate" port="1" />
+            <Servo name="nectarTurretServo" port="2" />
         </LynxModule>
     </LynxUsbDevice>
 </Robot>

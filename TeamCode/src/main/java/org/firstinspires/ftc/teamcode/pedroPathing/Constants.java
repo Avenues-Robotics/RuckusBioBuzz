@@ -78,7 +78,7 @@ public class Constants {
     public static final double[] turnKDPerPod = {0.022, 0.022, 0.022, 0.022};
     public static final double[] turnKSPerPod = {0.022, 0.022, 0.022, 0.022};
     public static final double[] turnKSBandDegPerPod = {2.0, 2.0, 2.0, 2.0};
-    public static final double[] podZeroDeg = {222.32446, 150.14969, 345.92838, 94.87920};
+    public static final double[] podZeroDeg = {214.008701, 250.628678, 157.133917, 331.217849};
     public static final double[] podMinV = {0.072, 0.094, 0.091, 0.106};
     public static final double[] podMaxV = {3.236, 3.302, 3.289, 3.297};
     public static final boolean[] podDriveReversed = {false, true, false, true};

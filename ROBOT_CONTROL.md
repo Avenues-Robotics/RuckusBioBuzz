@@ -223,7 +223,10 @@ fence.
 After "ready":
 1. `python robot.py check` → 0.
 2. On tiles, drive at the lowest meaningful power for about 1 s and confirm the pose moved the way
-   you expected: `python robot.py drive --f 0.12 --sec 1.0 --confirmed-floor`.
+   you expected: `python robot.py drive --f 0.30 --sec 1.0 --confirmed-floor`. (This said 0.12
+   until 2026-11-14: on the rebuilt pods 0.12 and 0.20 do not break the drivetrain loose on tiles
+   at all - stalled-motor current, zero motion - and 0.30, the default cap, moves ~10 in/s.
+   FINDINGS 2026-11-14 evening. A smoke test that does not move proves nothing.)
 3. Only then run the real experiment.
 
 Pass `--confirmed-floor` **only** if this session's operator reply said the robot is on the floor.

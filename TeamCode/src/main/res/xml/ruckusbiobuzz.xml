@@ -23,12 +23,13 @@
 
     Expansion Hub (module 2, the factory default address - check it if the hub was re-addressed):
       intakeLeft         intake              motor port 0      (systems/intake)
-      intakeRight        intake              motor port 1      (systems/intake)
-      nectarTurret       nectar flywheel     motor port 2      (systems/shooter)
-      pollenTurret       pollen flywheel     motor port 3      (systems/shooter)
-      scoopula           flower intake drop  servo port 0      (systems/scoopula)
+      pollenTurret       pollen flywheel     motor port 1      (systems/shooter)
+      nectarTurret       nectar flywheel     motor port 2      (systems/shooter) NOT PLUGGED IN (2026-11-14) -
+                                                               placeholder, Flywheel.java looks it up unconditionally
+      intakeRight        intake              motor port 3      (systems/intake)
+      scoopula           flower intake drop  servo port 0      (systems/scoopula) NOT MOUNTED (2026-11-14) - placeholder
       turretGate         turret gate         servo port 1      (systems/gate)
-      nectarTurretServo  nectar turret       servo port 2      (systems/turret)
+      nectarTurretServo  nectar turret       servo port 2      (systems/turret) NOT MOUNTED (2026-11-14) - placeholder
 -->
 <Robot type="FirstInspires-FTC">
     <LynxUsbDevice name="Control Hub Portal" serialNumber="(embedded)" parentModuleAddress="173">
@@ -52,9 +53,9 @@
         </LynxModule>
         <LynxModule name="Expansion Hub 2" port="2">
             <Motor name="intakeLeft" port="0" />
-            <Motor name="intakeRight" port="1" />
+            <Motor name="pollenTurret" port="1" />
             <Motor name="nectarTurret" port="2" />
-            <Motor name="pollenTurret" port="3" />
+            <Motor name="intakeRight" port="3" />
             <Servo name="scoopula" port="0" />
             <Servo name="turretGate" port="1" />
             <Servo name="nectarTurretServo" port="2" />

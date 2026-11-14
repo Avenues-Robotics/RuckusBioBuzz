@@ -786,3 +786,23 @@ while an older hub config (Abracadabratestbot.xml) has it as `RevColorSensorV3` 
 when it is plugged in. Pinpoint: detected, pose/heading ok; directions and offsets need the floor.
 SystemConstants.Flywheel.NECTAR_PIDF ships (500, 0, 0, 11.7), not the (5, 0.1, 0, 12.4) the run
 prompt assumed.
+
+### 2026-11-14 — Stage 1 calibration on blocks (bring-up tool only; nothing shipped yet)
+
+Blocks, not strapped, PSU (hub 12.48 V). Operator confirmed the pods were **rebuilt**, which
+explains the ~530 deg/s open-loop slew at 0.4 power: every turn gain from before is unvalidated.
+CR pods rotate continuously (600 deg sweeps), so the 270 deg / 180 deg `verifyCoverage` concern
+applies only to the shelved positional variant.
+
+- **wireScan**: BR->se0, FR->se2, FL->se3, BL->se1, all `srvRev=true`, no ambiguity notes.
+- **Encoder ranges** (`sweep`, 4 s x 0.45 per pod): BR 0.083-3.301, FR 0.073-3.302, FL 0.145-3.341,
+  BL 0.164-3.391 V; spans 3.196-3.229 V (within 1%, so no single glitch inflated a bound). FL/BL
+  both sit ~0.07 V higher at each end than BR/FR: looks like a ground offset shared by that pair.
+- **Zeros** (`zeroAll`, operator lined wheels up by eye). Two alignments ~10 min apart: FL agreed
+  to 2.0 deg; BR/FR/BL differed by 185.8 / 182.3 / 184.3 deg, i.e. the wheel flipped end for end
+  plus **2.3-5.8 deg** of by-eye error. Drive direction was set after the second alignment, so the
+  flip is absorbed; the few-degree per-pod error is not, and the crawl crab check (`zeroTrim`)
+  only removes the common part. A straightedge across the wheels would do better.
+- **Drive direction** (`pulseMotor`, operator says which way it would push the robot): BR back, FR
+  forward, FL back, BL back -> `setDriveReversed` true on pods 0, 2, 3. Saved.
+- Not done (needs the floor / a battery): crawl crab check + `zeroTrim`.

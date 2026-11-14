@@ -1065,3 +1065,40 @@ robot stops short and stays there. The Foresight constants are still placeholder
 the tuner was removed with Sloth 2026-11-01 (branch autotune-sloth, CLAUDE.md platform table).
 Heading kP is still reachable through stage 7 (`pedroPidf hp=` arms), but turns need the 2x2.
 Data: current_runs/pedrocheck.jsonl (label pc2x2_ShipVsF), runs/20261114-183*_pc2x2_ShipVsF_*.
+
+### 2026-11-14 (evening) — 1x4 strip: odometry scale exact; SCHED_FLOOR 0.24 vs 0.50 n=10; crab +0.6 deg
+
+Battery 12.8 V, FTC tiles, a 1x4-tile strip with clear floor >= 3.5 in beside each long edge
+(operator), border fence 30.5 x 94.32 in (the strip + that margin; a 23.58-wide fence is refused by
+the 12 in travel rule and pedro targets need 6 in + half-diagonal, so the FOLLOWER CANNOT RUN in a
+strip - drive commands only). Start pose: operator tape, back bumper 3 in from the strip's back
+edge, centred, facing down it -> (15.25, 12.0) at 90.
+
+**Scale.** One f 0.30 drive for 3.5 s: odometry 48.13 in (dx +1.1, yaw +1.3 deg). Operator taped
+the back bumper at the predicted 51.1 in from the back edge: "correct, precise". Scale error not
+resolvable at tape precision (estimated < 0.5%); goBILDA 4-bar pod type confirmed.
+
+**SCHED_FLOOR**, randomised interleaved blocks (seed 11142), each arm one 2.5 s back + one 2.5 s
+forward run at 0.30 per block, 5 blocks: n = 10 drives/arm, ~30 in each, metrics after 0.4 s
+(scratch rollmetrics.py; crab_t = travel direction minus the pods' mean target vector, immune to
+the fence's lateral clamping, which modified 30/31 ticks because the robot sits inside the side
+margin).
+
+| metric | 0.24 (shipped) | 0.50 | diff [95% CI] | p |
+|---|---|---|---|---|
+| mean abs steering err, deg | 4.67 +/- 2.25 | 3.42 +/- 1.52 | -1.25 [-3.06, +0.56] | 0.15 |
+| err sd within run (shake) | 5.27 +/- 3.49 | 3.90 +/- 2.89 | -1.37 [-4.40, +1.65] | 0.34 |
+| wheel reversals /s | 1.99 +/- 2.05 | 3.31 +/- 2.98 | +1.33 [-1.09, +3.74] | 0.25 |
+| crab_t, deg | +0.60 +/- 0.92 | +1.05 +/- 1.08 | +0.44 [-0.50, +1.39] | 0.32 |
+| distance in 2.5 s, in | 27.3 +/- 1.4 | 28.7 +/- 1.1 | +1.4 [+0.2, +2.6] | 0.011 |
+
+No steering metric differs at n = 10; 0.50 leans lower error but more reversals; distance is the
+one significant metric of seven (treat as suggestive). **Floor stays 0.24** (it is a vendored
+RUCKUS PATCH constant - changing it needs more than this). Per-pod |err| at 0.24: BR 3.7, FR 4.9,
+FL 4.1, BL 6.0 deg - long runs track far better than the 0.55 s windows in the 2x2 (7 deg).
+
+**Crab with zeroTrim -3.9, long runs: +0.60 deg [-0.06, +1.26]** (0.24 arm, n = 10) - inside the
+< 1 deg criterion on the point estimate. The 2x2's -1.3 came from 0.55 s windows in which the pods
+had not converged. The trim is accepted (crab -3.9 -> +0.6). The robot crept +4.6 in sideways
+over ~640 in of shuttling (heading hold, not crab).
+Traces: runs/20261114-1843*_scale1, runs/20261114-18*_sf{024,050}_*.csv.gz.

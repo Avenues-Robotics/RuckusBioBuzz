@@ -1016,3 +1016,23 @@ change is invisible. The floor (0.24) was sized 2026-08-15 for the OLD 214 deg/s
 authority limit-cycled while rolling. Next: SEARCH the floor on the rebuilt pods (setPidf floor=),
 then accept through pedrocheck.
 Traces: runs/20261114-1817*_crab{B,F}{1,2,3}, -1818*_trim{B,F}*, -1819*_trim2{B,F}*.csv.gz.
+
+### 2026-11-14 (evening) — SCHED_FLOOR search on the rebuilt pods: 1.0 hunts; 0.24 vs 0.50 unresolved
+
+Battery ~13.0 V, tiles, border fence, candidate F, zeroTrim -3.9. Three arms (setPidf floor=),
+3 blocks, arm order shuffled per block (seed 1114), each arm = one back + one forward 0.8 s drive
+at 0.30 per block (n = 6 drives/arm). Metrics after a 0.25 s settle (scratch rollmetrics.py):
+mean |wheel - tgt| (fleet), its sd within the drive (shake), wheel direction reversals/s.
+
+| floor | mean abs err | err sd (shake) | reversals/s | crab |
+|---|---|---|---|---|
+| 0.24 (shipped) | 7.0 +/- 2.3 | 5.0 +/- 4.2 | 2.9 +/- 3.0 | -0.6 +/- 1.8 |
+| 0.50 | 5.0 +/- 2.1 | 6.0 +/- 3.1 | 3.8 +/- 1.9 | -0.9 +/- 1.3 |
+| 1.00 (no schedule) | 8.6 +/- 1.2 | **11.1 +/- 1.2** | **9.3 +/- 2.8** | +1.2 +/- 1.1 |
+
+**Floor 1.0 limit-cycles while rolling** (as on the old pods, 2026-08-14) - unscheduled is out.
+0.24 vs 0.50 is inside the noise at n = 6. Contaminated: the robot yawed to ~82 deg over the run and
+the fence clamped 3-7 of 7 ticks in blocks 2-3 (per-axis clamping rotates the commanded vector, so
+targets move mid-drive). Block 1 alone (6 deg off-axis less, 0-3 clamps): 0.24 frozen (err sd
+0.1, 0 reversals, |err| 5.2), 0.50 tracking (|err| 2.3-3.2). Needs a bigger clean area or
+pedrocheck to settle. Floor restored to 0.24. Traces runs/20261114-18*_fl{024,050,100}_*.csv.gz.

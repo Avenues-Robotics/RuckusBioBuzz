@@ -929,17 +929,39 @@ def cmd_burst(args) -> int:
     pidf = wheel_of(state(), args.wheel)["pidf"]
     label = args.label or time.strftime(f"burst-{args.wheel}-%H%M%S")
     send("servoPos", name="gate", pos=g_close)
+    send("intake", mode="OFF")
     send("fly", wheel=args.wheel, vel=args.target)
     wait_armed(args.wheel, 15.0)
+    piece = "POLLEN" if args.wheel == "pollen" else "NECTAR"
+    # Nothing feeds until the operator says GO (2026-11-15: opening at once fired a staged piece).
+    go = post_note(f"BURST READY: wheel at {int(args.target)}, gate CLOSED, intake OFF. Load {args.balls} {piece} "
+                   f"where the intake will take them, hands clear, then press Done = GO (gate opens, intake runs).",
+                   "action", "ack")
+    print(f"[asked operator #{go}] waiting for GO", flush=True)
+    end = time.time() + args.ready_timeout
+    while True:
+        notes = json.loads(_get("/notes", {"since": go - 1}))["notes"]
+        note = next((x for x in notes if x["id"] == go), None)
+        if note and note["resolved"]:
+            if note["resolution"] not in ("done",):
+                send("flyOff", wheel=args.wheel)
+                raise RobotError(f"operator answered {note['resolution']} - burst cancelled, wheel off")
+            break
+        if time.time() > end:
+            _get("/ack", {"id": go, "resolution": "timed out"}, retries=1)
+            send("flyOff", wheel=args.wheel)
+            raise RobotError("no GO within --ready-timeout - burst cancelled, wheel off")
+        if wheel_of(gstate(), args.wheel)["mode"] != "VEL":
+            raise RobotError("wheel left VEL mode while waiting for GO")
+        time.sleep(0.15)
     send("recStart", label=label)
-    time.sleep(0.4)
+    time.sleep(0.3)
     nid = None
     try:
         send("servoPos", name="gate", pos=g_open)
         send("intake", mode="IN")
-        piece = "POLLEN" if args.wheel == "pollen" else "NECTAR"
-        nid = post_note(f"BURST: gate OPEN, intake RUNNING, wheel at {int(args.target)}. Drop {args.balls} "
-                        f"{piece} into the intake now, back to back. Press Done when the last one is out.",
+        nid = post_note(f"BURST: gate OPEN, intake RUNNING, wheel at {int(args.target)}. Feed the {args.balls} "
+                        f"{piece}; press Done when the last one is out (gate closes, intake stops).",
                         "action", "ack")
         print(f"[asked operator #{nid}] burst of {args.balls} at {args.target:.0f}, pidf {pidf}", flush=True)
         end = time.time() + args.timeout
@@ -1244,7 +1266,8 @@ def main(argv: list[str]) -> int:
     clear(p); p.set_defaults(fn=cmd_hold)
     p = sub.add_parser("burst"); wheel(p); p.add_argument("--target", type=float, required=True)
     p.add_argument("--balls", type=int, default=4); p.add_argument("--pidf", default=None, help='"P I D F" to set first')
-    p.add_argument("--timeout", type=float, default=60); p.add_argument("--label", default=None)
+    p.add_argument("--timeout", type=float, default=30); p.add_argument("--label", default=None)
+    p.add_argument("--ready-timeout", type=float, default=300)
     p.add_argument("--keep-spinning", action="store_true"); clear(p); p.set_defaults(fn=cmd_burst)
     p = sub.add_parser("rapidfire"); wheel(p); p.add_argument("--target", type=float, required=True)
     clear(p); p.set_defaults(fn=cmd_rapidfire)

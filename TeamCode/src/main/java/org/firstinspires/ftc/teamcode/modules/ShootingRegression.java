@@ -16,7 +16,10 @@ import org.firstinspires.ftc.teamcode.systems.Turret;
 public class ShootingRegression {
 
     // ---- fitted values (written by mechtune.py export --only regression --write) ----
-    public static double[] POLLEN_COEFFS = {0, 1};
+    // STOPGAP 2026-11-15, not a fit: a flat 2400 ticks/s (~90% of the 2650-2675 measured at full power, 12.6 V;
+    // operator: the hive needs ~100% power from a normal distance, and 2400 leaves headroom to recover after a
+    // shot on a sagging battery). Replace with a Regression-tab fit. Was {0, 1}: ticks/s = inches, ~4% power.
+    public static double[] POLLEN_COEFFS = {2400, 0};
     public static double[] NECTAR_COEFFS = {0, 1};
     /** {min, max} distance (inches) the fit was recorded over. */
     public static double[] POLLEN_RANGE = {0, 1000};

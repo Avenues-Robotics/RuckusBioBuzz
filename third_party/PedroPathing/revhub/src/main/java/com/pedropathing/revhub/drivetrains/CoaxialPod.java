@@ -175,26 +175,38 @@ public class CoaxialPod implements SwervePod {
      * deg of mean error, 46-127 ms of lag, and a 3 Hz staircase/limit cycle as the schedule and the deadband
      * fight over it. This adds kV x (rate of the demand) - the push the sweep needs, up front - so feedback
      * only corrects what is left. The rate is taken from the UNFLIPPED target (a flip turns the target 180 deg
-     * in one call but both frames rotate together), low-passed with time constant tau, and a single-call jump
-     * faster than DEMAND_RATE_STEP_RAD_S counts as a step (X-lock entry, a flip-skipped slew), not a sweep,
-     * and contributes nothing. Added after the gain schedule: a rolling pod still needs the full sweep push.
+     * in one call but both frames rotate together), low-passed with time constant tau, and a single-call rate
+     * at or above demandRateMaxRadS counts as a step, not a sweep, and contributes nothing. Added after the gain
+     * schedule: a rolling pod still needs the full sweep push.
+     *
+     * <p>demandRateMaxRadS (2026-11-15): Swerve's demand slew limiter turns every stick FLICK into a ramp at
+     * exactly the slew rate. Fed forward, that ramp drives the pod at the slew rate into ~60 ms of dead time and
+     * it sails past the end (flick square: 27-41 deg overshoot vs 20 without). Setting this just under the slew
+     * rate leaves flicks to the feedback and keeps the feed-forward for real sweeps, which turn slower than the
+     * limiter. Default 900 deg/s: only X-lock entries and flip-skipped jumps are excluded.
      */
     private static double demandRateKv = 0.0;
     private static double demandRateTauS = 0.05;
-    private static final double DEMAND_RATE_STEP_RAD_S = Math.toRadians(900);
+    private static double demandRateMaxRadS = Math.toRadians(900);
     private double prevDesiredRad = Double.NaN;
     private long prevDesiredNano = 0;
     private double demandRateRadS = 0;
 
     /** RUCKUS PATCH: runtime tuning of the demand-rate feed-forward, robot-wide. NaN leaves a value alone. */
     public static void setDemandRateFeedforward(double kvPowerPerRadS, double tauS) {
-        if (!Double.isNaN(kvPowerPerRadS)) demandRateKv = Math.max(0.0, kvPowerPerRadS);
-        if (!Double.isNaN(tauS)) demandRateTauS = Math.max(0.0, tauS);
+        setDemandRateFeedforward(kvPowerPerRadS, tauS, Double.NaN);
     }
 
-    /** {kV (power per rad/s), tau (s)}. */
+    /** As above, plus the rate at or above which a demand change counts as a step (rad/s). NaN leaves it. */
+    public static void setDemandRateFeedforward(double kvPowerPerRadS, double tauS, double maxRadS) {
+        if (!Double.isNaN(kvPowerPerRadS)) demandRateKv = Math.max(0.0, kvPowerPerRadS);
+        if (!Double.isNaN(tauS)) demandRateTauS = Math.max(0.0, tauS);
+        if (!Double.isNaN(maxRadS)) demandRateMaxRadS = Math.max(Math.toRadians(30), Math.abs(maxRadS));
+    }
+
+    /** {kV (power per rad/s), tau (s), max rate (rad/s)}. */
     public static double[] getDemandRateFeedforward() {
-        return new double[] {demandRateKv, demandRateTauS};
+        return new double[] {demandRateKv, demandRateTauS, demandRateMaxRadS};
     }
 
     /** RUCKUS PATCH: see {@link #setDerivativeOnMeasurement}. */
@@ -395,7 +407,7 @@ public class CoaxialPod implements SwervePod {
             double dtD = (nowNano - prevDesiredNano) / 1.0e9;
             if (dtD > 1e-6 && dtD < 0.1) {
                 double r = Angle.normalizeSigned(desiredUnflippedRad - prevDesiredRad) / dtD;
-                if (Math.abs(r) > DEMAND_RATE_STEP_RAD_S) {
+                if (Math.abs(r) >= demandRateMaxRadS) {
                     r = 0;
                 }
                 double alpha = demandRateTauS > 0 ? dtD / (demandRateTauS + dtD) : 1.0;

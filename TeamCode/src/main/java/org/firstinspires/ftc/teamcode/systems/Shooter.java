@@ -113,6 +113,10 @@ public class Shooter {
     }
 
     public boolean inZone() { return zone.inZone(predictiveAiming.predictPose()); }
+    /** Driver telemetry: pollen wheel velocity, its current commanded target (ticks/s), and the F voltage scale. */
+    public double pollenVelocity() { return flywheel.pollenVelocity(); }
+    public double pollenCommand() { return flywheel.pollenCommand(); }
+    public double flywheelFScale() { return flywheel.fScale(); }
     public boolean pollenAimed() { return aiming.pollenAimed(); }
     public boolean nectarAimed() { return aiming.nectarAimed(); }
 }

@@ -108,6 +108,8 @@ public class TeleOp extends OpMode {
         out.addData("heading (deg)", Math.toDegrees(pose.heading()));
         out.addData("in zone", shooterSystem.inZone());
         out.addData("ready", shooterSystem.ready());
+        out.addData("pollen wheel (ticks/s)", Math.round(shooterSystem.pollenVelocity()) + " / " + Math.round(shooterSystem.pollenCommand()));
+        out.addData("F volt scale", Math.round(shooterSystem.flywheelFScale() * 1000) / 1000.0);
         addLoopStats();
         out.update();
     }

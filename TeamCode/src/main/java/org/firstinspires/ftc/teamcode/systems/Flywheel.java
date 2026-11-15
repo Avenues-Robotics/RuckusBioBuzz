@@ -22,6 +22,7 @@ public class Flywheel {
     private final VelocityWriter pollenWriter;
     private final VelocityWriter nectarWriter;
     private double pollenTarget;
+    private double pollenCommand;
     private double nectarTarget;
     private double pollenVelocity;
     private double nectarVelocity;
@@ -84,11 +85,17 @@ public class Flywheel {
         double scale = inZone ? 1 : SystemConstants.Flywheel.IDLE_FRACTION;
         pollenTarget = regression.shooterspeedpollen();
         nectarTarget = regression.shooterspeednectar();
-        pollenWriter.set(pollenTarget * scale, SystemConstants.Flywheel.POLLEN_FLYWHEEL_REVERSED);
+        pollenCommand = pollenTarget * scale;
+        pollenWriter.set(pollenCommand, SystemConstants.Flywheel.POLLEN_FLYWHEEL_REVERSED);
         nectarWriter.set(nectarTarget * scale, SystemConstants.Flywheel.NECTAR_FLYWHEEL_REVERSED);
         pollenVelocity = pollenFlywheel.getVelocity();
         nectarVelocity = nectarFlywheel.getVelocity();
     }
+    public double pollenVelocity() { return pollenVelocity; }
+    /** What the wheel is commanded right now: the shooting target, or IDLE_FRACTION of it out of the zone. */
+    public double pollenCommand() { return pollenCommand; }
+    /** F multiplier currently applied by the voltage compensation (1.0 when off). */
+    public double fScale() { return appliedFScale; }
     public boolean atSpeedPollen() { return atSpeedPollen(SystemConstants.Flywheel.AT_SPEED_FRACTION); }
     public boolean atSpeedNectar() { return atSpeedNectar(SystemConstants.Flywheel.AT_SPEED_FRACTION); }
     public boolean atSpeedPollen(double fraction) { return atSpeed(pollenVelocity, pollenTarget, fraction); }

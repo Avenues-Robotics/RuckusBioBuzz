@@ -724,6 +724,11 @@ public class SwerveBringUp extends OpMode {
     private double fTransKD = Constants.translationalKD;
     private double fFwdDecel = Constants.naturalForwardDeceleration;
     private double fStrDecel = Constants.naturalStrafeDeceleration;
+    // Heading braking (lookahead) and pinned quadratic brake coefficients - NaN = derived as Constants does.
+    private double fHeadBrakeLin = Constants.headingBrakeLinear;
+    private double fHeadBrakeQuad = Constants.headingBrakeQuadratic;
+    private double fFwdBrakeQuad = Double.NaN;
+    private double fStrBrakeQuad = Double.NaN;
 
     /**
      * Writes the tracked follower gains onto the shared config. The quadratic brake coefficient
@@ -745,8 +750,11 @@ public class SwerveBringUp extends OpMode {
         boolean strDerived = Constants.strafeBrakeQuadratic
                 == 1.0 / (2 * Constants.naturalStrafeDeceleration);
         fc.quadraticBrakeCoefficients.set(com.pedropathing.math.Matrix.diag(
-                fwdDerived ? 1.0 / (2 * fFwdDecel) : Constants.forwardBrakeQuadratic,
-                strDerived ? 1.0 / (2 * fStrDecel) : Constants.strafeBrakeQuadratic));
+                !Double.isNaN(fFwdBrakeQuad) ? fFwdBrakeQuad
+                        : fwdDerived ? 1.0 / (2 * fFwdDecel) : Constants.forwardBrakeQuadratic,
+                !Double.isNaN(fStrBrakeQuad) ? fStrBrakeQuad
+                        : strDerived ? 1.0 / (2 * fStrDecel) : Constants.strafeBrakeQuadratic));
+        fc.headingBrakeCoefficients.set(com.pedropathing.math.Vector2D.cartesian(fHeadBrakeLin, fHeadBrakeQuad));
     }
 
     /** Pinpoint geometry as last written to the device - Constants at init, then odoConfig. */
@@ -1032,6 +1040,7 @@ public class SwerveBringUp extends OpMode {
     // Vendored defaults (third_party/.../Swerve.java and CoaxialPod.java). Keep in step with them.
     private static final boolean VENDORED_EPSILON_TAPER = true;
     private static final double VENDORED_DEMAND_SLEW_DEG_S = 214.0;
+    private static final double VENDORED_SMALL_TURN_ROLLOUT_S = 0.0;
     private static final double VENDORED_SCHED_FLOOR = 0.24;
     private static final double VENDORED_SCHED_VEL_START_RAD_S = Math.toRadians(22);
     private static final double VENDORED_SCHED_ERR_GATE_RAD = Math.toRadians(20);
@@ -1055,9 +1064,14 @@ public class SwerveBringUp extends OpMode {
         fTransKD = Constants.translationalKD;
         fFwdDecel = Constants.naturalForwardDeceleration;
         fStrDecel = Constants.naturalStrafeDeceleration;
+        fHeadBrakeLin = Constants.headingBrakeLinear;
+        fHeadBrakeQuad = Constants.headingBrakeQuadratic;
+        fFwdBrakeQuad = Double.NaN;
+        fStrBrakeQuad = Double.NaN;
         applyFollowerGains();
         Swerve.setEpsilonTaper(VENDORED_EPSILON_TAPER);
         Swerve.setDemandSlewDegPerSec(VENDORED_DEMAND_SLEW_DEG_S);
+        Swerve.setSmallTurnRolloutS(VENDORED_SMALL_TURN_ROLLOUT_S);
         CoaxialPod.setScheduleTuning(VENDORED_SCHED_FLOOR, VENDORED_SCHED_VEL_START_RAD_S,
                 VENDORED_SCHED_ERR_GATE_RAD);
         CoaxialPod.setScheduleRamp(VENDORED_SCHED_RAMP_DRIVE);
@@ -1071,7 +1085,10 @@ public class SwerveBringUp extends OpMode {
                 && fStrSecKP == Constants.strafeTranslationalSecondaryKP
                 && fTransKI == Constants.translationalKI && fTransKD == Constants.translationalKD
                 && fFwdDecel == Constants.naturalForwardDeceleration
-                && fStrDecel == Constants.naturalStrafeDeceleration;
+                && fStrDecel == Constants.naturalStrafeDeceleration
+                && fHeadBrakeLin == Constants.headingBrakeLinear
+                && fHeadBrakeQuad == Constants.headingBrakeQuadratic
+                && Double.isNaN(fFwdBrakeQuad) && Double.isNaN(fStrBrakeQuad);
     }
 
     /** True while the mixer and schedule are exactly what ships. */
@@ -1079,6 +1096,7 @@ public class SwerveBringUp extends OpMode {
         double[] sch = CoaxialPod.getScheduleTuning();
         return Swerve.getEpsilonTaper() == VENDORED_EPSILON_TAPER
                 && Swerve.getDemandSlewDegPerSec() == VENDORED_DEMAND_SLEW_DEG_S
+                && Swerve.getSmallTurnRolloutS() == VENDORED_SMALL_TURN_ROLLOUT_S
                 && sch[0] == VENDORED_SCHED_FLOOR && sch[1] == VENDORED_SCHED_VEL_START_RAD_S
                 && sch[2] == VENDORED_SCHED_ERR_GATE_RAD;
     }
@@ -3587,10 +3605,15 @@ public class SwerveBringUp extends OpMode {
                     com.pedropathing.revhub.drivetrains.Swerve.setDemandSlewDegPerSec(
                             doubleArg(cmd, "slew", 300));
                 }
+                if (cmd.get("rollout") != null) {
+                    com.pedropathing.revhub.drivetrains.Swerve.setSmallTurnRolloutS(
+                            doubleArg(cmd, "rollout", 0.3));
+                }
                 message = String.format(Locale.US,
-                        "Mixer: epsilon taper %s, demand slew %.0f deg/s.",
+                        "Mixer: epsilon taper %s, demand slew %.0f deg/s, small-turn roll-out %.2f s.",
                         com.pedropathing.revhub.drivetrains.Swerve.getEpsilonTaper() ? "on" : "off",
-                        com.pedropathing.revhub.drivetrains.Swerve.getDemandSlewDegPerSec());
+                        com.pedropathing.revhub.drivetrains.Swerve.getDemandSlewDegPerSec(),
+                        com.pedropathing.revhub.drivetrains.Swerve.getSmallTurnRolloutS());
                 break;
             }
 
@@ -4225,6 +4248,9 @@ public class SwerveBringUp extends OpMode {
                 //   tfp tfs tsp tss      forward/strafe primary/secondary kP individually
                 //   ti td                translational kI, kD (all four controllers)
                 //   fzpa lzpa            natural forward/strafe deceleration, in/s^2
+                //   hbl hbq              heading braking (lookahead) linear / quadratic coefficients
+                //   fbq sbq              forward/strafe quadratic brake coefficient, PINNED (else it
+                //                        follows fzpa/lzpa as 1/(2a), the way Constants derives it)
                 ForesightConfig fc = Constants.foresightConfig;
                 List<String> ignored = new ArrayList<>();
                 for (String k : new String[] {"tf", "dp", "di", "dd", "dt", "df", "cent"}) {
@@ -4253,6 +4279,10 @@ public class SwerveBringUp extends OpMode {
                 if (lzpa > 0) {
                     fStrDecel = lzpa;
                 }
+                fHeadBrakeLin = doubleArg(cmd, "hbl", fHeadBrakeLin);
+                fHeadBrakeQuad = doubleArg(cmd, "hbq", fHeadBrakeQuad);
+                fFwdBrakeQuad = doubleArg(cmd, "fbq", fFwdBrakeQuad);
+                fStrBrakeQuad = doubleArg(cmd, "sbq", fStrBrakeQuad);
                 applyFollowerGains();
                 if (pedro != null) {
                     pedroBreak();
@@ -4267,6 +4297,9 @@ public class SwerveBringUp extends OpMode {
                                 + "pedroStart to rebuild.",
                         fHeadingKP, fFwdPrimKP, fFwdSecKP, fStrPrimKP, fStrSecKP, fTransKI,
                         fTransKD, fFwdDecel, fStrDecel)
+                        + String.format(Locale.US, " Heading braking %.4f/%.4f, brake quad %s/%s.", fHeadBrakeLin,
+                                fHeadBrakeQuad, Double.isNaN(fFwdBrakeQuad) ? "derived" : String.valueOf(fFwdBrakeQuad),
+                                Double.isNaN(fStrBrakeQuad) ? "derived" : String.valueOf(fStrBrakeQuad))
                         + (ignored.isEmpty() ? "" : " IGNORED, no Pedro 3 equivalent: " + ignored);
                 break;
             }

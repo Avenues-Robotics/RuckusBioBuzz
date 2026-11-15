@@ -1520,3 +1520,27 @@ READY after 0.35 s)". Not yet exercised against a real freeze.
 
 Also measured on the way: heading ID without a reset gave K 4.02 rad/s per power, kP 13.8 (vs K 6.45-6.61 in the
 three runs earlier today) - the turning plant is not stationary; pedrocheck, not one run, has to decide kP.
+
+## 2026-11-15 — Pod snap on stop: small-turn roll-out tested - it stops the snap, not the jolt (vendored, default OFF)
+
+Hypothesis (from the jolt recordings): a stop with a small heading correction still running sends every pod to
+its rotation tangent while the chassis rolls, and that scrubs it to the violent stop. Vendored Swerve patch:
+within 0.3 s of translation, a turn input under 0.05 is treated as zero (pods released holding the travel
+direction). A/B on the Foresight BRAKE stage (rollout_ab.py; setMixer rollout=0 vs 0.3; 3 runs x 5 trials per
+arm, randomised interleaved; tiles, 2x2 fence, 12.8 V). Stops inside the patch's condition (|translation| < 0.05,
+0.015 <= |turn| < 0.05):
+
+| | roll-out off (n = 9) | roll-out on (n = 6) |
+|---|---|---|
+| pod rotation in the 0.3 s after the stop | 13-100 deg, mean 59 | 1-25 deg, mean 11 |
+| turn-servo power, same window | ~0.14 | ~0.03 |
+| peak deceleration 0-0.3 s | mean 183 in/s^2 | mean 199 in/s^2 |
+| speed at +0.3 s | 0.1-1.4 in/s | 0-0.3 in/s |
+| stopping distance | 0.6-4.6 in | 0.5-4.4 in |
+
+The patch does what it says, but the stop is no gentler: the robot stops from ~27 in/s within 0.3 s in both arms.
+The abruptness is the rebuilt drivetrain's own coast deceleration (85-100 in/s^2 measured today, 40 on the old
+pods), not the pod snap - hypothesis refuted. (The ctgt column could not show this: a released pod still records
+its demand; pod rotation came from the wheel angle.) Patch kept in the fork, **default 0 = upstream behaviour**,
+switchable for later (setMixer rollout=); RUCKUS_PATCHES.md row added. The operator's violent jolts were the hold
+oscillation (kD, fixed above).

@@ -16,6 +16,7 @@ import java.util.List;
 
 import org.firstinspires.ftc.teamcode.fieldview.FieldView;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
+import org.firstinspires.ftc.teamcode.helpers.PinpointGuard;
 import org.firstinspires.ftc.teamcode.helpers.PoseStorage;
 import org.firstinspires.ftc.teamcode.modules.Cache;
 import org.firstinspires.ftc.teamcode.modules.PredictiveAiming;
@@ -38,6 +39,9 @@ public class TeleOp extends OpMode {
     private long lastLoopNs;
     private final Cache telemetryCache = new Cache();
     private MultipleTelemetry out;
+    private PinpointGuard pinpointGuard;
+    private Pose autoEndPose;
+    private boolean frozenWarned;
 
     @Override
     public void init() {
@@ -47,10 +51,14 @@ public class TeleOp extends OpMode {
             hub.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         }
         follower = Constants.createFollower(hardwareMap);
-        Pose autoEndPose = PoseStorage.take();
+        autoEndPose = PoseStorage.take();
         if (autoEndPose != null) {
             follower.setPose(autoEndPose);
         }
+        // Pinpoint heading has frozen after app restarts; reset position + IMU while the robot stands still at
+        // init, then put the auto's pose back once the reset is done (helpers/PinpointGuard).
+        pinpointGuard = new PinpointGuard(hardwareMap);
+        pinpointGuard.begin();
         predictor = new PredictiveAiming(follower);
         scoopula = new Scoopula(hardwareMap);
         // Shooter and Intake are alliance-dependent: built in start(), after init_loop's X/B pick.
@@ -60,12 +68,19 @@ public class TeleOp extends OpMode {
     public void init_loop() {
         if (gamepad1.x) alliance = Alliance.BLUE;
         if (gamepad1.b) alliance = Alliance.RED;
+        if (pinpointGuard.update()) {
+            restorePose();
+        }
+        out.addData("pinpoint", pinpointGuard.status());
         out.addData("alliance (X blue, B red)", alliance);
         out.update();
     }
 
     @Override
     public void start() {
+        if (pinpointGuard.finish()) {
+            restorePose();
+        }
         shooterSystem = new Shooter(hardwareMap, predictor, alliance);
         intake = new Intake(hardwareMap, alliance);
     }
@@ -88,6 +103,13 @@ public class TeleOp extends OpMode {
         Swerve.setTranslationPriority(SystemConstants.TeleOp.TRANSLATION_PRIORITY);
         follower.manual(-gamepad1.left_stick_y, -gamepad1.left_stick_x, -gamepad1.right_stick_x);
         follower.update();
+        // Heading not moving by a single bit while the driver turns hard = frozen Pinpoint: rumble once (works
+        // with telemetry off) and say so below. Recovery is a restart of TeleOp with the robot still.
+        boolean frozen = pinpointGuard.frozenWhileTurning(pose.heading(), -gamepad1.right_stick_x);
+        if (frozen && !frozenWarned) {
+            gamepad1.rumble(600);
+        }
+        frozenWarned = frozen;
         // Right trigger held = shoot now: gate open, flywheel at full target, intake feeding (below).
         shooterSystem.setManualShoot(gamepad1.right_trigger > 0.5);
         // Shooter first, so the intake follows this loop's SHOOT decision, not last loop's.
@@ -102,6 +124,9 @@ public class TeleOp extends OpMode {
         if (!Config.telemetryEnabled() || !telemetryCache.due(SystemConstants.Cache.TELEMETRY_INTERVAL_MS)) {
             return;
         }
+        if (frozen) {
+            out.addData("WARNING", "Pinpoint heading FROZEN - aiming and odometry are wrong");
+        }
         out.addData("alliance", alliance);
         out.addData("x", pose.x());
         out.addData("y", pose.y());
@@ -112,6 +137,13 @@ public class TeleOp extends OpMode {
         out.addData("F volt scale", Math.round(shooterSystem.flywheelFScale() * 1000) / 1000.0);
         addLoopStats();
         out.update();
+    }
+
+    /** After the init IMU reset: the auto's pose if there was one, else the reset's 0,0,0 stands. */
+    private void restorePose() {
+        if (autoEndPose != null) {
+            follower.setPose(autoEndPose);
+        }
     }
 
     private void addLoopStats() {

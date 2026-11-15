@@ -20,6 +20,7 @@ import org.firstinspires.ftc.teamcode.AutoConstants;
 import org.firstinspires.ftc.teamcode.auto.modules.AutoMechanisms;
 import org.firstinspires.ftc.teamcode.auto.modules.PathStep;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
+import org.firstinspires.ftc.teamcode.helpers.PinpointGuard;
 import org.firstinspires.ftc.teamcode.helpers.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -40,6 +41,7 @@ public class RedSoloAuto extends OpMode {
 
     private Follower follower;
     private AutoMechanisms mechanisms;
+    private PinpointGuard pinpointGuard;
     private AutoPath chain1;
     private AutoPath chain2;
     private AutoPath chain3;
@@ -74,6 +76,10 @@ public class RedSoloAuto extends OpMode {
         PoseStorage.clear();
         follower = Constants.createFollower(hardwareMap);
         follower.setPose(START_STEP.toPose());
+        // Hand-wired (re-apply after a visualizer export): reset Pinpoint position + IMU while the robot stands
+        // still at init - the heading has frozen after app restarts - and set the start pose again once done.
+        pinpointGuard = new PinpointGuard(hardwareMap);
+        pinpointGuard.begin();
         mechanisms = new AutoMechanisms(hardwareMap, follower, Alliance.RED);
 
         shootTimeMs = Math.round(AutoConstants.Autonomous.SHOOT_TIME);
@@ -88,6 +94,10 @@ public class RedSoloAuto extends OpMode {
         // Pedro 3's update() with no path stops the drivetrain, writing every servo each loop.
         // Refresh the localizer alone so init stays actuator-silent.
         follower.localizer.update();
+        if (pinpointGuard.update()) {
+            follower.setPose(START_STEP.toPose());
+        }
+        telemetry.addData("Pinpoint", pinpointGuard.status());
         updateTelemetry("Ready");
     }
 
@@ -100,6 +110,7 @@ public class RedSoloAuto extends OpMode {
         resetRepeatLoops();
         resetParallelEvents();
 
+        pinpointGuard.finish();
         follower.setPose(START_STEP.toPose());
     }
 

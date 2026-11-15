@@ -61,7 +61,7 @@ public final class SystemConstants {
         // Overshoot at the ends is still NOT measured. If this skips too, 360 deg is not reachable
         // at full servo speed: slow the approach near the ends, or give up a few degrees.
         public static double POLLEN_TURRET_MIN = 0.018;
-        public static double POLLEN_TURRET_MAX = 0.997;
+        public static double POLLEN_TURRET_MAX = 0.982;
         // NECTAR: not mounted on 2026-11-14 - still the narrow +/-18.7 deg guess, NOT measured.
         public static double NECTAR_TURRET_MIN = 0.45;
         public static double NECTAR_TURRET_MAX = 0.55;

@@ -155,6 +155,22 @@ public class TuningWebApp {
                 }
             };
 
+            // Driver Station tab: gamepad1 for the running OpMode with no DS (GamepadBridge).
+            WebHandler gamepad = new WebHandler() {
+                @Override
+                public NanoHTTPD.Response getResponse(NanoHTTPD.IHTTPSession session) {
+                    return text(MIME_JSON, GamepadBridge.update(params(session)));
+                }
+            };
+            WebHandler gamepadOff = new WebHandler() {
+                @Override
+                public NanoHTTPD.Response getResponse(NanoHTTPD.IHTTPSession session) {
+                    return text(MIME_JSON, GamepadBridge.neutral());
+                }
+            };
+
+            manager.register("/tune/gamepad", gamepad);
+            manager.register("/tune/gamepadOff", gamepadOff);
             manager.register("/tune", page);
             manager.register("/tune/", page);
             manager.register("/tune/notify.js", notifyJs);

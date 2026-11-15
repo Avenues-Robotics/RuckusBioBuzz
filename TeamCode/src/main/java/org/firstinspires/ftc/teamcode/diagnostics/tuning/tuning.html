@@ -2023,7 +2023,20 @@ poll();
       left_trigger: 0, right_trigger: 0, touchpad: false };
   }
   function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
-  function sendNeutral() { send({ type: 'RECEIVE_GAMEPAD_STATE', gamepad1: neutral(), gamepad2: neutral() }); }
+  // Gamepad goes to the tuner's own bridge (/tune/gamepad -> GamepadBridge), not to Dashboard: on SDK 12 an
+  // iterative OpMode re-copies its DS gamepad data into gamepad1 before every loop(), wiping Dashboard's write.
+  var padBusy = false, padReply = '';
+  function sendNeutral() { fetch('/tune/gamepadOff').catch(function () {}); }
+  function postPad(g) {
+    if (padBusy) return;
+    var btn = Object.keys(g).filter(function (k) { return g[k] === true; }).join(',');
+    var q = 'lx=' + g.left_stick_x + '&ly=' + g.left_stick_y + '&rx=' + g.right_stick_x + '&ry=' + g.right_stick_y +
+      '&lt=' + (+g.left_trigger).toFixed(3) + '&rt=' + (+g.right_trigger).toFixed(3) + '&btn=' + encodeURIComponent(btn);
+    padBusy = true;
+    fetch('/tune/gamepad?' + q).then(function (r) { return r.json(); }).then(function (j) {
+      padReply = j.ok ? ('robot: ok, ' + j.opMode) : ('robot: ' + (j.message || 'refused'));
+    }).catch(function () { padReply = 'robot: no reply'; }).then(function () { padBusy = false; });
+  }
   function setEnabled(on) {
     enabled = on;
     if (!on) sendNeutral();
@@ -2138,9 +2151,9 @@ poll();
     var cap = +$$('dsCap').value;
     ['left_stick_x', 'left_stick_y', 'right_stick_x', 'right_stick_y'].forEach(function (f) { g[f] = +(g[f] * cap).toFixed(3); });
     $$('dsSrc').textContent = 'input: ' + src;
-    $$('dsOut').textContent = enabled ? ('LX ' + g.left_stick_x + '  LY ' + g.left_stick_y + '  RX ' + g.right_stick_x) : 'off';
+    $$('dsOut').textContent = enabled ? ('LX ' + g.left_stick_x + '  LY ' + g.left_stick_y + '  RX ' + g.right_stick_x + '   ' + padReply) : 'off';
     if (enabled && document.visibilityState === 'visible' && tabShowing()) {
-      send({ type: 'RECEIVE_GAMEPAD_STATE', gamepad1: g, gamepad2: neutral() });
+      postPad(g);
     }
   }, 50);
   setInterval(function () { send({ type: 'GET_ROBOT_STATUS' }); }, 500);

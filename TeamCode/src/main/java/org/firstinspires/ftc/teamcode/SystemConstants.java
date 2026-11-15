@@ -25,10 +25,15 @@ public final class SystemConstants {
         public static double AIM_MAX_TURN = 0.8;
         /** |right stick x| above this turns the robot by hand even in lock mode. */
         public static double AIM_STICK_OVERRIDE = 0.10;
-        // Relocalize (driver 1 holds SHARE/BACK this long): the pose is set to this RED-frame pose, mirrored
-        // through the field centre for blue. Default = RedSoloAuto START_STEP, where the robot starts every match.
+        // Relocalize (driver 1 holds SHARE/BACK this long): the pose is set to this RED-frame pose, rotated
+        // 180 deg about the field centre for blue. A corner, so two walls fix x, y and heading at once (operator,
+        // 2026-11-15). Red: the red-wall / audience-wall corner, robot FACING the red wall (heading 180) with its
+        // LEFT side on the audience wall - the side the auto start uses (START_STEP y 8.561 = centre to the left
+        // side). Blue: the far corner of the blue wall, facing the blue wall, left side on the far wall. Corners are
+        // clear at drive height (field/biobuzz_field.json: the nearest FLOWER is 43.6 in along each wall).
+        // RELOCALIZE_X = centre to the FRONT face: 8.561 assumes a square footprint - MEASURE it.
         public static double RELOCALIZE_HOLD_S = 0.5;
-        public static double RELOCALIZE_X = 56.0;
+        public static double RELOCALIZE_X = 8.561;
         public static double RELOCALIZE_Y = 8.561;
         public static double RELOCALIZE_HEADING_DEG = 180.0;
     }

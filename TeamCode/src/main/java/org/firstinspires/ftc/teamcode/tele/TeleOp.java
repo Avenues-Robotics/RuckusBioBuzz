@@ -37,7 +37,8 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
  *   right bumper        intake (hold)            left bumper   reject / outtake (hold)
  *   right trigger       shoot now (hold)         in the zone the robot also shoots by itself (not in lock)
  *   left trigger        scoopula (hold)
- *   SHARE / BACK        hold 0.5 s at the relocalize spot (SystemConstants.TeleOp.RELOCALIZE_*) - pose reset
+ *   SHARE / BACK        hold 0.5 s with the robot in its alliance's corner, facing its own wall, left side on the
+ *                       side wall (red: audience end, blue: far end; SystemConstants.TeleOp.RELOCALIZE_*) - pose reset
  * DRIVER 2 (gamepad2) - aiming only
  *   d-pad left / right  aim point one step left / right, as the coach sees it from the last shot ("2 RIGHT")
  *   d-pad up / down     flywheel speed one step up / down (offset on the speed curve)
@@ -103,7 +104,7 @@ public class TeleOp extends OpMode {
         }
         out.addData("pinpoint", pinpointGuard.status());
         out.addData("alliance (X blue, B red)", alliance);
-        out.addData("D1", "LT scoopula, RT shoot, hold SHARE = relocalize at the start spot");
+        out.addData("D1", "LT scoopula, RT shoot, hold SHARE = relocalize: robot in its corner, facing its wall");
         out.addData("D2", "d-pad aim L/R + speed U/D, OPTIONS shooter lock, SHARE clear");
         out.update();
     }

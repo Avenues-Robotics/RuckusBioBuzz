@@ -1,0 +1,6 @@
+{
+  "ship":    [["setPidf", {"floor": 0.24, "ffkv": 0.0}], ["setMixer", {"slew": 214}]],
+  "ff_s214": [["setPidf", {"floor": 0.30, "ffkv": 0.050}], ["setMixer", {"slew": 214}]],
+  "ff_s400": [["setPidf", {"floor": 0.30, "ffkv": 0.050}], ["setMixer", {"slew": 400}]],
+  "ff_s600": [["setPidf", {"floor": 0.30, "ffkv": 0.050}], ["setMixer", {"slew": 600}]]
+}

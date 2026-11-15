@@ -1,0 +1,8 @@
+{
+  "ship":          [["setPidf", {"scope": "all", "kd": 0.015, "floor": 0.24, "ffkv": 0.0, "fftau": 0.05}], ["setMixer", {"slew": 214}]],
+  "s400_t50_d15":  [["setPidf", {"scope": "all", "kd": 0.015, "floor": 0.30, "ffkv": 0.05, "fftau": 0.05}], ["setMixer", {"slew": 400}]],
+  "s400_t15_d15":  [["setPidf", {"scope": "all", "kd": 0.015, "floor": 0.30, "ffkv": 0.05, "fftau": 0.015}], ["setMixer", {"slew": 400}]],
+  "s400_t50_d40":  [["setPidf", {"scope": "all", "kd": 0.040, "floor": 0.30, "ffkv": 0.05, "fftau": 0.05}], ["setMixer", {"slew": 400}]],
+  "s400_t15_d40":  [["setPidf", {"scope": "all", "kd": 0.040, "floor": 0.30, "ffkv": 0.05, "fftau": 0.015}], ["setMixer", {"slew": 400}]],
+  "s214_t15_d40":  [["setPidf", {"scope": "all", "kd": 0.040, "floor": 0.30, "ffkv": 0.05, "fftau": 0.015}], ["setMixer", {"slew": 214}]]
+}

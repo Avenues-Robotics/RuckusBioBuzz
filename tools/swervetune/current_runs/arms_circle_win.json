@@ -1,0 +1,4 @@
+{
+  "f30k050": [["setPidf", {"floor": 0.30, "ffkv": 0.050}]],
+  "ship":    [["setPidf", {"floor": 0.24, "ffkv": 0.0}]]
+}

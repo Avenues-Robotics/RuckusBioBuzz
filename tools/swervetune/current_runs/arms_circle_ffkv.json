@@ -1,0 +1,6 @@
+{
+  "f24k0":  [["setPidf", {"floor": 0.24, "ffkv": 0.0}]],
+  "f50k03": [["setPidf", {"floor": 0.50, "ffkv": 0.03}]],
+  "f50k04": [["setPidf", {"floor": 0.50, "ffkv": 0.04}]],
+  "f50k05": [["setPidf", {"floor": 0.50, "ffkv": 0.05}]]
+}

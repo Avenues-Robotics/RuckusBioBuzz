@@ -1241,3 +1241,29 @@ Candidates (untested): a translation deadband below which pods keep their angle,
 heading of the hold vector change per update (Swerve.demandSlewDegPerSec is sized for the old
 214 deg/s pods and does not appear to limit ctgt here).
 Data: current_runs/pedrocheck.jsonl, runs/*pc2x2_n10[bcd]*.
+
+## 2026-11-15 — TeleOp shakedown: no-DS driving fixed; Pinpoint heading froze at exactly 0.0 once
+
+**Driving TeleOp with no Driver Station.** FTC Dashboard 0.5.1's gamepad override does not work with
+an iterative OpMode on SDK 12 (`OpMode.internalPreUserCode` re-copies the DS gamepad data into
+`gamepad1` before every `loop()`, wiping Dashboard's write; momentary presses slip through, held
+sticks never do - a 0.5 stick for 0.8 s moved TeleOp's pose 0.00 in). Its client also only re-sends
+on change (+150 ms), so a held stick is zeroed by its own 500 ms watchdog. Fixed tool-side with
+`diagnostics/tuning/GamepadBridge` (77ec1202): the /tune Driver Station tab posts the pad to
+`/tune/gamepad`, injected through `newGamepadDataAvailable` with a 400 ms watchdog. TeleOp now
+drives. TeleOp loop rate in this shakedown: 49 Hz median of 256-sample windows (31-56), dt mean
+19.3 ms, p90 27.3 ms - the first measurement of TeleOp's loop rate (battery 12.9-13.2 V).
+
+**Turret fixes found in the shakedown (shipped):** POLLEN_TURRET_REVERSED true (5e5074f9: the turret
+turned with the robot); Shooter RESET keeps aiming through the 1.0 s unwind settle (dd88da25: driver
+yaw rate while turning 102 deg/s median, 167 p90, 478 max, so the frozen aim landed 100+ deg past).
+
+**Pinpoint heading froze at exactly 0.0.** After the 11:17 redeploy TeleOp reported heading 0.0 in
+all 856 telemetry samples (11:18-11:19) while x/y traced circles as the robot spun; Swerve Bring-Up
+read the same (`heading.deg` 0.0, `rate` 0.0 - a live IMU shows ~0.004 deg of noise at rest). The
+turret, which aims from the heading, stopped turning. `resetImu` (Pinpoint resetPosAndIMU, robot
+still) brought it back: -0.0039 at rest, +90.08 after an operator's ~90 deg CCW hand turn. Cause
+unknown - it worked across the previous redeploys and the battery swap; it froze across an app
+restart with the hub powered. **Competition risk:** TeleOp and the autos have no check for a frozen
+heading (SwerveBringUp has one, `headingStuckSeconds`); a frozen heading breaks turret aiming and the
+zone check silently. Not yet addressed.

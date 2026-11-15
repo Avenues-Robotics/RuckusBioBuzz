@@ -1357,7 +1357,9 @@ public class SwerveBringUp extends OpMode {
      * whether or not heading hold is on (2026-10-10; it used to be heading-hold DRIVE only).
      */
     private boolean poseInUse() {
-        return mode == Mode.DRIVE || mode == Mode.FOLLOW;
+        // FORESIGHT added 2026-11-15: its fence check and room planning ran on the 5 Hz pose (staircase speed
+        // in the jolt recordings) - up to 200 ms, ~5 in at 25 in/s, of stale room.
+        return mode == Mode.DRIVE || mode == Mode.FOLLOW || mode == Mode.FORESIGHT;
     }
 
     /**

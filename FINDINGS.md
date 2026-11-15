@@ -1446,3 +1446,44 @@ scrubbing), i.e. it would predict shorter coasts than happen. **Import trap:** C
 forward/strafeBrakeQuadratic as 1/(2 * naturalDeceleration), so importing 88 / 64 would halve the predicted
 stopping distance - the braking change held back above. Candidate A must pin those at 1/(2*40).
 Not imported, nothing shipped. Next: candidate A through pedrocheck (stage 6) against the current constants.
+
+## 2026-11-15 — "Violent jolts" under automatic motion: the follower hold's kD (fixed); a pod snap on stop (open)
+
+Operator: the robot jolts violently sometimes when moved automatically (follower holds, Foresight stages), never
+in TeleOp, and never during heading moves - only translating. Tiles, 2x2 border fence, 13.0 -> 12.8 V.
+
+**Tool change (rule 9):** PodRecorder gained 10 columns appended after the follower block (existing columns keep
+their positions): p0..p3_dpwr (drive power commanded - x volts = motor voltage), dcf/dcs/dct (the DrivePowers the
+vendored Swerve was handed), bvx/bvy/bw. FORESIGHT is now recorded like FOLLOW. joltcapture.py / joltplot.py
+(motor voltage per pod, battery, command, speed/accel, pod targets, dt). Bring-Up bug found on the way: FORESIGHT
+read the pose on the 5 Hz idle path (staircase speed in the recordings), so its fence check and room planning ran
+up to 200 ms stale - now every loop (poseInUse).
+
+**1. Hold oscillation - FIXED (translationalKD 0.025 -> 0, shipped).** In every follower hold the forward/strafe
+command spiked to 4-8x full scale and flipped sign every 1-2 loops; drive motors swung +10 V / -12 V every 20-50
+ms; battery sagged to 11.0-11.4 V. Foresight's hold drives from a PROJECTED pose (pose + v^2 brake
+displacement), which jumps with velocity noise every loop; the carried-over Pedro 2 kD differentiates it.
+A/B through the real follower (pedroPidf td=), n=10 per arm, randomised interleaved, two holds per unit:
+
+| | kD 0.025 (shipped) | kD 0 |
+|---|---|---|
+| drive-power reversals (> 0.3, sign change) per unit | 77.7 (SD 15.6) | 2.3 (SD 3.0) |
+| peak command | 5.1 | 1.28 |
+| min battery V | 11.36 | 11.73 |
+| hold end error | 0.22 in | 0.34 in |
+
+Difference 75.4 reversals, 95% CI [64.8, 86.0], Welch t = 15.0. Data: runs/hold_kd_ab.jsonl, runs/*holdkd_*.
+TeleOp never runs the hold (follower.manual), which is why it never jolted. Every auto ends each path in this
+hold, so this was in every auto. Not yet verified on the deployed build.
+
+**2. Pod snap on stop - OPEN (vendored Swerve).** In the BRAKE stage recordings (runs/*jolt_brake_1409*): the
+translation command drops under the Swerve epsilon (0.05) while a small heading correction stays above the
+rotation epsilon (0.015, a RUCKUS patch); every pod is then steered to its rotation tangent within one loop
+(e.g. all at 270 deg -> 20/70/110/160 deg) - the demand slew limiter skips jumps the pod resolves by flipping -
+while the robot is still rolling at 21-23 in/s; speed 23 -> 0 in one step. Spins never show it (the pods are
+already on the tangents) - matching the operator's report. Seen in the Foresight BRAKE stage by design of its
+brake command; can also occur at a path end. Candidate vendored fix: while translation was active within the last
+~0.3 s, treat a sub-0.05 rotation as zero for steering (hold the travel direction), so heading corrections at
+rest still act. Needs its own test; not changed.
+
+Also: Pinpoint heading froze a 4th time after an app restart (85.2568 deg, 20/20 reads); resetImu cleared it.

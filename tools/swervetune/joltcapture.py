@@ -4,12 +4,14 @@
 DIAGNOSTIC. Needs the PodRecorder drive block (p*_dpwr, dcf/dcs/dct, bvx/bvy/bw - 2026-11-15). Each scenario
 prints when each motion starts, relative to the recording, so the operator can say which ones jolted.
 
-  joltcapture.py --confirmed-floor hold brake spin decel     # any subset, in that order
+  joltcapture.py --confirmed-floor hold brake decel trans    # any subset, in that order (default: these four)
+Operator 2026-11-15: jolts happen only while translating, never during heading moves - spin is opt-in.
 Scenarios:
   hold   four follower holds (pedroStart / pedroHold / pedroStop): end, middle, other axis end, middle
   brake  Foresight BRAKE stage, forward, max power 0.6 (5 trials)
   spin   Foresight HEADING_BRAKE, 4 trials from full power
   decel  Foresight DECEL forward, twice
+  trans  Foresight TRANSLATIONAL forward and strafe at 0.35 power (straight runs, then coast)
 """
 from __future__ import annotations
 
@@ -67,12 +69,20 @@ def decel(t0: float) -> None:
         fb.run_stage("decel", "forward", None, None, "shipped")
 
 
-SCENARIOS = {"hold": hold, "brake": brake, "spin": spin, "decel": decel}
+def trans(t0: float) -> None:
+    for axis in ("forward", "strafe"):
+        fb.recenter(axis=axis)
+        stamp(t0, f"TRANSLATIONAL {axis} at 0.35")
+        fb.run_stage("translational", axis, 0.35, None, "shipped")
+
+
+SCENARIOS = {"hold": hold, "brake": brake, "decel": decel, "trans": trans, "spin": spin}
+DEFAULT = ["hold", "brake", "decel", "trans"]
 
 
 def main() -> int:
     argv, _ = script_gates(sys.argv[1:], box_always=True)
-    names = [a for a in argv if a in SCENARIOS] or list(SCENARIOS)
+    names = [a for a in argv if a in SCENARIOS] or DEFAULT
     tag = time.strftime("%H%M")
     for name in names:
         print(f"== {name}", flush=True)

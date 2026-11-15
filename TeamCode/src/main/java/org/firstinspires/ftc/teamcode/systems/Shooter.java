@@ -112,6 +112,11 @@ public class Shooter {
         return state;
     }
 
+    /** RESET (unwinding, gate shut), TRACK (aiming, gate shut) or SHOOT (gate open) - for telemetry. */
+    public String stateName() {
+        return state.name();
+    }
+
     public boolean inZone() { return zone.inZone(predictiveAiming.predictPose()); }
     /** Driver telemetry: pollen wheel velocity, its current commanded target (ticks/s), and the F voltage scale. */
     public double pollenVelocity() { return flywheel.pollenVelocity(); }

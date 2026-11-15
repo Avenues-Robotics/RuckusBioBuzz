@@ -5,7 +5,9 @@ import com.pedropathing.algorithm.ForesightConfig;
 import com.pedropathing.control.PIDFCoefficients;
 import com.pedropathing.control.PIDFController;
 import com.pedropathing.controllers.Controller;
+import com.pedropathing.drivetrain.Drivetrain;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.localization.Localizer;
 import com.pedropathing.math.Matrix;
 import com.pedropathing.math.Vector2D;
 import com.pedropathing.revhub.drivetrains.CoaxialPod;
@@ -140,7 +142,7 @@ public class Constants {
      * placeholder constants above - an auto on invented numbers is a robot at speed on a guess.
      */
     public static void requireForesightMeasured() {
-        if (!FORESIGHT_MEASURED) {
+        if (!FORESIGHT_MEASURED && dryRunLocalizer == null) {   // dry run: simulated pose, robot on blocks
             throw new IllegalStateException("Foresight constants in Constants are "
                     + "placeholders (Pedro 3 migration). Run the Foresight Tuner, paste its "
                     + "values, then set FORESIGHT_MEASURED = true.");
@@ -635,7 +637,18 @@ public class Constants {
     }
 
     public static Follower createFollower(HardwareMap hardwareMap) {
-        return new Follower(createLocalizer(hardwareMap), createSwerve(hardwareMap),
-                new Foresight(foresightConfig));
+        Localizer localizer = dryRunLocalizer != null ? dryRunLocalizer : createLocalizer(hardwareMap);
+        Drivetrain drivetrain = createSwerve(hardwareMap);
+        if (dryRunDriveWrap != null) {
+            drivetrain = dryRunDriveWrap.apply(drivetrain);
+        }
+        return new Follower(localizer, drivetrain, new Foresight(foresightConfig));
     }
+
+    // Auto Dry Run hook (diagnostics/autosim/AutoDryRun - never set by competition code). Set ONLY for the
+    // duration of the wrapped auto's init() (try/finally), so a stale static cannot reach a real auto: while
+    // set, createFollower builds the follower on the simulated localizer and the wrapped (recording) swerve,
+    // and requireForesightMeasured() lets the simulated follower through. null = normal behaviour.
+    public static volatile Localizer dryRunLocalizer;
+    public static volatile java.util.function.UnaryOperator<Drivetrain> dryRunDriveWrap;
 }

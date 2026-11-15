@@ -97,5 +97,20 @@ public final class AutoMechanisms {
         telemetry.addData("Shooting", shooting + (shooting ? " (gate " + (shooter.shooting() ? "open" : "waiting") + ")" : ""));
         telemetry.addData("Intake", intaking);
         telemetry.addData("Scoopula", scoopDown ? "down" : "up");
+        telemetry.addData("Shooter state", shooter.stateName() + (shooter.inZone() ? " in-zone" : "")
+                + (shooter.pollenAimed() ? " pollen-aimed" : "") + (shooter.nectarAimed() ? " nectar-aimed" : ""));
+        telemetry.addData("Pollen wheel (ticks/s)", Math.round(shooter.pollenVelocity()) + " / "
+                + Math.round(shooter.pollenCommand()));
+    }
+
+    /** One line for logs: event flags plus the shooter's state (Auto Dry Run diffs this between loops). */
+    public String stateLine() {
+        return "shoot=" + (shooting ? 1 : 0) + " intake=" + (intaking ? 1 : 0) + " scoop=" + (scoopDown ? "down" : "up")
+                + " shooter=" + shooter.stateName() + (shooter.inZone() ? "/zone" : "")
+                + (shooter.pollenAimed() ? "/aimP" : "") + (shooter.nectarAimed() ? "/aimN" : "");
+    }
+
+    public double pollenVelocity() {
+        return shooter.pollenVelocity();
     }
 }

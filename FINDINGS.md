@@ -1138,3 +1138,36 @@ measurement: none on control (the hub runs the velocity PIDF; the OpMode only sa
 adds one array write per loop, and the CSV render runs on the web thread between shots, while the
 wheel idles at target. Not measured. Without the flag nothing changes, so earlier shot A/Bs stay
 comparable.
+
+## 2026-11-14 — Pollen flywheel PIDF (Phase 2): P 5 -> 10, real-shot recovery -36 ms
+
+Pollen wheel on **Expansion Hub motor port 1** (`pollenTurret`; was Control Hub port 0 on 11-12,
+no saved `flyDevice` on the hub), robot on battery 12.42-12.71 V, on tiles, Mechanism Tuner on build
+d0fca369 + operator WIP. Clear confirmed in the opening banner. Nectar flywheel not mounted. Tool
+loop 85-150 Hz true. Operator had just plugged in the flywheel encoder.
+
+- **Direction** (`dircheck --ask`): +0.5 power -> +1167 ticks/s, operator: shooting direction.
+- **Plant** (`ff` x2): 2656 / 2650 ticks/s at full power, 12.6 V; F_full 12.34 / 12.36, F_fit 12.61 /
+  12.57 (0.3%). 3% faster than 11-12 (2582 at 12.5 V). **T = 1860** = 70% of max (no operator
+  target).
+- **Baseline, starting gains (5, 0.1, 0, 12.4)**: step 930 -> 1860 n=5 settle 0.21 s (0.19-0.22),
+  overshoot 2.0% (0-3.9), ss sd 10.7; kick 120 ms n=10 recover 256 +/- 26 ms, dip 24.7%; real shots
+  n=4 (one not fed in time) **165.4 +/- 3.4 ms**, dip 28.5%.
+- **Search** (`autotune`): closed-loop F 12.43, recommended (5, 0.1, 0, 12.43) = the shipped gains;
+  its grid stops at P = 7. Recovery is not saturated at P = 5 (P*err ~ 2600 of 32767 on top of
+  F*T ~ 23000), so P was pushed up by hand: **P = 10** step overshoot 4.8% (n=3), kick 163 +/- 9 ms
+  (n=4); **P = 15** overshoot 11.8% (fails <= 5%), kick 157 ms. (A first attempt at these probes ran
+  on (5, 0.1, 0, 12.43) because `pidf` got one quoted argument; that data is labelled by its pidf in
+  trials.jsonl.)
+- **Acceptance**, `ab --test shots --n 10 --seed 1114`, randomised interleaved, operator-fed pollen:
+  A (5, 0.1, 0, 12.4) 163.4 +/- 14.8 ms (n=9) vs B (10, 0.1, 0, 12.4) **127.1 +/- 10.4 ms** (n=10),
+  **B - A = -36.3 ms, 95% CI [-49.0, -23.6], t = -6.12, p = 2.5e-5**, 0 failures each. Dip 29.3 vs
+  28.4%, post-shot overshoot 1.67 vs 1.61% (max 3.2 vs 2.2%). Steps at P = 10, n = 11 in all:
+  overshoot 4.1% mean (2.0-8.3), settle ~0.14 s, ss sd 10.1 (shipped arm same session n=8: 1.0%,
+  0.2 s, 10.5). Survey A thresholds (CI < 0, overshoot <= 5%, sd <= band/3) are guesses.
+- **Shipped** c1a9e9fa: POLLEN_PIDF (10, 0.1, 0, 12.4); deployed; Mechanism Tuner init shows it.
+  AT_SPEED_FRACTION stays 0.05: ripple sd ~10 ticks/s (0.5% of T) would allow a tighter band, but no
+  exit-velocity measurement says it helps.
+- **Figure**: docs/portfolio/flywheel/ (PNG, SVG, per-shot CSV, traces, script, README).
+- Not measured: whether the higher P changes shot-to-shot exit velocity; cadence closer than ~0.5 s
+  (one A/B trace caught two pieces ~470 ms apart); NECTAR_PIDF still (500, 0, 0, 11.7), unmounted.

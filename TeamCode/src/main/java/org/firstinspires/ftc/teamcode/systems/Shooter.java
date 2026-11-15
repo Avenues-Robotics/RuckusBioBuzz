@@ -54,6 +54,12 @@ public class Shooter {
         switch (state) {
             case RESET:
                 shooterGate.closeGate();
+                // Keep aiming through the unwind settle. Freezing the aim for UNWIND_SETTLE_S left the turret
+                // where the hive WAS while the robot kept turning (median 102 deg/s while turning, TeleOp
+                // 2026-11-15), so it landed 100+ deg past and swung back. Tracking resumes from the unwound
+                // copy (track() follows the copy nearest the last command); the gate stays closed until the
+                // settle is over.
+                aiming.update();
                 if (!aiming.unwinding()) state = states.TRACK;
                 break;
             case TRACK:

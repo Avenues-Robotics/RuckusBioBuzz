@@ -583,7 +583,8 @@
     <p class="hint" style="margin-top:0">Raw open-loop power on one motor port. <b>Every direction flag is ignored</b>:
       positive power is the port's own forward. Use it to find which port a motor is on, whether it is
       wired, and which way it turns. One port runs at a time; starting one stops every other mechanism on this
-      dashboard, and any other motion command stops it.</p>
+      dashboard <b>except the intake</b> (unless the port you pick is an intake motor), and any other motion command
+      except the intake buttons stops it.</p>
     <div class="msg warn">Control Hub ports 0–3 are the <b>drive motors</b> (<code>sm0</code>–<code>sm3</code>). Put the
       robot on blocks before running them, or it will drive.</div>
     <div class="row" style="margin-top:10px">
@@ -598,6 +599,19 @@
       <button class="primary" onclick="motorPort(1)">Run</button>
       <button onclick="motorPort(-1)">Run reversed</button>
       <button class="stop" onclick="cmd('motorPortStop')">Stop</button>
+    </div>
+    <div class="row">
+      <button class="primary" onclick="motorPortFull(1)">Run FULL power</button>
+      <button onclick="motorPortFull(-1)">Run FULL reversed</button>
+      <span class="hint">power ±1.0, for the time above</span>
+    </div>
+    <div class="row">
+      <label class="inline">Intake alongside</label>
+      <button class="small" onclick="cmd('intake',{mode:'IN'})">Intake</button>
+      <button class="small" onclick="cmd('intake',{mode:'OUT'})">Reverse</button>
+      <button class="small" onclick="cmd('intake',{mode:'OFF'})">Off</button>
+      <span class="stat" id="mpIntakeInfo"></span>
+      <span class="hint">Shipped intake logic (direction flags and reject apply), keeps the port running.</span>
     </div>
     <p class="hint">A port with nothing configured is still driven, through the hub's motor controller. Ticks and
       velocity are only meaningful when an encoder is plugged into that port. Keep this page open: the watchdog stops
@@ -1165,6 +1179,9 @@ var mpPort = 0;
 function motorPort(sign) {
   cmd('motorPort', {hub: $('mpHub').value, port: mpPort, power: sign * Math.abs(num('mpPower')), seconds: num('mpSecs')});
 }
+function motorPortFull(sign) {
+  cmd('motorPort', {hub: $('mpHub').value, port: mpPort, power: sign, seconds: num('mpSecs')});
+}
 function pickPort(p) { mpPort = p; renderPorts(); }
 function renderPorts() {
   var P = S && S.ports; if (!P) return;
@@ -1179,6 +1196,7 @@ function renderPorts() {
     return '<button class="small' + (i === mpPort ? ' on' : '') + '" onclick="pickPort(' + i + ')">port ' + i + ' · ' +
       (n ? esc(n) : '<i>not configured</i>') + (on ? ' ▶' : '') + '</button>';
   }).join('') : '');
+  if (S.intake) setText('mpIntakeInfo', S.intake.ok ? 'intake ' + S.intake.mode : 'intake unavailable');
   var run = P.running ? P.hubs.filter(function (h) { return h.address === P.address; })[0] : null;
   setHtml('mpLive', P.running
     ? '<div class="kv"><span>running</span><span>' + esc(run ? run.label : P.address) + ' port ' + P.port +

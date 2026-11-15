@@ -510,7 +510,11 @@ public class MechanismTuner extends OpMode {
         if (!intakeTest.isEmpty() && ("intake".equals(action) || "shoot".equals(action) || "breakInStart".equals(action))) {
             endIntakeTest();
         }
-        if (portTest.running() && isMotion(action) && !"motorPort".equals(action)) {
+        // The intake (shipped logic or the direction test) may run alongside a port test.
+        boolean intakeAction = "intake".equals(action) || "intakeTest".equals(action);
+        boolean portOnIntake = portTest.running()
+                && (portTest.runningMotor() == intakeMotors[0] || portTest.runningMotor() == intakeMotors[1]);
+        if (portTest.running() && isMotion(action) && !"motorPort".equals(action) && (!intakeAction || portOnIntake)) {
             portTest.stop("interrupted by " + action);
         }
         if ("breakInStart".equals(action) && shootState != 0) {
@@ -839,12 +843,17 @@ public class MechanismTuner extends OpMode {
                         + " (intake direction, flags applied).";
                 break;
             }
-            case "motorPort":
-                // Any motor may be one a flywheel / intake / break-in is driving: stop all of them first.
-                stopMechanisms();
-                message = portTest.start((int) num(c, "hub", -1), (int) num(c, "port", -1),
-                        num(c, "power", 0), num(c, "seconds", 3));
+            case "motorPort": {
+                // Any motor may be one a flywheel / break-in is driving: stop those first. The intake keeps
+                // running so a port can be tested alongside it, unless the chosen port IS an intake motor.
+                int hubAddr = (int) num(c, "hub", -1), port = (int) num(c, "port", -1);
+                DcMotorEx target = portTest.motorAt(hubAddr, port);
+                boolean isIntakeMotor = target != null && (target == intakeMotors[0] || target == intakeMotors[1]);
+                stopMechanisms(isIntakeMotor);
+                message = portTest.start(hubAddr, port, num(c, "power", 0), num(c, "seconds", 3))
+                        + (isIntakeMotor ? " Intake stopped: that port is an intake motor." : "");
                 break;
+            }
             case "motorPortStop":
                 if (!portTest.running()) {
                     message = "Motor port test was not running.";
@@ -1122,6 +1131,11 @@ public class MechanismTuner extends OpMode {
 
     /** Everything except the motor-port test. */
     private void stopMechanisms() {
+        stopMechanisms(true);
+    }
+
+    /** As stopMechanisms(), but leaves the intake (shipped logic / direction test) running when stopIntake is false. */
+    private void stopMechanisms(boolean stopIntake) {
         regAim = false;
         if (shootState != 0) {
             endShoot("everything stopped");
@@ -1133,6 +1147,7 @@ public class MechanismTuner extends OpMode {
         if (breakIn) {
             endBreakIn("everything stopped");
         }
+        if (!stopIntake) return;
         endIntakeTest();
         if (intakeSys != null) {
             stopIntake();

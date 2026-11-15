@@ -91,6 +91,17 @@ final class PortMotorTest {
         return runMotor != null;
     }
 
+    /** The motor the running test drives, or null. */
+    DcMotorEx runningMotor() {
+        return runMotor;
+    }
+
+    /** The configured motor at hub address / port, or null (not configured, or no such hub / port). */
+    DcMotorEx motorAt(int address, int port) {
+        Hub h = hub(address);
+        return h == null || port < 0 || port > 3 ? null : h.motors[port];
+    }
+
     Hub hub(int address) {
         for (Hub h : hubs) if (h.address == address) return h;
         return null;

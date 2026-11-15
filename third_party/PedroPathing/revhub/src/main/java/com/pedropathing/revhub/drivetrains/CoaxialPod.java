@@ -166,6 +166,37 @@ public class CoaxialPod implements SwervePod {
      */
     private static double SCHED_ERR_GATE_RAD = Math.toRadians(20);
 
+    /**
+     * RUCKUS PATCH (2026-11-15): demand-rate feed-forward, robot-wide, default OFF (kV 0 = upstream behaviour).
+     *
+     * <p>The turn loop only produces output from error, so a pod tracking a TURNING demand (a stick sweep, an
+     * arc, every slew-limited direction change) has to trail it by whatever error makes the push the sweep
+     * needs: measured on the 2x2 stick circle (circle.py, 110 deg/s, 0.25 drive, heading hold off) as 10-15
+     * deg of mean error, 46-127 ms of lag, and a 3 Hz staircase/limit cycle as the schedule and the deadband
+     * fight over it. This adds kV x (rate of the demand) - the push the sweep needs, up front - so feedback
+     * only corrects what is left. The rate is taken from the UNFLIPPED target (a flip turns the target 180 deg
+     * in one call but both frames rotate together), low-passed with time constant tau, and a single-call jump
+     * faster than DEMAND_RATE_STEP_RAD_S counts as a step (X-lock entry, a flip-skipped slew), not a sweep,
+     * and contributes nothing. Added after the gain schedule: a rolling pod still needs the full sweep push.
+     */
+    private static double demandRateKv = 0.0;
+    private static double demandRateTauS = 0.05;
+    private static final double DEMAND_RATE_STEP_RAD_S = Math.toRadians(900);
+    private double prevDesiredRad = Double.NaN;
+    private long prevDesiredNano = 0;
+    private double demandRateRadS = 0;
+
+    /** RUCKUS PATCH: runtime tuning of the demand-rate feed-forward, robot-wide. NaN leaves a value alone. */
+    public static void setDemandRateFeedforward(double kvPowerPerRadS, double tauS) {
+        if (!Double.isNaN(kvPowerPerRadS)) demandRateKv = Math.max(0.0, kvPowerPerRadS);
+        if (!Double.isNaN(tauS)) demandRateTauS = Math.max(0.0, tauS);
+    }
+
+    /** {kV (power per rad/s), tau (s)}. */
+    public static double[] getDemandRateFeedforward() {
+        return new double[] {demandRateKv, demandRateTauS};
+    }
+
     /** RUCKUS PATCH: see {@link #setDerivativeOnMeasurement}. */
     private boolean derivativeOnMeasurement = false;
     private double previousActualRad = Double.NaN;
@@ -326,6 +357,7 @@ public class CoaxialPod implements SwervePod {
         // full-speed diagonals 2026-08-14. Inside a +/-10 degree band around the boundary the
         // previous flip state is kept; the worst cost is accepting a 100 degree rotation
         // instead of an 80 degree one, once.
+        double desiredUnflippedRad = desiredRad;   // RUCKUS PATCH: demand-rate feed-forward input
         boolean flip = decideFlip(Math.abs(errorRad));
         lastMoveFlipped = flip;
         if (flip) {
@@ -357,6 +389,24 @@ public class CoaxialPod implements SwervePod {
         previousActualRad = actualRad;
         previousMoveNano = nowNano;
 
+        // RUCKUS PATCH: demand rate for the feed-forward (see demandRateKv). Always tracked, so switching it
+        // on mid-run starts from a settled estimate.
+        if (!Double.isNaN(prevDesiredRad) && prevDesiredNano != 0) {
+            double dtD = (nowNano - prevDesiredNano) / 1.0e9;
+            if (dtD > 1e-6 && dtD < 0.1) {
+                double r = Angle.normalizeSigned(desiredUnflippedRad - prevDesiredRad) / dtD;
+                if (Math.abs(r) > DEMAND_RATE_STEP_RAD_S) {
+                    r = 0;
+                }
+                double alpha = demandRateTauS > 0 ? dtD / (demandRateTauS + dtD) : 1.0;
+                demandRateRadS += alpha * (r - demandRateRadS);
+            } else {
+                demandRateRadS = 0;
+            }
+        }
+        prevDesiredRad = desiredUnflippedRad;
+        prevDesiredNano = nowNano;
+
         Controller turnController = config.turnController.get();
         double raw;
         if (derivativeOnMeasurement) {
@@ -386,6 +436,11 @@ public class CoaxialPod implements SwervePod {
                             / (SCHED_VEL_FULL_RAD_S - SCHED_VEL_START_RAD_S), 0.0, 1.0);
             double a = Math.max(aDrive, aVel);
             raw *= 1.0 - a * (1.0 - SCHED_FLOOR);
+        }
+
+        // RUCKUS PATCH: demand-rate feed-forward, after the schedule (see demandRateKv). Off while released.
+        if (demandRateKv != 0.0 && !ignoreAngleChanges) {
+            raw += demandRateKv * demandRateRadS;
         }
 
         double turnPower = Utils.clamp(raw, -1.0, 1.0);

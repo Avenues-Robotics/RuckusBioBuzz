@@ -2044,7 +2044,7 @@ poll();
         $$('dsState').textContent = status.activeOpModeStatus || '';
         $$('dsVolts').textContent = status.batteryVoltage != null ? (+status.batteryVoltage).toFixed(2) + ' V' : '–';
       } else if (m.type === 'RECEIVE_OP_MODE_LIST') {
-        var raw = m.opModeList || m.list || [];
+        var raw = m.opModeInfoList || m.opModeList || [];   // Dashboard 0.5.1 sends opModeInfoList
         opList = raw.map(function (x) { return typeof x === 'string' ? x : (x.name || ''); }).filter(Boolean).sort();
         var sel = $$('dsOpList'), cur = sel.value || 'TeleOp';
         sel.innerHTML = opList.map(function (n) { return '<option>' + n.replace(/</g, '&lt;') + '</option>'; }).join('');

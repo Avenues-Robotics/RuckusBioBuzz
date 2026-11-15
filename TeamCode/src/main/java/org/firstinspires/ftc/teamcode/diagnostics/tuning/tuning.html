@@ -143,6 +143,7 @@
   <button data-tab="zone">Zone map</button>
   <button data-tab="reg">Regression</button>
   <button data-tab="swerve">Swerve</button>
+  <button data-tab="ds">Driver Station</button>
   <button data-tab="export">Export</button>
 </nav>
 <main>
@@ -729,6 +730,43 @@
 </div>
 
 <!-- ======================================================== EXPORT -->
+<div class="tab" id="tab-ds">
+  <section>
+    <h2>Driver Station (drive without a DS)</h2>
+    <p class="hint" style="margin-top:0">Runs any OpMode through FTC Dashboard (port 8000) and feeds <b>gamepad1</b> from a
+      controller plugged into this computer, or from the on-screen sticks / keyboard. Dashboard only overrides gamepads when
+      no real Driver Station gamepad is attached, and it zeroes them if this page stops sending for 500 ms. Hiding this tab,
+      switching windows or pressing STOP sends neutral sticks and turns the gamepad off. <b>TeleOp has no fence.</b>
+      Close any open <code>/dash</code> page with a controller: it would send gamepad state too.</p>
+    <div class="row">
+      <span class="stat"><span id="dsDot" class="dot off"></span><span id="dsLink">Dashboard: connecting…</span></span>
+      <span class="stat">OpMode <b id="dsOp">–</b> <b id="dsState"></b></span>
+      <span class="stat">Battery <b id="dsVolts">–</b></span>
+    </div>
+    <div class="row">
+      <select id="dsOpList" style="min-width:220px"></select>
+      <button class="primary" id="dsInit">INIT</button>
+      <button class="on" id="dsStart">START</button>
+      <button class="stop" id="dsStop">STOP</button>
+    </div>
+    <div class="row">
+      <button id="dsEnable">Gamepad: OFF — click to enable</button>
+      <label class="inline">speed cap <input type="range" id="dsCap" min="0.1" max="1" step="0.05" value="0.5"> <b id="dsCapV">50%</b></label>
+      <span class="hint" id="dsSrc">input: –</span>
+    </div>
+    <div class="grid">
+      <div class="card"><h3>Left stick <span class="hint">drive (W A S D)</span></h3>
+        <div class="dsPad" id="dsPadL"><div class="dsKnob"></div></div></div>
+      <div class="card"><h3>Right stick <span class="hint">turn (← → or Q E)</span></h3>
+        <div class="dsPad" id="dsPadR"><div class="dsKnob"></div></div></div>
+      <div class="card"><h3>Buttons <span class="hint">hold to press</span></h3>
+        <div class="row" id="dsBtns"></div>
+        <div class="kv"><span>sending</span><span id="dsOut" style="font-family:monospace;font-size:12px">–</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
 <div class="tab" id="tab-export">
   <section>
     <h2>Values to ship</h2>
@@ -1962,5 +2000,133 @@ setInterval(prompts, 5000);
 window.addEventListener('resize', function () { drawCharts(); drawTrials(); });
 poll();
 </script>
+<style>
+  .dsPad { position: relative; width: 220px; height: 220px; max-width: 100%; margin: 6px auto; border-radius: 50%;
+    background: var(--panel); border: 1px solid var(--line); touch-action: none; user-select: none; }
+  .dsKnob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+    background: var(--accent); opacity: .85; pointer-events: none; }
+  .dsBtn.held { background: #123122; border-color: var(--good); }
+</style>
+<script>
+// Driver Station tab: no-DS driving through FTC Dashboard's gamepad override (RECEIVE_GAMEPAD_STATE).
+// Diagnostic only. Dashboard copies the state into the active OpMode's gamepad1/gamepad2 when no DS gamepad is
+// associated and resets them to neutral 500 ms after the last message (FtcDashboard GAMEPAD_WATCHDOG_INTERVAL).
+(function () {
+  var ws = null, enabled = false, status = {}, opList = [];
+  var held = {}, keys = {}, pads = { L: [0, 0], R: [0, 0] };
+  var DEAD = 0.06;
+  function $$(id) { return document.getElementById(id); }
+  function neutral() {
+    return { left_stick_x: 0, left_stick_y: 0, right_stick_x: 0, right_stick_y: 0, dpad_up: false, dpad_down: false,
+      dpad_left: false, dpad_right: false, a: false, b: false, x: false, y: false, guide: false, start: false, back: false,
+      left_bumper: false, right_bumper: false, left_stick_button: false, right_stick_button: false,
+      left_trigger: 0, right_trigger: 0, touchpad: false };
+  }
+  function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+  function sendNeutral() { send({ type: 'RECEIVE_GAMEPAD_STATE', gamepad1: neutral(), gamepad2: neutral() }); }
+  function setEnabled(on) {
+    enabled = on;
+    if (!on) sendNeutral();
+    var b = $$('dsEnable');
+    b.textContent = on ? 'Gamepad: ON — click to turn off' : 'Gamepad: OFF — click to enable';
+    b.classList.toggle('on', on);
+  }
+  function connect() {
+    try { ws = new WebSocket('ws://' + location.hostname + ':8000'); } catch (e) { setTimeout(connect, 2000); return; }
+    ws.onopen = function () { $$('dsDot').className = 'dot on'; $$('dsLink').textContent = 'Dashboard: connected'; send({ type: 'GET_ROBOT_STATUS' }); };
+    ws.onclose = function () { $$('dsDot').className = 'dot off'; $$('dsLink').textContent = 'Dashboard: disconnected — retrying'; setEnabled(false); setTimeout(connect, 2000); };
+    ws.onerror = function () {};
+    ws.onmessage = function (ev) {
+      var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.type === 'RECEIVE_ROBOT_STATUS') {
+        status = m.status || {};
+        $$('dsOp').textContent = status.activeOpMode || '–';
+        $$('dsState').textContent = status.activeOpModeStatus || '';
+        $$('dsVolts').textContent = status.batteryVoltage != null ? (+status.batteryVoltage).toFixed(2) + ' V' : '–';
+      } else if (m.type === 'RECEIVE_OP_MODE_LIST') {
+        var raw = m.opModeList || m.list || [];
+        opList = raw.map(function (x) { return typeof x === 'string' ? x : (x.name || ''); }).filter(Boolean).sort();
+        var sel = $$('dsOpList'), cur = sel.value || 'TeleOp';
+        sel.innerHTML = opList.map(function (n) { return '<option>' + n.replace(/</g, '&lt;') + '</option>'; }).join('');
+        if (opList.indexOf(cur) >= 0) sel.value = cur;
+      }
+    };
+  }
+  // ---- on-screen sticks
+  function bindPad(id, key) {
+    var pad = $$(id), knob = pad.firstElementChild, active = null;
+    function upd(e) {
+      var r = pad.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, rad = r.width / 2 - 28;
+      var dx = (e.clientX - cx) / rad, dy = (e.clientY - cy) / rad, m = Math.hypot(dx, dy);
+      if (m > 1) { dx /= m; dy /= m; }
+      pads[key] = [dx, dy];
+      knob.style.transform = 'translate(' + (dx * rad) + 'px,' + (dy * rad) + 'px)';
+    }
+    function end() { active = null; pads[key] = [0, 0]; knob.style.transform = ''; }
+    pad.addEventListener('pointerdown', function (e) { active = e.pointerId; pad.setPointerCapture(e.pointerId); upd(e); });
+    pad.addEventListener('pointermove', function (e) { if (active === e.pointerId) upd(e); });
+    pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end); pad.addEventListener('lostpointercapture', end);
+  }
+  bindPad('dsPadL', 'L'); bindPad('dsPadR', 'R');
+  // ---- buttons (hold)
+  [['x', 'X (blue)'], ['b', 'B (red)'], ['a', 'A'], ['y', 'Y'], ['left_bumper', 'LB'], ['right_bumper', 'RB'],
+   ['dpad_up', '↑'], ['dpad_down', '↓'], ['dpad_left', '←'], ['dpad_right', '→']].forEach(function (p) {
+    var b = document.createElement('button'); b.className = 'small dsBtn'; b.textContent = p[1];
+    var on = function (e) { e.preventDefault(); held[p[0]] = true; b.classList.add('held'); };
+    var off = function () { held[p[0]] = false; b.classList.remove('held'); };
+    b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointerleave', off);
+    $$('dsBtns').appendChild(b);
+  });
+  // ---- keyboard (only while this tab is showing)
+  function tabShowing() { var t = $$('tab-ds'); return t && t.classList.contains('sel'); }
+  window.addEventListener('keydown', function (e) {
+    if (!tabShowing() || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    keys[e.key.toLowerCase()] = true; if (/^arrow/.test(e.key.toLowerCase())) e.preventDefault();
+  });
+  window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
+  // ---- safety: anything that takes the page away turns the gamepad off
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState !== 'visible') setEnabled(false); });
+  window.addEventListener('blur', function () { keys = {}; setEnabled(false); });
+  window.addEventListener('pagehide', function () { setEnabled(false); });
+  $('nav').addEventListener('click', function () { setTimeout(function () { if (!tabShowing()) setEnabled(false); }, 0); });
+  // ---- controls
+  $$('dsEnable').onclick = function () { setEnabled(!enabled); };
+  $$('dsCap').oninput = function () { $$('dsCapV').textContent = Math.round(this.value * 100) + '%'; };
+  $$('dsInit').onclick = function () { var n = $$('dsOpList').value; if (n) send({ type: 'INIT_OP_MODE', opModeName: n }); };
+  $$('dsStart').onclick = function () { send({ type: 'START_OP_MODE' }); };
+  $$('dsStop').onclick = function () { setEnabled(false); send({ type: 'STOP_OP_MODE' }); };
+  // ---- 20 Hz: read inputs, send
+  function dz(v) { return Math.abs(v) < DEAD ? 0 : v; }
+  setInterval(function () {
+    var g = neutral(), src = 'on-screen / keyboard';
+    var pads0 = (navigator.getGamepads ? Array.prototype.slice.call(navigator.getGamepads()) : []).filter(function (p) { return p && p.mapping === 'standard'; });
+    if (pads0.length) {
+      var p = pads0[0], B = function (i) { return !!(p.buttons[i] && p.buttons[i].pressed); };
+      src = 'controller: ' + p.id.slice(0, 40);
+      g.left_stick_x = dz(p.axes[0]); g.left_stick_y = dz(p.axes[1]); g.right_stick_x = dz(p.axes[2]); g.right_stick_y = dz(p.axes[3]);
+      g.a = B(0); g.b = B(1); g.x = B(2); g.y = B(3); g.left_bumper = B(4); g.right_bumper = B(5);
+      g.left_trigger = p.buttons[6] ? p.buttons[6].value : 0; g.right_trigger = p.buttons[7] ? p.buttons[7].value : 0;
+      g.back = B(8); g.start = B(9); g.left_stick_button = B(10); g.right_stick_button = B(11);
+      g.dpad_up = B(12); g.dpad_down = B(13); g.dpad_left = B(14); g.dpad_right = B(15); g.guide = B(16);
+    } else {
+      var k = function (c) { return keys[c] ? 1 : 0; };
+      g.left_stick_x = pads.L[0] + k('d') - k('a'); g.left_stick_y = pads.L[1] + k('s') - k('w');
+      g.right_stick_x = pads.R[0] + k('arrowright') + k('e') - k('arrowleft') - k('q'); g.right_stick_y = pads.R[1];
+      ['left_stick_x', 'left_stick_y', 'right_stick_x', 'right_stick_y'].forEach(function (f) { g[f] = Math.max(-1, Math.min(1, g[f])); });
+    }
+    Object.keys(held).forEach(function (f) { if (held[f]) g[f] = true; });
+    var cap = +$$('dsCap').value;
+    ['left_stick_x', 'left_stick_y', 'right_stick_x', 'right_stick_y'].forEach(function (f) { g[f] = +(g[f] * cap).toFixed(3); });
+    $$('dsSrc').textContent = 'input: ' + src;
+    $$('dsOut').textContent = enabled ? ('LX ' + g.left_stick_x + '  LY ' + g.left_stick_y + '  RX ' + g.right_stick_x) : 'off';
+    if (enabled && document.visibilityState === 'visible' && tabShowing()) {
+      send({ type: 'RECEIVE_GAMEPAD_STATE', gamepad1: g, gamepad2: neutral() });
+    }
+  }, 50);
+  setInterval(function () { send({ type: 'GET_ROBOT_STATUS' }); }, 500);
+  connect();
+})();
+</script>
+
 </body>
 </html>

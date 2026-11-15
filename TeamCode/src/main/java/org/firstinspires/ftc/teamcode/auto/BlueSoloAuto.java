@@ -27,15 +27,16 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @Autonomous(name = "BlueSoloAuto", group = "Auto")
 public class BlueSoloAuto extends OpMode {
     // PathStep fields are editable from FTC Dashboard; paths are built in init(), so edits apply on the next init.
-    public static PathStep START_STEP = new PathStep(85.500, 132.939, (180 - (180 - -((180 - 180)))));
-    public static PathStep POINT_1 = new PathStep(131.592, 133.320, (180 - (180 - -((180 - 180)))));
-    public static PathStep POINT_2 = new PathStep(131.278, 131.201, (180 - (180 - -((180 - 270)))));
-    public static PathStep POINT_3 = new PathStep(95.020, 15.643, (180 - (180 - -((180 - 90)))));
-    public static PathStep POINT_4 = new PathStep(82.688, 25.934, (180 - (180 - -((180 - 270)))));
-    public static PathStep POINT_5 = new PathStep(83.557, 131.081, (180 - (180 - -((180 - 270)))));
-    public static PathStep POINT_6 = new PathStep(126.058, 94.285, (180 - (180 - -((180 - 180)))));
-    public static PathStep POINT_7 = new PathStep(96.192, 129.783, (180 - (180 - -((180 - 180)))));
-    public static PathStep POINT_8 = new PathStep(131.034, 40.343, (180 - (180 - -((180 - 180)))));
+    public static PathStep START_STEP = new PathStep(85.500, 132.939, 0.000);
+    public static PathStep POINT_1 = new PathStep(131.592, 133.320, 0.000);
+    public static PathStep POINT_2 = new PathStep(131.278, 131.201, 90.000);
+    public static PathStep POINT_3 = new PathStep(95.020, 15.643, 180.000);
+    public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);
+    public static PathStep POINT_5 = new PathStep(83.557, 131.081, 0.000);
+    public static PathStep POINT_6 = new PathStep(126.058, 94.285, 0.000);
+    public static PathStep POINT_7 = new PathStep(96.192, 129.783, 0.000);
+    public static PathStep POINT_8 = new PathStep(131.034, 40.343, 0.000);
+    public static PathStep POINT_9 = new PathStep(124.345, 119.170, 45.000);
 
     private Follower follower;
     private AutoMechanisms mechanisms;
@@ -135,74 +136,110 @@ public class BlueSoloAuto extends OpMode {
     }
 
     private void buildPaths() {
-      chain1 = new AutoPath(
-            Paths.line(
-              START_STEP.toPose(),
-              POINT_1.toPose()
-            ).heading(headingInterpolator(Math.toRadians((180 - (180 - -((180 - 180))))), Math.toRadians((180 - (180 - -((180 - 180))))), 1.000))
-          );
+        chain1 = new AutoPath(
+            Paths.line(START_STEP.toPose(), POINT_1.toPose()).heading(
+                headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 1.000)
+            )
+        );
 
-      chain2 = new AutoPath(
+        chain2 = new AutoPath(
+            Paths.path(
+                Paths.curve(
+                    POINT_1.toPose(),
+                    new Pose(123.121, 123.116),
+                    new Pose(122.551, 118.961),
+                    POINT_9.toPose()
+                ).heading(
+                    headingInterpolator(
+                        Math.toRadians(0.000),
+                        Math.toRadians(45.000),
+                        1.000
+                    )
+                ),
+                Paths.curve(
+                    POINT_9.toPose(),
+                    new Pose(126.139, 119.380),
+                    new Pose(130.296, 123.952),
+                    POINT_2.toPose()
+                ).heading(
+                    headingInterpolator(
+                        Math.toRadians(45.000),
+                        Math.toRadians(90.000),
+                        1.000
+                    )
+                )
+            )
+        );
+
+        chain3 = new AutoPath(
             Paths.curve(
-              POINT_1.toPose(),
-              new Pose(114.650, 112.911),
-              new Pose(129.314, 116.703),
-              POINT_2.toPose()
-            ).heading(headingInterpolator(Math.toRadians(0.000), Math.toRadians((180 - (180 - -((180 - 270))))), 1.000))
-          );
+                POINT_2.toPose(),
+                new Pose(120.713, 99.619),
+                new Pose(122.511, 44.825),
+                new Pose(92.776, 30.071),
+                POINT_3.toPose()
+            ).heading(
+                headingInterpolator(
+                    Math.toRadians(90.000),
+                    Math.toRadians(180.000),
+                    1.000
+                )
+            )
+        ).addParametricCallback(0, 0.380, () ->
+            startParallelEvent("Scoopula Down", scoopulaTransitionMs)
+        );
 
-      chain3 = new AutoPath(
+        chain4 = new AutoPath(
+            Paths.line(POINT_3.toPose(), POINT_4.toPose()).heading(
+                headingInterpolator(
+                    Math.toRadians(180.000),
+                    Math.toRadians(90.000),
+                    1.350
+                )
+            )
+        ).addParametricCallback(0, 0.500, () ->
+            startParallelEvent("Scoopula Up", scoopulaTransitionMs)
+        );
+
+        chain5 = new AutoPath(
+            Paths.line(POINT_4.toPose(), POINT_5.toPose()).heading(
+                headingInterpolator(
+                    Math.toRadians(90.000),
+                    Math.toRadians(0.000),
+                    4.000
+                )
+            )
+        );
+
+        chain6 = new AutoPath(
             Paths.curve(
-              POINT_2.toPose(),
-              new Pose(120.713, 99.619),
-              new Pose(122.511, 44.825),
-              new Pose(92.776, 30.071),
-              POINT_3.toPose()
-            ).heading(headingInterpolator(Math.toRadians(90.000), Math.toRadians((180 - (180 - -((180 - 90))))), 0.700))
-          )
-          .addParametricCallback(0, 0.380, () -> startParallelEvent("Scoopula Down", scoopulaTransitionMs));
+                POINT_5.toPose(),
+                new Pose(91.731, 99.203),
+                POINT_6.toPose()
+            ).heading(
+                headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 0.600)
+            )
+        ).addParametricCallback(0, 0.280, () ->
+            startParallelEvent("Scoopula Down", scoopulaTransitionMs)
+        );
 
-      chain4 = new AutoPath(
-            Paths.line(
-              POINT_3.toPose(),
-              POINT_4.toPose()
-            ).heading(headingInterpolator(Math.toRadians(-90.000), Math.toRadians((180 - (180 - -((180 - 270))))), 1.350))
-          )
-          .addParametricCallback(0, 0.500, () -> startParallelEvent("Scoopula Up", scoopulaTransitionMs));
+        chain7 = new AutoPath(
+            Paths.line(POINT_6.toPose(), POINT_7.toPose()).heading(
+                headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 1.000)
+            )
+        ).addParametricCallback(0, 0.370, () ->
+            startParallelEvent("Scoopula Up", scoopulaTransitionMs)
+        );
 
-      chain5 = new AutoPath(
-            Paths.line(
-              POINT_4.toPose(),
-              POINT_5.toPose()
-            ).heading(headingInterpolator(Math.toRadians(90.000), Math.toRadians((180 - (180 - -((180 - 270))))), 1.000))
-          );
-
-      chain6 = new AutoPath(
+        chain8 = new AutoPath(
             Paths.curve(
-              POINT_5.toPose(),
-              new Pose(91.731, 99.203),
-              POINT_6.toPose()
-            ).heading(headingInterpolator(Math.toRadians(90.000), Math.toRadians((180 - (180 - -((180 - 180))))), 0.600))
-          )
-          .addParametricCallback(0, 0.280, () -> startParallelEvent("Scoopula Down", scoopulaTransitionMs));
-
-      chain7 = new AutoPath(
-            Paths.line(
-              POINT_6.toPose(),
-              POINT_7.toPose()
-            ).heading(headingInterpolator(Math.toRadians(0.000), Math.toRadians((180 - (180 - -((180 - 180))))), 1.000))
-          )
-          .addParametricCallback(0, 0.370, () -> startParallelEvent("Scoopula Up", scoopulaTransitionMs));
-
-      chain8 = new AutoPath(
-            Paths.curve(
-              POINT_7.toPose(),
-              new Pose(130.187, 86.662),
-              POINT_8.toPose()
-            ).heading(headingInterpolator(Math.toRadians(0.000), Math.toRadians((180 - (180 - -((180 - 180))))), 1.000))
-          );
-
-      
+                POINT_7.toPose(),
+                new Pose(130.187, 86.662),
+                POINT_8.toPose()
+            ).heading(
+                headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 1.000)
+            )
+        );
     }
 
     private void runSequence() {

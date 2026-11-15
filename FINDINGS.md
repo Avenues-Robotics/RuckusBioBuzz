@@ -1203,3 +1203,41 @@ exceed 6.7 deg per side without losing 360 deg: shipped 0.018 / 0.982 (360.3 deg
 wrap), and the tools' end stop (TurretEndStop.END, Mechanism Tuner free mode) moved to 0.018 too.
 If a full-speed arrival still skips there, 360 deg is not reachable at full servo speed: either
 slow the approach near the ends in systems/Turret.java or give up a few degrees of coverage.
+
+## 2026-11-15 — Candidate F accepted and shipped; the follower's hold jitter; battery power losses
+
+Tiles, 2x2 border fence (47.16 in, operator pose: bottom-right tile facing up, then the tile cross
+facing up), battery 12.2-12.5 V. `pedrocheck.py suite --pods live --only hold,turn --step 4 --n 10
+--arms current_runs/arms_shipped_vs_F.json`, randomised interleaved. Four runs were cut short:
+three by the robot **losing power** (the battery jolted loose; each time the hub had just rebooted,
+`adb shell uptime` 2 min, which looked like a laptop Wi-Fi drop because the Mac then auto-joined
+another network) and one stopped on the operator's word (below). Pooled labels pc2x2_n10b/c/d,
+24 shipped + 14 F trials (scratch pc_compare.py, Welch, normal-approx p):
+
+| metric | shipped | F | diff [95% CI] | p |
+|---|---|---|---|---|
+| hold: settle to 1 in, s | 0.95 +/- 0.23 (n=16) | 0.80 +/- 0.13 (n=10) | -0.15 [-0.29, -0.01] | 0.03 |
+| hold: overshoot, in | 0.24 +/- 0.54 | 0.04 +/- 0.09 | -0.21 [-0.48, +0.06] | 0.13 |
+| hold: heading residual, deg | 2.06 +/- 1.63 | 1.61 +/- 1.43 | -0.46 [-1.65, +0.74] | 0.45 |
+| hold: pod err p95 (mean of pods), deg | 47.2 +/- 10.4 | 40.2 +/- 11.1 | -7.0 [-15.5, +1.6] | 0.11 |
+| threshold failures | 13/24 | 5/14 | | |
+
+Turns n = 2-4 per direction: inconclusive (both arms overshoot 3-13 deg and stop 2-7 deg short).
+No metric worse for F. With the floor podstep A/B (2026-11-14, n=24/arm: post-settle pp -3.57 deg
+p=0.00014, loose 17/24 -> 6/24), **F is accepted and shipped** (e49de336..8b2778ac): kD 0.015,
+kS 0.080, kS band 6.0, pulse band 3.5, tolerance 3.0, power 0.045. CLAUDE.md section 5 updated.
+`--pods shipped` acceptance after deploy is still to run (turns only - see the jitter below).
+
+**Hold jitter (follower, both arms).** The operator stopped the run: "jolting extremely". Traces of
+the hold trials show the follower's commanded wheel direction (`ctgt`) jumping 120-160 deg every
+~0.15 s as the robot nears the hold point (e.g. 133 -> 260 -> 98 -> 246 deg), every pod swinging at
+~0.5 turn power and flipping its drive sign: 3.4-5.1 flips/s per pod in hold trials today, 3.9/s
+yesterday (step 6) - the same, so not something new under the robot (operator asked to check
+anyway; battery since zip-tied). Turns: ~1 flip/s. It is Pedro's translational correction near
+zero error on a swerve whose drive needs ~0.3 power to break loose: small corrections do nothing,
+the error grows, the correction vector swings around the target. TeleOp's follower.manual() has
+no position hold, so driving is unaffected; autos will show it at every hold / path end. Not fixed.
+Candidates (untested): a translation deadband below which pods keep their angle, or a smaller
+heading of the hold vector change per update (Swerve.demandSlewDegPerSec is sized for the old
+214 deg/s pods and does not appear to limit ctgt here).
+Data: current_runs/pedrocheck.jsonl, runs/*pc2x2_n10[bcd]*.

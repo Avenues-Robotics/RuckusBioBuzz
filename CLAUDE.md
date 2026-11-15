@@ -252,17 +252,20 @@ famous "33 → 100 Hz" was really ~18 → 50 Hz.
 ## 5. Current tuning state
 
 ```java
-// pedroPathing/Constants.java (was SwerveDrivetrainConstants until 2026-10-01) — shipped. VERIFIED 2026-08-16.
+// pedroPathing/Constants.java — shipped. Pods REBUILT 2026-11-14 (~530 deg/s, was 214);
+// values below accepted 2026-11-15 on pedrocheck + podstep (FINDINGS "candidate F").
 // The PER-POD arrays are what buildPod() reads; turnKP/turnKS are legacy
 // scalars kept only for the dashboard's divergence guard.
 turnKPPerPod = {0.380, 0.380, 0.380, 0.380};   // NOT 0.320 — that is the scalar
-turnKDPerPod = {0.022, 0.022, 0.022, 0.022};
-turnKSPerPod = {0.022, 0.022, 0.022, 0.022};   // NOT 0.035 — same story
-turnKSBandDegPerPod = {2.0, 2.0, 2.0, 2.0};  turnKI = 0.0;  turnKF = 0.0;
+turnKDPerPod = {0.015, 0.015, 0.015, 0.015};   // was 0.022 on the old pods
+turnKSPerPod = {0.080, 0.080, 0.080, 0.080};   // was 0.022; NOT the 0.035 scalar
+turnKSBandDegPerPod = {6.0, 6.0, 6.0, 6.0};  turnKI = 0.0;  turnKF = 0.0;   // band was 2.0
 cache = 0.01;  motorCaching = 0.05;
-pod.setPulsedApproach(true, 6.0°, 0.6°, 0.035, 20 ms, 20°/s, 0.10 s);
-CoaxialPod.TURN_GAIN_SCHEDULING = true;        // floor 0.24, ramps on drive power
-Swerve.epsilonTaper = true;  Swerve.demandSlewDegPerSec = 214;   // vendored, 2026-08-16
+pod.setPulsedApproach(true, 3.5°, 3.0°, 0.045, 20 ms, 20°/s, 0.10 s);   // was 6.0°, 0.6°, 0.035
+CoaxialPod.TURN_GAIN_SCHEDULING = true;        // floor 0.24, ramps on drive power (0.24 vs 0.50 n.s. on the rebuilt pods)
+Swerve.epsilonTaper = true;  Swerve.demandSlewDegPerSec = 214;   // vendored, 2026-08-16 (sized for the OLD 214 deg/s pods)
+// Calibration 2026-11-14: podZeroDeg trimmed -3.9 deg (crab +0.6 deg); Pinpoint X/Y cables swapped,
+// pinpointXPodReversed false, offsets -2.84 / -5.988 (scale = tape).
 ```
 
 - **Do not tune `kF`.** `CoaxialPod` feeds the PIDF a *sign*, not an error, so

@@ -1360,3 +1360,19 @@ a Shoot step depends on path timing, which this tool cannot predict. Step 2's lo
 overshoot (run 2 held aim at the same step). Either way **a fixed 1.5 s Shoot step has no margin for an
 unwind (~1.0-1.35 s each).** Whether the intake actually fed during the open windows is not in this log
 (its `intake=` field is the auto's Intake event flag, not the motor) - operator observation pending.
+
+**Fourth run, pre-aim + Shoot waits for the shot** (680b33c4; on blocks, no pieces, 12.42 -> 11.93 V; RED):
+
+| | run 3 (live aim, fixed 1.5 s) | run 4 (pre-aim, wait for shot) |
+|---|---|---|
+| unwinds in the auto | 12 | **5** (2 at path starts while pre-aiming, in transit; 3 live) |
+| Shoot steps that fired | 2/4 | **3/4** - start +0.29 s, POINT_3 +0.39 s (was never), POINT_7 +0.45 s |
+| gate open per firing step | 1.18 / 1.23 s | 1.19 / 1.20 / 1.21 s (SHOOT_OPEN_TIME 1.2 s) |
+| POINT_5 Shoot step | never (1.5 s) | **never - ran to the 3.0 s cap**, RESET twice |
+
+POINT_5 is the wrap geometry the host model flagged (hive 179.9 deg robot-relative, 0.1 deg margin) plus the
+sim's hold drift (x 55-75 in during the step): no aiming code can fix it, the shooting heading has to change
+(model: P5 at 180 deg -> 98 deg margin; BLUE 0 deg). Until then this step costs the full 3.0 s cap instead of
+1.5 s. The live unwind at 40.84 s came when the follower called chain6 done 11 in short of POINT_6 (sim
+path-end error) and live tracking resumed. n = 1 run per arm on a model chassis: indicative, not a measurement
+of the real auto.

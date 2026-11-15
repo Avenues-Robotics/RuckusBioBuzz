@@ -388,6 +388,28 @@ def run_shot(wheel: str, target: float, i: int, n: int, timeout: float) -> dict 
     return None
 
 
+def recorded_shot(wheel: str, target: float, i: int, n: int, timeout: float,
+                  rec_label: str | None) -> dict | None:
+    """run_shot, optionally wrapped in its own flight-recorder trace (FlyRecorder holds ~60 s and
+    never wraps, so one trace per shot). Recording starts once the wheel holds the band and stops
+    0.6 s after the shot event; the trace lands in runs/<rec_label>.csv. Diagnostic only."""
+    if not rec_label:
+        return run_shot(wheel, target, i, n, timeout)
+    s = state()
+    if wheel_of(s, wheel)["target"] != target or wheel_of(s, wheel)["mode"] != "VEL":
+        send("fly", wheel=wheel, vel=target)
+    wait_armed(wheel, 15.0)
+    send("recStart", label=rec_label)
+    try:
+        e = run_shot(wheel, target, i, n, timeout)
+        time.sleep(0.6)
+    finally:
+        send("recStop")
+    time.sleep(0.2)
+    cmd_pull(argparse.Namespace(label=rec_label), quiet=True)
+    return e
+
+
 def set_pidf(wheel: str, coeffs: list[float]) -> None:
     p, i, d, f = coeffs
     send("pidf", wheel=wheel, p=p, i=i, d=d, f=f)
@@ -587,7 +609,8 @@ def cmd_shots(args) -> int:
     need_clear(args)
     evs = []
     for k in range(args.n):
-        e = run_shot(args.wheel, args.target, k + 1, args.n, args.timeout)
+        lab = f"{args.rec_each}_s{k + 1}" if getattr(args, "rec_each", None) else None
+        e = recorded_shot(args.wheel, args.target, k + 1, args.n, args.timeout, lab)
         if e is None:
             print(f"shot {k + 1}/{args.n}: not detected")
             continue
@@ -645,8 +668,10 @@ def cmd_ab(args) -> int:
                 if args.test == "kick":
                     r = run_kick(args.wheel, args.target, args.ms)
                 elif args.test == "shots":
-                    r = run_shot(args.wheel, args.target, block * 2 + order.index(arm) + 1,
-                                 args.n * 2, args.timeout)
+                    lab = (f"{args.rec_each}_{arm}_b{block + 1}"
+                           if getattr(args, "rec_each", None) else None)
+                    r = recorded_shot(args.wheel, args.target, block * 2 + order.index(arm) + 1,
+                                      args.n * 2, args.timeout, lab)
                     if r is None:
                         print(f"  block {block + 1} {arm}: shot not detected (operator/detector), dropped")
                         continue
@@ -1081,7 +1106,9 @@ def main(argv: list[str]) -> int:
     p.add_argument("--ms", type=float, default=120); p.add_argument("--n", type=int, default=10); clear(p); p.set_defaults(fn=cmd_kick)
     p = sub.add_parser("shots"); wheel(p); p.add_argument("--target", type=float, required=True)
     p.add_argument("--n", type=int, default=5); p.add_argument("--timeout", type=float, default=120)
-    p.add_argument("--keep-spinning", action="store_true"); clear(p); p.set_defaults(fn=cmd_shots)
+    p.add_argument("--keep-spinning", action="store_true")
+    p.add_argument("--rec-each", default=None, help="record each shot to runs/PREFIX_sN.csv")
+    clear(p); p.set_defaults(fn=cmd_shots)
     # Starts at 0.5: the pollen wheel did not break away at 0.2 (2026-11-12) and the guard stops a stall.
     p = sub.add_parser("ff"); wheel(p); p.add_argument("--powers", default="0.5,0.6,0.7,0.8,0.9,1.0")
     p.add_argument("--hold", type=float, default=2.0); clear(p); p.set_defaults(fn=cmd_ff)
@@ -1090,7 +1117,9 @@ def main(argv: list[str]) -> int:
     p.add_argument("--metric", default=None, help="kick/shots: recoverMs (default) or dipPct; step: settleS (default), firstInBandS, ...")
     p.add_argument("--target", type=float, required=True); p.add_argument("--ms", type=float, default=120)
     p.add_argument("--n", type=int, default=10); p.add_argument("--timeout", type=float, default=120)
-    p.add_argument("--seed", type=int, default=None); steppy(p); clear(p); p.set_defaults(fn=cmd_ab)
+    p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--rec-each", default=None, help="shots: record each shot to runs/PREFIX_<arm>_b<block>.csv")
+    steppy(p); clear(p); p.set_defaults(fn=cmd_ab)
     p = sub.add_parser("dircheck"); wheel(p); p.add_argument("--power", type=float, default=0.5)
     p.add_argument("--sec", type=float, default=1.5); p.add_argument("--ask", action="store_true")
     clear(p); p.set_defaults(fn=cmd_dircheck)

@@ -1126,3 +1126,15 @@ FL 4.1, BL 6.0 deg - long runs track far better than the 0.55 s windows in the 2
 had not converged. The trim is accepted (crab -3.9 -> +0.6). The robot crept +4.6 in sideways
 over ~640 in of shuttling (heading hold, not crab).
 Traces: runs/20261114-1843*_scale1, runs/20261114-18*_sf{024,050}_*.csv.gz.
+
+## 2026-11-14 — mechtune.py `--rec-each` on `shots` / `ab` (rule 9 declaration)
+
+Diagnostic only. With `--rec-each PREFIX`, each shot trial is wrapped in its own Mechanism Tuner
+flight-recorder trace: wait until the wheel holds the band, `recStart`, the unchanged `run_shot`,
+0.6 s more, `recStop`, pull to `tools/mechtune/runs/PREFIX_...csv`. Reason: FlyRecorder holds 6000
+samples (~60 s at the tuner's 85-105 Hz) and never wraps, so one trace cannot span a 20-shot A/B,
+and the Phase 2 portfolio figure needs the velocity trace of every shot. Expected effect on the
+measurement: none on control (the hub runs the velocity PIDF; the OpMode only samples); recording
+adds one array write per loop, and the CSV render runs on the web thread between shots, while the
+wheel idles at target. Not measured. Without the flag nothing changes, so earlier shot A/Bs stay
+comparable.

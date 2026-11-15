@@ -912,9 +912,18 @@ def cmd_burst(args) -> int:
     need_clear(args)
     s = state()
     gate = next((x for x in s.get("servos", []) if x["name"] == "gate"), None)
-    if not gate or gate["marks"].get("open") is None or gate["marks"].get("close") is None:
-        raise RobotError("mark the gate 'open' and 'close' first")
-    g_open, g_close = gate["marks"]["open"], gate["marks"]["close"]
+    marks = (gate or {}).get("marks") or {}
+    g_open, g_close = marks.get("open"), marks.get("close")
+    if g_open is None or g_close is None:   # the tuner starts unmarked; fall back to the shipped values
+        src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "TeamCode", "src", "main",
+                                "java", "org", "firstinspires", "ftc", "teamcode", "SystemConstants.java"),
+                   encoding="utf-8").read()
+        blk = src[src.index("class Gate"):]
+        g_open = float(re.search(r"openPos\s*=\s*([0-9.]+)", blk).group(1))
+        g_close = float(re.search(r"closePos\s*=\s*([0-9.]+)", blk).group(1))
+        if g_open == g_close:
+            raise RobotError("gate open == close in SystemConstants: calibrate the gate first")
+        print(f"gate: shipped SystemConstants.Gate open {g_open} / close {g_close}")
     if args.pidf:
         set_pidf(args.wheel, [float(x) for x in args.pidf.split()])
     pidf = wheel_of(state(), args.wheel)["pidf"]

@@ -109,6 +109,28 @@ public class Swerve implements Drivetrain {
     private long lastActiveInputNano = 0;
 
     /**
+     * RUCKUS PATCH (2026-11-15): small-turn roll-out. For this long after the translation input was last at or
+     * above epsilon, a turn input under epsilon (but over the much lower rotation epsilon) does not steer the
+     * pods - the input is treated as zero, so the pods are released holding the travel direction, exactly as
+     * the X_LOCK engage delay does for zero input. Without it, a stop with a small heading correction still
+     * running sent every pod to its rotation tangent within one loop (all at 270 -> 20/70/110/160 deg; the
+     * demand slew limiter skips jumps a pod resolves by flipping) while the chassis rolled at 21-23 in/s, which
+     * scrubbed it to a dead stop - the operator's "jolt on stop", never seen in pure turns (the pods are already
+     * on the tangents). After the window the small turn acts again, so heading hold at rest is unchanged; turns
+     * at or above epsilon are never affected. 0 disables (upstream behaviour).
+     *
+     * <p>DEFAULT OFF (0): A/B 2026-11-15 on the Foresight BRAKE stage (rollout_ab.py) - it does what it says, pod
+     * rotation in the 0.3 s after a stop 59 -> 11 deg mean (servo power 0.14 -> 0.03), but the stop is not
+     * gentler: peak deceleration 183 vs 199 in/s^2, stopped within 0.3 s either way (n = 9 / 6 stops). The
+     * abruptness is the rebuilt drivetrain's own coast deceleration, not the pod snap. Kept switchable
+     * (setSmallTurnRolloutS, Bring-Up setMixer rollout=) rather than shipped on.
+     */
+    private static volatile double smallTurnRolloutS = 0.0;
+
+    /** RUCKUS PATCH: when the translation input was last at or above epsilon (small-turn roll-out). */
+    private long lastActiveTransNano = 0;
+
+    /**
      * RUCKUS PATCH: how long zero input must persist before X_LOCK engages. Stick release at
      * speed used to snap all four pods sideways against a still-rolling chassis - ground
      * reaction torque then buffets the pod azimuths and the whole robot judders. Measured on
@@ -156,6 +178,14 @@ public class Swerve implements Drivetrain {
 
     public static double getDemandSlewDegPerSec() {
         return demandSlewDegPerSec;
+    }
+
+    public static void setSmallTurnRolloutS(double seconds) {
+        smallTurnRolloutS = Math.max(0, seconds);
+    }
+
+    public static double getSmallTurnRolloutS() {
+        return smallTurnRolloutS;
     }
 
     public static void setTranslationPriority(double fraction) {
@@ -347,6 +377,15 @@ public class Swerve implements Drivetrain {
         // path (X-lock, release semantics) is tuned around it.
         double rotEpsilon = Math.min(epsilon, ROTATION_EPSILON);
         boolean zeroRotation = Math.abs(rotation) < rotEpsilon;
+
+        // RUCKUS PATCH (2026-11-15): small-turn roll-out - see smallTurnRolloutS.
+        long rolloutNow = System.nanoTime();
+        if (!zeroTrans) {
+            lastActiveTransNano = rolloutNow;
+        } else if (!zeroRotation && Math.abs(rotation) < epsilon && smallTurnRolloutS > 0
+                && lastActiveTransNano != 0 && (rolloutNow - lastActiveTransNano) / 1.0e9 < smallTurnRolloutS) {
+            zeroRotation = true;
+        }
 
         // RUCKUS PATCH: X_LOCK only after zero input has persisted, so a stick release at speed
         // does not snap the pods sideways under a rolling chassis. Until then zero input behaves

@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.diagnostics.tests;
 
+import org.firstinspires.ftc.teamcode.diagnostics.TurretEndStop;
+
 import android.util.Log;
 
 import com.acmerobotics.dashboard.FtcDashboard;
@@ -35,7 +37,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 @Configurable
 public class servoRangeTest extends LinearOpMode {
     public static String SERVO_NAME = "pollenTurretServo";
-    public static double POSITION = 0.0;
+    public static double POSITION = 0.5; // was 0.0 = the pollen turret's travel end (TurretEndStop)
     public static boolean ZERO = false;
     public static boolean FULL_PWM = true;
 
@@ -60,7 +62,7 @@ public class servoRangeTest extends LinearOpMode {
                         ? new PwmControl.PwmRange(500, 2500) : PwmControl.PwmRange.defaultRange);
                 appliedFull = FULL_PWM;
             }
-            servo.setPosition(POSITION);
+            servo.setPosition(TurretEndStop.clamp(SERVO_NAME, POSITION));
             double yaw = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
             double travel = 360 - Math.abs(yaw);
             telemetry.addData("position", POSITION);

@@ -1171,3 +1171,22 @@ loop 85-150 Hz true. Operator had just plugged in the flywheel encoder.
 - **Figure**: docs/portfolio/flywheel/ (PNG, SVG, per-shot CSV, traces, script, README).
 - Not measured: whether the higher P changes shot-to-shot exit velocity; cadence closer than ~0.5 s
   (one A/B trace caught two pieces ~470 ms apart); NECTAR_PIDF still (500, 0, 0, 11.7), unmounted.
+
+## 2026-11-14 — Turret end stop: shipped limits 0.003-0.997, and the bench tools now respect them
+
+Operator: with the servo at 0.5 the pollen turret faces straight and the mechanism's limits are the
+Axon MAX+'s own travel ends; on the full 500-2500 us PWM range the servo "sometimes skips over its
+limit and breaks the mechanism" (an end overshoot crossing the servo's encoder wrap, as far as the
+symptom shows - not measured). In Mechanism Tuner's limits tab (free mode, slider) the operator drove
+it to 0.0 and 1.0 (-/+186.9 deg) at 19:39; the hub then dropped off the network. Shipped:
+POLLEN_TURRET_MIN/MAX 0.45/0.55 -> 0.003/0.997 (002acbc2, b11d7613), the operator's 1-degree stop
+(1.1 deg of turret), range 371.6 deg >= 360 + the 10 deg unwind hysteresis. Overshoot size at an
+end is NOT measured; up to 0.018 per side keeps 360 deg if 0.003 is too little.
+
+**Rule 9 declaration (diagnostic tools, no measurement depends on them):** `diagnostics/TurretEndStop`
+clamps raw servo commands to a turret servo to its shipped limits. `servoTest` (drove its servo in
+INIT, default 0.0 on `pollenTurretServo`, and sent 0 at stop) and `servoRangeTest` (default 0.0,
+full PWM) now default to 0.5 and clamp; `servoTest` no longer sends a turret to 0 at stop;
+`turretServoTest` clamps; Mechanism Tuner's free mode (limits tab) stays 0.003 off each end.
+servoRangeTest's "travel at POSITION 1" reading on a turret servo is now taken at 0.997.
+`turretTrackTest` and PreMatchSystemCheck already went through the shipped clamp / center.

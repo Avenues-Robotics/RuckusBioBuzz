@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.diagnostics.tests;
 
+import org.firstinspires.ftc.teamcode.diagnostics.TurretEndStop;
+
 import org.firstinspires.ftc.teamcode.SystemConstants;
 
 import com.acmerobotics.dashboard.FtcDashboard;
@@ -56,7 +58,7 @@ public class turretServoTest extends LinearOpMode {
             } else {
                 cmd = POSITION;
             }
-            cmd = Math.max(0, Math.min(1, cmd));
+            cmd = TurretEndStop.clamp(SERVO_NAME, Math.max(0, Math.min(1, cmd)));
             servo.setPosition(cmd);
 
             telemetry.addData("servo", SERVO_NAME + " (port " + servo.getPortNumber() + ")");

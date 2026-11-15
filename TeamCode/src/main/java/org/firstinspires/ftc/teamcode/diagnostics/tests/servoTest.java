@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.diagnostics.tests;
 
+import org.firstinspires.ftc.teamcode.diagnostics.TurretEndStop;
+
 import android.util.Log;
 
 import com.acmerobotics.dashboard.FtcDashboard;
@@ -25,7 +27,7 @@ import java.io.FileReader;
 @Configurable
 public class servoTest extends LinearOpMode {
     public static String SERVO_NAME = "pollenTurretServo";
-    public static double position = 0.0;
+    public static double position = 0.5; // was 0.0 = the pollen turret's travel end (TurretEndStop)
 
     /**
      * Fallback input: if this file exists its first line overrides {@code position}. Added
@@ -60,16 +62,18 @@ public class servoTest extends LinearOpMode {
         // Drive during INIT too, so the bench works without pressing PLAY.
         while (!isStarted() && !isStopRequested()) {
             readPositionFile();
-            test.setPosition(position);
+            test.setPosition(TurretEndStop.clamp(SERVO_NAME, position));
             lastLog = report(panels, test, lastLog);
             sleep(20);
         }
         while (opModeIsActive()) {
             readPositionFile();
-            test.setPosition(position);
+            test.setPosition(TurretEndStop.clamp(SERVO_NAME, position));
             lastLog = report(panels, test, lastLog);
         }
-        test.setPosition(0);
+        if (!TurretEndStop.isTurret(SERVO_NAME)) {
+            test.setPosition(0); // a turret stays where it is: 0 is its travel end
+        }
     }
 
     /** Echo to the Driver Station, Panels and logcat (tag servoTest, twice a second). */

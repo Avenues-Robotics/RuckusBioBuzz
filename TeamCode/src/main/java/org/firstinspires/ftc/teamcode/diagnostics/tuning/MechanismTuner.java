@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.diagnostics.tuning;
 
+import org.firstinspires.ftc.teamcode.diagnostics.TurretEndStop;
 import org.firstinspires.ftc.teamcode.SystemConstants;
 
 import com.pedropathing.math.Pose;
@@ -2117,10 +2118,15 @@ public class MechanismTuner extends OpMode {
             return (p - center) * range() * (reversed ? -1 : 1);
         }
 
-        /** Commands are held inside the marked limits unless free (only the limits tab sends free). */
+        /**
+         * Commands are held inside the marked limits unless free (only the limits tab sends free).
+         * Free is still kept TurretEndStop.END off each servo end (2026-11-14: the Axon MAX+ can
+         * overshoot an end, cross its encoder wrap and break the turret mechanism).
+         */
         void setPosition(double p, boolean free) {
             if (servo == null) throw new IllegalStateException("no servo named " + device);
-            pos = free ? clamp(p, 0, 1) : clamp(p, Math.min(min, max), Math.max(min, max));
+            pos = free ? TurretEndStop.free(p)
+                    : TurretEndStop.free(clamp(p, Math.min(min, max), Math.max(min, max)));
             servo.setPosition(pos);
         }
     }

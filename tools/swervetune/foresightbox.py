@@ -58,7 +58,57 @@ def spin_refusal(s: dict) -> str | None:
     return None
 
 
-def run_stage(stage: str, axis: str | None, p1, p2, pods: str) -> dict:
+def recenter(heading_deg: float = 90.0, axis: str | None = None, tol_in: float = 2.0, tol_deg: float = 3.0,
+             timeout_s: float = 6.0) -> None:
+    """Puts the robot back square to the box with the follower's hold (pedroStart / pedroHold / pedroStop - the
+    OpMode checks the hold point against the fence minus 6 in). Heading stages (axis None) go to the middle;
+    linear stages go to the near END of their axis, so the stage gets the whole box (about 23 in of centre
+    travel on the 2x2 instead of 14.5 from the middle). Spins drift the robot and every linear stage ends near
+    a wall, so this runs before each stage."""
+    s = state()
+    b, p, h = s["box"], s["pose"], s["heading"]["deg"]
+    cx, cy = (b["minX"] + b["maxX"]) / 2, (b["minY"] + b["maxY"]) / 2
+    if axis:
+        # Field direction of the stage's axis at heading_deg (strafe = robot left), then the end nearest the
+        # robot, 0.5 in inside what the OpMode accepts as a hold point (fence reach + 6 in margin).
+        hr = math.radians(heading_deg)
+        ux, uy = (math.cos(hr), math.sin(hr)) if axis == "forward" else (-math.sin(hr), math.cos(hr))
+        # The OpMode accepts a hold point only 6 in + the robot's half-diagonal inside a border/field fence
+        # (pedroPointOk: a path may turn the robot) - so this is as near the end as the follower may go.
+        reach = math.hypot(b.get("robotL", 18), b.get("robotW", 18)) / 2 if b.get("kind") != "marked" else 0
+        inset = reach + 6.0 + 0.5
+        if abs(ux) > abs(uy):
+            cx = b["minX"] + inset if p["x"] <= cx else b["maxX"] - inset
+        else:
+            cy = b["minY"] + inset if p["y"] <= cy else b["maxY"] - inset
+    dh = ((heading_deg - h + 180) % 360) - 180
+    if math.hypot(cx - p["x"], cy - p["y"]) < tol_in and abs(dh) < tol_deg:
+        return
+    print(f"    recentre: ({p['x']:.1f}, {p['y']:.1f}, {h:.1f} deg) -> ({cx:.1f}, {cy:.1f}, {heading_deg:.0f} deg)",
+          flush=True)
+    send("pedroStart", pods="shipped")
+    time.sleep(0.6)
+    send("pedroHold", dx=round(cx - p["x"], 2), dy=round(cy - p["y"], 2), dh=round(dh, 2))
+    deadline = time.time() + timeout_s
+    try:
+        while time.time() < deadline:
+            time.sleep(0.3)
+            s = state()
+            p, h = s["pose"], s["heading"]["deg"]
+            if (math.hypot(cx - p["x"], cy - p["y"]) < tol_in
+                    and abs(((heading_deg - h + 180) % 360) - 180) < tol_deg):
+                time.sleep(0.5)
+                break
+    finally:
+        send("pedroStop")
+        time.sleep(0.4)
+    s = state()
+    print(f"    recentred at ({s['pose']['x']:.1f}, {s['pose']['y']:.1f}, {s['heading']['deg']:.1f} deg)", flush=True)
+
+
+def run_stage(stage: str, axis: str | None, p1, p2, pods: str, center: bool = False) -> dict:
+    if center:
+        recenter(axis=axis)
     s0 = state()
     if s0.get("mode") not in ("IDLE",):
         raise SystemExit(f"REFUSED: Bring-Up is in mode {s0.get('mode')}, not IDLE.")
@@ -108,10 +158,13 @@ def run_stage(stage: str, axis: str | None, p1, p2, pods: str) -> dict:
         "extras": f.get("extras", {}), "points": f.get("points", []), "t": f.get("t", []), "v": f.get("v", []),
         "pods": params["pods"],
     }
+    msg_final = s.get("message", "") or ""
+    ok = (f.get("phase") == "done" and f.get("stage", "").lower().replace("_", "") == stage.lower()
+          and "REFUSED" not in msg_final)
+    rec["ok"] = ok
     os.makedirs(RUNS, exist_ok=True)
     with open(LOG, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(rec) + "\n")
-    ok = f.get("phase") == "done"
     print(f"    {'DONE' if ok else 'NOT DONE (' + str(f.get('phase')) + ')'}  extras {fmt(rec['extras'])}")
     if rec["points"]:
         print("    points (v, distance): " + ", ".join(f"({a:.2f}, {b:.2f})" for a, b in rec["points"]))
@@ -189,16 +242,17 @@ def main() -> int:
     r.add_argument("--p1", type=float)
     r.add_argument("--p2", type=float)
     r.add_argument("--pods", default="shipped", choices=["shipped", "live"])
+    r.add_argument("--recenter", action="store_true", help="hold back to the box centre, facing 90 deg, first")
     a_all = sub.add_parser("all")
     a_all.add_argument("--pods", default="shipped", choices=["shipped", "live"])
     a = ap.parse_args(argv)
     if a.cmd == "run":
         if a.stage in ("decel", "translational", "brake") and not a.axis:
             ap.error(f"{a.stage} needs --axis forward|strafe")
-        run_stage(a.stage, a.axis, a.p1, a.p2, a.pods)
+        run_stage(a.stage, a.axis, a.p1, a.p2, a.pods, center=a.recenter)
     else:
         for stage, axis in SEQUENCE:
-            rec = run_stage(stage, axis, None, None, a.pods)
+            rec = run_stage(stage, axis, None, None, a.pods, center=True)
             if rec["phase"] != "done":
                 print(f"stopping the sequence: {stage} did not finish ({rec['message']})")
                 return EXIT_REFUSED

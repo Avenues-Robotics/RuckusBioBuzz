@@ -63,7 +63,6 @@ final class ForesightBoxTuner {
     private static final double MARGIN_IN = 3.0;
     private static final double ACCEL_GUESS = 60.0;      // in/s^2 at full power (low = plans a longer run-up)
     private static final double DECEL_GUESS = 30.0;      // in/s^2 coasting (measured 40 on the old pods)
-    private static final double K_GUESS = 90.0;          // in/s per unit power (placeholder vmax is 73.9)
 
     private final Map<String, Double> results = new LinkedHashMap<>();
     private final Map<String, Double> extras = new LinkedHashMap<>();
@@ -165,27 +164,18 @@ final class ForesightBoxTuner {
                 phase = "drive";
                 break;
             case TRANSLATIONAL: {
-                double power = def(p1, 0.4), runtime = def(p2, 1.2);
+                // The tuner's 0.4 / 1.2 s as given - NOT scaled down: at low power the drive sits in its
+                // static-friction deadband (heading: 0.16 rad/s at 0.2 vs 2.6 at 0.4, 2026-11-15), so K from a
+                // 0.2 run is not the drivetrain's. Safety is the live room cut in translational(); a run cut
+                // before its plateau FAILS instead of fitting a rise.
+                param1 = def(p1, 0.4);
+                param2 = def(p2, 1.2);
                 double room = pickDirection(io);
                 extras.put("roomIn", room);
-                double d = decelFor();
-                // Travel ~ P*K*(T - 0.2 s rise) + coast (P*K)^2 / 2d. Lower P, then T, until it fits.
-                while (power > 0.2 && travel(power, runtime, d) > room - MARGIN_IN) {
-                    power -= 0.02;
-                }
-                while (runtime > 0.8 && travel(power, runtime, d) > room - MARGIN_IN) {
-                    runtime -= 0.05;
-                }
-                if (travel(power, runtime, d) > room - MARGIN_IN) {
+                if (room < 10) {
                     return "only " + r1(room) + " in of room along the " + axisName()
-                            + " axis - not enough for TRANSLATIONAL even at power 0.2 / 0.8 s.";
+                            + " axis - start TRANSLATIONAL from one end of the box.";
                 }
-                if (power < def(p1, 0.4) || runtime < def(p2, 1.2)) {
-                    message = "TRANSLATIONAL scaled to power " + r2(power) + ", " + r2(runtime)
-                            + " s to fit " + r1(room) + " in of room (tuner default 0.4 / 1.2 s).";
-                }
-                param1 = power;
-                param2 = runtime;
                 phase = "drive";
                 break;
             }
@@ -387,6 +377,12 @@ final class ForesightBoxTuner {
             if (t >= param2 || outOfRoom) {
                 cutShort = outOfRoom && t < param2;
                 io.coast();
+                double spread = plateauSpread();
+                if (cutShort && !(Math.abs(spread) <= 0.05)) {
+                    throw new IllegalStateException("cut on room at " + r2(t) + " s, before a plateau (last-15 vs"
+                            + " previous-15 spread " + r2(spread) + ") - not identifiable in this room at power "
+                            + r2(param1));
+                }
                 double[] kt = identify(param1);
                 double kLarge = kt[1] * 10.2 * 10.2 / kt[0];
                 double kSmall = kt[1] * 6.2 * 6.2 / kt[0];
@@ -515,11 +511,6 @@ final class ForesightBoxTuner {
     private double decelFor() {
         Double d = results.get(forwardAxis ? "naturalForwardDeceleration" : "naturalStrafeDeceleration");
         return d != null && d > 5 ? Math.min(d, DECEL_GUESS * 2) : DECEL_GUESS;
-    }
-
-    private static double travel(double power, double runtime, double decel) {
-        double v = power * K_GUESS;
-        return v * Math.max(0, runtime - 0.2) + v * v / (2 * decel);
     }
 
     private void settle(Io io, double t, boolean still, String summary) {

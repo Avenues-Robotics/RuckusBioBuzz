@@ -90,7 +90,7 @@ public class Constants {
     // Pulsed final approach, shared by all four pods (see buildPod)
     public static final double pulseBandDeg = 3.5;
     public static final double pulseToleranceDeg = 3.0;
-    public static final double pulsePower = 0.035;
+    public static final double pulsePower = 0.045;
     public static final double pulseSeconds = 0.020;
     public static final double pulseStationaryDegPerSec = 20.0;
     public static final double pulseCoastSeconds = 0.10;

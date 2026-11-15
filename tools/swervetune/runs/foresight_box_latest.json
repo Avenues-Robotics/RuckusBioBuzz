@@ -1,11 +1,11 @@
 {
   "heading kP": {
-    "value": 8.730348,
-    "time": "2026-11-15T13:59:35",
-    "volts": 12.957,
+    "value": 13.76608,
+    "time": "2026-11-15T14:33:28",
+    "volts": 12.847,
     "extras": {
-      "K": 6.604679,
-      "tau": 0.173124
+      "K": 4.02333,
+      "tau": 0.166292
     },
     "pods": "shipped"
   },
@@ -24,14 +24,14 @@
     "pods": "shipped"
   },
   "naturalForwardDeceleration": {
-    "value": 111.443131,
-    "time": "2026-11-15T13:50:04",
-    "volts": 13.11,
+    "value": 90.444582,
+    "time": "2026-11-15T14:09:55",
+    "volts": 12.878,
     "extras": {
-      "roomIn": 14.959152,
-      "vCut": 24.080231,
-      "coastIn": 3.040887,
-      "decelFromDistance": 95.343502,
+      "roomIn": 18.426992,
+      "vCut": 25.841218,
+      "coastIn": 4.72326,
+      "decelFromDistance": 70.689375,
       "cutShort": 0.0
     },
     "pods": "shipped"
@@ -50,106 +50,106 @@
     "pods": "shipped"
   },
   "forwardTranslational Primary kP": {
-    "value": 0.454375,
-    "time": "2026-11-15T13:57:45",
-    "volts": 13.009,
+    "value": 0.450696,
+    "time": "2026-11-15T14:10:07",
+    "volts": 12.887,
     "extras": {
-      "roomIn": 18.722295,
-      "K": 45.31147,
-      "tau": 0.197889,
+      "roomIn": 18.081444,
+      "K": 38.031051,
+      "tau": 0.164749,
       "power": 0.35,
-      "runtime": 1.147471,
-      "cutShort": 1.0,
-      "plateauSpread": 0.011955
+      "runtime": 1.20343,
+      "cutShort": 0.0,
+      "plateauSpread": -0.024338
     },
     "pods": "shipped"
   },
   "forwardTranslational Secondary kP": {
-    "value": 0.167879,
-    "time": "2026-11-15T13:57:45",
-    "volts": 13.009,
+    "value": 0.16652,
+    "time": "2026-11-15T14:10:07",
+    "volts": 12.887,
     "extras": {
-      "roomIn": 18.722295,
-      "K": 45.31147,
-      "tau": 0.197889,
+      "roomIn": 18.081444,
+      "K": 38.031051,
+      "tau": 0.164749,
       "power": 0.35,
-      "runtime": 1.147471,
-      "cutShort": 1.0,
-      "plateauSpread": 0.011955
+      "runtime": 1.20343,
+      "cutShort": 0.0,
+      "plateauSpread": -0.024338
     },
     "pods": "shipped"
   },
   "coast kV": {
-    "value": 0.022069,
-    "time": "2026-11-15T13:57:45",
-    "volts": 13.009,
+    "value": 0.026294,
+    "time": "2026-11-15T14:10:07",
+    "volts": 12.887,
     "extras": {
-      "roomIn": 18.722295,
-      "K": 45.31147,
-      "tau": 0.197889,
+      "roomIn": 18.081444,
+      "K": 38.031051,
+      "tau": 0.164749,
       "power": 0.35,
-      "runtime": 1.147471,
-      "cutShort": 1.0,
-      "plateauSpread": 0.011955
+      "runtime": 1.20343,
+      "cutShort": 0.0,
+      "plateauSpread": -0.024338
     },
     "pods": "shipped"
   },
   "brake kV": {
-    "value": 0.018759,
-    "time": "2026-11-15T13:57:45",
-    "volts": 13.009,
+    "value": 0.02235,
+    "time": "2026-11-15T14:10:07",
+    "volts": 12.887,
     "extras": {
-      "roomIn": 18.722295,
-      "K": 45.31147,
-      "tau": 0.197889,
+      "roomIn": 18.081444,
+      "K": 38.031051,
+      "tau": 0.164749,
       "power": 0.35,
-      "runtime": 1.147471,
-      "cutShort": 1.0,
-      "plateauSpread": 0.011955
+      "runtime": 1.20343,
+      "cutShort": 0.0,
+      "plateauSpread": -0.024338
     },
     "pods": "shipped"
   },
   "strafeTranslational Primary kP": {
-    "value": 0.406835,
-    "time": "2026-11-15T13:57:58",
-    "volts": 12.978,
+    "value": 0.331818,
+    "time": "2026-11-15T14:10:11",
+    "volts": 12.847,
     "extras": {
-      "roomIn": 18.891479,
-      "K": 53.583914,
-      "tau": 0.209533,
+      "roomIn": 18.458233,
+      "K": 45.661915,
+      "tau": 0.145631,
       "power": 0.35,
-      "runtime": 0.917384,
+      "runtime": 1.137293,
       "cutShort": 1.0,
-      "plateauSpread": 0.044945
+      "plateauSpread": 0.003558
     },
     "pods": "shipped"
   },
   "strafeTranslational Secondary kP": {
-    "value": 0.150315,
-    "time": "2026-11-15T13:57:58",
-    "volts": 12.978,
+    "value": 0.122598,
+    "time": "2026-11-15T14:10:11",
+    "volts": 12.847,
     "extras": {
-      "roomIn": 18.891479,
-      "K": 53.583914,
-      "tau": 0.209533,
+      "roomIn": 18.458233,
+      "K": 45.661915,
+      "tau": 0.145631,
       "power": 0.35,
-      "runtime": 0.917384,
+      "runtime": 1.137293,
       "cutShort": 1.0,
-      "plateauSpread": 0.044945
+      "plateauSpread": 0.003558
     },
     "pods": "shipped"
   },
   "forwardBrakingLinearCoefficient": {
-    "value": 0.020319,
-    "time": "2026-11-15T13:58:50",
-    "volts": 13.0,
+    "value": 0.008531,
+    "time": "2026-11-15T14:43:26",
+    "volts": 12.703,
     "extras": {},
     "pods": "shipped"
   },
   "forwardBrakingQuadraticCoefficient": {
-    "value": 0.001626,
-    "time": "2026-11-15T13:58:50",
-    "volts": 13.0,
+    "value": 0.005693,
+    "time": "2026-11-15T14:43:26",
+    "volts": 12.703,
     "extras": {},
     "pods": "shipped"
   },

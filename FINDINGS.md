@@ -1267,3 +1267,32 @@ unknown - it worked across the previous redeploys and the battery swap; it froze
 restart with the hub powered. **Competition risk:** TeleOp and the autos have no check for a frozen
 heading (SwerveBringUp has one, `headingStuckSeconds`); a frozen heading breaks turret aiming and the
 zone check silently. Not yet addressed.
+
+## 2026-11-15 — rapid fire at 2400: the wheel cannot keep up; F voltage-compensated; heading froze again
+
+**First 4-ball burst** (`mechtune.py burst`, gate open + intake feeding, (10, 0.1, 0, 12.4) at 2400 ticks/s,
+battery 11.9 V before / 11.4-11.6 V during): contacts at 1.00, 1.12, 1.20, 1.60 s, wheel speed at contact
+2300 / 2120 / 1840 / 2400 (-4 / -12 / -23 / 0%), back in band 1.82 s. Balls 2-3 hit before the wheel
+recovered, so one burst spans ~23% of exit-speed spread. During recovery the hub output is saturated
+(F x T = 29,760 of 32,767 before any P term), so P/I/D cannot speed it up; recovering 1500 -> 2400 took
+~200 ms at the limit. One shot only (n=1), plus an accidental single shot earlier: drop 35.8%, back in band
+461 ms (127 ms at 1860 on the same gains). The burst scorer counts one ball per excursion below the band,
+so merged contacts show as one - read the trace for back-to-back balls.
+
+**F at 2400.** Closed-loop search (P=3, I=0) -> F 12.2; but with the production P/I, F 12.2 settles -43
+ticks/s vs -21 for the shipped 12.4 (n=4/4 interleaved, 12.6 V), so F stays 12.4. The -2.5% before the
+burst was the battery (11.9 V): **F is now voltage-compensated** (f8e1b825: F x 12.6 V / battery V,
+smoothed, 4 Hz). On the robot, TeleOp telemetry (1cffa83a): wheel 1180-1200 / 1200 at idle, F scale 0.995
+at 12.66 V and 1.000 at 12.62 V - working as designed; the low-battery benefit is not measured yet.
+
+**Mechanical (operator asked; estimates, not measured):** 24:20 drives the wheel at 1.2x the motor; at
+2400 ticks/s the motor is at ~91% of its loaded max (2650), leaving ~9% of stall torque to recover. Each
+ball takes ~47-60% of the wheel's kinetic energy (27-37% speed drop). Advice given: add inertia (back-to-
+back consistency) and gear up to ~1.6-1.7x (motor near 65% of max, ~2.5-3x the accelerating torque at the
+wheel); the motor-side target then scales (same wheel speed at 1.6x = 2400 x 1.2 / 1.6 = 1800 ticks/s).
+
+**Pinpoint heading froze at exactly 0.0 a second time**, again right after an app restart (adb install,
+11:58; 156 TeleOp samples all 0.0, Bring-Up 0.0 / rate 0.0). Not caused by TeleOp (PinpointLocalizer
+resetMode NONE does nothing to the IMU at init). resetImu in Bring-Up fixed it again (-0.013 at rest;
+TeleOp then 0.0035-0.0056). Not every restart does it (11:12 was fine). The Pinpoint's device-status flags
+are not read anywhere - next step to find the cause; TeleOp/autos still have no frozen-heading check.

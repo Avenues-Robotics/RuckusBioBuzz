@@ -58,7 +58,7 @@ public final class SystemConstants {
         // hysteresis. Overshoot size at the ends is NOT measured; up to ~0.018 per side (6.9 deg)
         // still keeps 360 deg if 0.003 proves too little.
         public static double POLLEN_TURRET_MIN = 0.003;
-        public static double POLLEN_TURRET_MAX = 0.55;
+        public static double POLLEN_TURRET_MAX = 0.997;
         // NECTAR: not mounted on 2026-11-14 - still the narrow +/-18.7 deg guess, NOT measured.
         public static double NECTAR_TURRET_MIN = 0.45;
         public static double NECTAR_TURRET_MAX = 0.55;

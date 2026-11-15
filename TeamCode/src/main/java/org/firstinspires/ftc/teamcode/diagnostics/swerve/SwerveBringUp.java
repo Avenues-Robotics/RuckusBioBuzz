@@ -154,7 +154,9 @@ public class SwerveBringUp extends OpMode {
         CAL_POS,
         DRIVE,
         /** The real Pedro follower driving, for translational/drive/centripetal PIDF tuning. */
-        FOLLOW
+        FOLLOW,
+        /** Foresight Tuner stages on the follower's drivetrain, inside the fence (ForesightBoxTuner). */
+        FORESIGHT
     }
 
     /** Actions that can move the robot, and so require START to have been pressed. */
@@ -181,7 +183,9 @@ public class SwerveBringUp extends OpMode {
                 || "pedroHold".equals(action)
                 || "pedroCurve".equals(action)
                 // Starts the follower on a whole path; was missing (robot.py's MOTION had it).
-                || "pedroChain".equals(action);
+                || "pedroChain".equals(action)
+                // Foresight Tuner stages spin and drive the robot open loop.
+                || "foresight".equals(action);
     }
 
     // ---------------------------------------------------------------- state
@@ -893,6 +897,9 @@ public class SwerveBringUp extends OpMode {
     private String exportText = "";
 
     private final PodAutoTuner tuner = new PodAutoTuner();
+
+    /** Pedro 3's Foresight Tuner stages, ported to run inside the fence (FORESIGHT mode). */
+    private final ForesightBoxTuner fTuner = new ForesightBoxTuner();
     private final ElapsedTime autoTuneTimer = new ElapsedTime();
     private final ElapsedTime headingStickTimer = new ElapsedTime();
 
@@ -2057,6 +2064,9 @@ public class SwerveBringUp extends OpMode {
             case FOLLOW:
                 runFollowMode();
                 break;
+            case FORESIGHT:
+                runForesightMode();
+                break;
             case IDLE:
             default:
                 // Servos limp so pods can be turned by hand for zeroing.
@@ -2080,6 +2090,13 @@ public class SwerveBringUp extends OpMode {
         // allStop cannot reach, and an abandoned holdPoint would keep servoing forever.
         if (mode == Mode.FOLLOW && next != Mode.FOLLOW && pedro != null) {
             pedroBreak();
+        }
+        // Leaving FORESIGHT: the stage drives the follower's own pods, which allStop cannot reach.
+        if (mode == Mode.FORESIGHT && next != Mode.FORESIGHT) {
+            fTuner.abort("mode changed to " + next);
+            if (pedro != null) {
+                pedro.drivetrain.stop();
+            }
         }
         // A wiring scan forces every turn servo to Direction.FORWARD so "positive power" is
         // unambiguous. Only finishWireScan restored them, so aborting a scan (STOP, another
@@ -3166,6 +3183,112 @@ public class SwerveBringUp extends OpMode {
         pedro.update();
     }
 
+    // ---------------------------------------------------------------- foresight tuner
+
+    /**
+     * One FORESIGHT tick. The fence check is the bring-up's own pose against centreBounds, every loop, before
+     * the stage acts: outside it, the stage is aborted and the follower's drivetrain stopped (BRAKE motors).
+     * The stage itself plans its stops short of the fence - a coasting robot cannot be clamped.
+     */
+    private void runForesightMode() {
+        if (pedro == null) {
+            setMode(Mode.IDLE);
+            return;
+        }
+        pedro.localizer.update();
+        if (!poseOk || !boxValid) {
+            fTuner.abort(!poseOk ? "pose unreadable" : "box lost");
+            setMode(Mode.IDLE);
+            message = fTuner.message();
+            return;
+        }
+        double[] cb = centreBounds(headingRad);
+        if (poseXIn < cb[0] || poseXIn > cb[2] || poseYIn < cb[1] || poseYIn > cb[3]
+                || keepOutClearance(poseXIn, poseYIn) < 0) {
+            fTuner.abort("left the fence at (" + fmt(poseXIn) + ", " + fmt(poseYIn) + ")");
+            setMode(Mode.IDLE);
+            message = fTuner.message();
+            return;
+        }
+        fTuner.update(foresightIo);
+        message = fTuner.message();
+        if (!fTuner.running()) {
+            setMode(Mode.IDLE);
+            message = fTuner.message();
+        }
+    }
+
+    /** Inches the robot centre can move from the current pose along (fx, fy) before the fence. */
+    private double fenceRoom(double fx, double fy) {
+        double[] cb = centreBounds(headingRad);
+        double room = Double.POSITIVE_INFINITY;
+        if (fx > 1e-9) room = Math.min(room, (cb[2] - poseXIn) / fx);
+        if (fx < -1e-9) room = Math.min(room, (cb[0] - poseXIn) / fx);
+        if (fy > 1e-9) room = Math.min(room, (cb[3] - poseYIn) / fy);
+        if (fy < -1e-9) room = Math.min(room, (cb[1] - poseYIn) / fy);
+        room = Math.max(0, room);
+        if (!keepOuts.isEmpty()) {
+            for (double d = 0; d < room; d += 0.5) {
+                if (keepOutClearance(poseXIn + fx * d, poseYIn + fy * d) < 0) {
+                    return d;
+                }
+            }
+        }
+        return room;
+    }
+
+    private final ForesightBoxTuner.Io foresightIo = new ForesightBoxTuner.Io() {
+        @Override
+        public void drive(com.pedropathing.drivetrain.DrivePowers powers) {
+            pedro.drivetrain.drive(powers, false);
+        }
+
+        @Override
+        public void coast() {
+            pedro.drivetrain.stop(false);
+        }
+
+        @Override
+        public com.pedropathing.math.Pose pose() {
+            return pedro.localizer.pose();
+        }
+
+        @Override
+        public double forwardVel() {
+            return pedro.localizer.twist().vx;
+        }
+
+        @Override
+        public double strafeVel() {
+            return pedro.localizer.twist().vy;
+        }
+
+        @Override
+        public double omega() {
+            return pedro.localizer.twist().omega;
+        }
+
+        @Override
+        public double room(double fx, double fy) {
+            return fenceRoom(fx, fy);
+        }
+
+        @Override
+        public double headingKpDefault() {
+            return Constants.headingKP;
+        }
+
+        @Override
+        public double headingBrakeLinearDefault() {
+            return Constants.headingBrakeLinear;
+        }
+
+        @Override
+        public double headingBrakeQuadraticDefault() {
+            return Constants.headingBrakeQuadratic;
+        }
+    };
+
     // ---------------------------------------------------------------- zeroing
 
     /** Captures the current raw angle of every pod as its forward reference. */
@@ -4112,6 +4235,67 @@ public class SwerveBringUp extends OpMode {
                 setMode(Mode.IDLE);
                 message = "Follower stopped.";
                 break;
+            case "foresight": {
+                // stage=headingId|headingBrake|decel|brake|translational axis=forward|strafe p1= p2=
+                // pods=shipped|live. Always on a fresh follower, inside the box.
+                if (!poseOk) {
+                    message = "No pose - the Foresight stages need the Pinpoint.";
+                    break;
+                }
+                if (!boxValid) {
+                    message = "No box - the Foresight stages refuse to run without a fence. Mark the box first.";
+                    break;
+                }
+                ForesightBoxTuner.Stage st;
+                String sa = cmd.get("stage") == null ? "" : cmd.get("stage");
+                switch (sa) {
+                    case "headingId": st = ForesightBoxTuner.Stage.HEADING_ID; break;
+                    case "headingBrake": st = ForesightBoxTuner.Stage.HEADING_BRAKE; break;
+                    case "decel": st = ForesightBoxTuner.Stage.DECEL; break;
+                    case "brake": st = ForesightBoxTuner.Stage.BRAKE; break;
+                    case "translational": st = ForesightBoxTuner.Stage.TRANSLATIONAL; break;
+                    default:
+                        message = "foresight stage= must be headingId, headingBrake, decel, brake or translational.";
+                        st = null;
+                }
+                if (st == null) {
+                    break;
+                }
+                String ax = cmd.get("axis") == null ? "forward" : cmd.get("axis");
+                if (!"forward".equals(ax) && !"strafe".equals(ax)) {
+                    message = "foresight axis= must be forward or strafe.";
+                    break;
+                }
+                String podsArg = cmd.get("pods") == null ? "shipped" : cmd.get("pods");
+                if (!"shipped".equals(podsArg) && !"live".equals(podsArg)) {
+                    message = "foresight pods= must be shipped or live.";
+                    break;
+                }
+                setMode(Mode.IDLE);
+                try {
+                    buildPedro("live".equals(podsArg));
+                } catch (RuntimeException e) {
+                    pedro = null;
+                    pedroPods = null;
+                    message = "Follower build failed: " + e.getMessage();
+                    break;
+                }
+                pedro.localizer.update();
+                String refusal = fTuner.start(st, "forward".equals(ax), doubleArg(cmd, "p1", Double.NaN),
+                        doubleArg(cmd, "p2", Double.NaN), foresightIo);
+                if (refusal != null) {
+                    pedro.drivetrain.stop();
+                    message = "foresight REFUSED: " + refusal;
+                    break;
+                }
+                setMode(Mode.FORESIGHT);
+                message = fTuner.message();
+                break;
+            }
+            case "foresightStop":
+                setMode(Mode.IDLE);
+                message = "Foresight stage stopped.";
+                break;
             case "zeroTrim": {
                 // Rotates every pod's forward reference by the same angle. Exists because a
                 // by-eye re-zero can carry a COMMON bias - all four wheels parallel but
@@ -4848,6 +5032,7 @@ public class SwerveBringUp extends OpMode {
             sb.append(",\"busy\":false");
         }
         sb.append('}');
+        fTuner.appendJson(sb);
         sb.append(",\"box\":{\"valid\":").append(boxValid)
                 .append(",\"minX\":").append(fmt(boxMinX))
                 .append(",\"minY\":").append(fmt(boxMinY))

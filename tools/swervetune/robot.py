@@ -47,6 +47,7 @@ MOTION = {
     "wireScan", "sweep", "pulseMotor", "spinServo", "nudge", "pidStep", "pidStepAll", "rawServo",
     "autoTune", "headingStep", "headingGoto", "drive", "calGoto", "calHome", "calPositional",
     "pedroStart", "pedroLine", "pedroHold", "pedroCurve", "pedroChain",
+    "foresight",
 }
 
 # Actions that move the pose frame and so destroy the safe-area box (CLAUDE.md rule 6).

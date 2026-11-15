@@ -1393,3 +1393,24 @@ POINT_5 now fires (+0.51 s) - the heading change, as the host turret model predi
 loop is driven instead of skipped. Every Shoot step's gate-open time sits at SHOOT_OPEN_TIME (1.2 s) and
 no step hit the 3 s cap. Path timing and "Done at" remain sim-only (the visualizer estimates 26.9 / 27.0 s).
 Not checked by any of this: whether chain3's new heading still lets the scoopula collect.
+
+## 2026-11-15 — Foresight Tuner ported into Swerve Bring-Up (FORESIGHT mode), for the 2x2
+
+**New diagnostic tooling (rule 9).** The Foresight Tuner was deleted with Sloth (cf5dcee9); CLAUDE.md said it
+lived on branch `autotune-sloth`, which does not exist (fixed, c7e15a79). Its stages are ported, fits and
+result names unchanged, into `diagnostics/swerve/ForesightBoxTuner.java`, run by Bring-Up's new FORESIGHT mode
+on a fresh follower (shipped pods by default), driven by `tools/swervetune/foresightbox.py` (floor + box gates;
+results to `runs/foresight_box_*`, importable with `robot.py foresight --partial`).
+
+Ported: heading ID (kP), heading braking, forward/strafe deceleration, forward/strafe translational (kP
+primary/secondary, coast/brake kV), forward/strafe braking. NOT ported: max velocity (full power over 48 in -
+needs the long strip). Changes against the tuner, all for the box:
+- linear stages drive toward the side of their axis with more room and end the drive on room (predicted coast /
+  brake distance + 3 in), since the fence cannot clamp a coasting robot; leaving the fence aborts the stage;
+- DECEL lowers its 30 in/s target and TRANSLATIONAL its 0.4 power / 1.2 s to fit the room, and say so - the
+  translational K is then identified at lower power (linear motor model assumed);
+- BRAKE's heading hold clamps +/-0.3 (the tuner's [-0.3, +1.0] looked like a typo).
+
+Host check (ForesightBoxTunerCheck.java, simulated swerve, 30 x 30 in box): heading kP 8.04 vs 8.33 true, decel
+34.9 / 35.7 vs 35, K 79.7 / 79.9 vs 80, tau 0.174 / 0.181 vs 0.18; no excursion outside the box. Not yet run on
+the robot. These are identification numbers - pedrocheck (TUNING_TASK.md stage 6) still decides.

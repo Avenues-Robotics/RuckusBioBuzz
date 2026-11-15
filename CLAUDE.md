@@ -99,6 +99,8 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 │   ├── PodCal.java  PodRecorder.java  PodAutoTuner.java
 │   ├── SwerveBench.java  SwerveExport.java  SwerveWebApp.java
 │   ├── FenceGeometry.java               pure-Java keep-out geometry (host check: tools/swervetune/FenceGeometryCheck.java)
+│   ├── ForesightBoxTuner.java           Pedro 3 Foresight Tuner stages (from cf5dcee9^) in FORESIGHT mode, room-planned inside
+│   │                                    the fence; host: tools/swervetune/foresightbox.py; host check ForesightBoxTunerCheck.java
 │   ├── SwerveDirectTeleOp.java  RawMotorTest.java  DashboardDriveTeleOp.java
 │   ├── TeleLoopProbe.java  SwerveConfigWriter.java
 │   └── README.md

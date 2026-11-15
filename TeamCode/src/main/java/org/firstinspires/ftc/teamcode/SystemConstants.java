@@ -82,7 +82,7 @@ public final class SystemConstants {
     @Configurable
     public static class Gate {
         public static double openPos = 0.347;
-        public static double closePos = 0;
+        public static double closePos = 0.482;
     }
 
     @Config

@@ -12,8 +12,11 @@ import org.firstinspires.ftc.teamcode.SystemConstants;
  * did not, and two of them defaulted to position 0.0. This applies the same limits to them.
  */
 public final class TurretEndStop {
-    /** Closest any free / limit-finding command may get to a servo end: the operator's 1-degree stop. */
-    public static final double END = 0.003;
+    /**
+     * Closest any free / limit-finding command may get to a servo end. 0.003 (1 deg) still skipped
+     * on 2026-11-14; 0.018 is the shipped pollen stop (see SystemConstants.Turret).
+     */
+    public static final double END = 0.018;
 
     private TurretEndStop() {
     }

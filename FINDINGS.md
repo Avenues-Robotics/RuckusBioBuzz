@@ -1190,3 +1190,16 @@ full PWM) now default to 0.5 and clamp; `servoTest` no longer sends a turret to 
 `turretServoTest` clamps; Mechanism Tuner's free mode (limits tab) stays 0.003 off each end.
 servoRangeTest's "travel at POSITION 1" reading on a turret servo is now taken at 0.997.
 `turretTrackTest` and PreMatchSystemCheck already went through the shipped clamp / center.
+
+### 2026-11-14 — the 1-degree stop was not enough: pollen turret stops widened to 0.018 / 0.982
+
+The operator reported the turret skipped again on the 0.003 build (ab4c1de7). Mechanism Tuner's
+state showed its last command was turretPos 0.003 (-185.8 deg), the stop itself; the OpMode was
+stopped at once so the hub failsafe released the servo. Root cause (arithmetic, not measured): the
+servo covers ~359 deg of its 360 deg encoder over 500-2500 us (servoRangeTest 2026-11-01: 323.0 deg
+at 600-2400, x 2000/1800 = 358.9), so a commanded end sits ~0.6 deg from the wrap; 0.003 adds only
+1.1 deg. With 355/370 gearing, 360 deg of turret needs 345.4 deg of servo, so the margin cannot
+exceed 6.7 deg per side without losing 360 deg: shipped 0.018 / 0.982 (360.3 deg, ~7 deg from the
+wrap), and the tools' end stop (TurretEndStop.END, Mechanism Tuner free mode) moved to 0.018 too.
+If a full-speed arrival still skips there, 360 deg is not reachable at full servo speed: either
+slow the approach near the ends in systems/Turret.java or give up a few degrees of coverage.

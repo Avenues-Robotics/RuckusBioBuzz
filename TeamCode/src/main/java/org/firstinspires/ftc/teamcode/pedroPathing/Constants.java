@@ -143,6 +143,12 @@ public class Constants {
     //   forward/strafeTranslational P 0.26             CARRIED from the 2.x translational PIDF,
     //                                                  2026-08-14. Same units (power per inch). Its kD
     //                                                  0.025 was removed 2026-11-15 (see translationalKD).
+    //                                                  Holds stall 0.3 in short under the ~0.19 drive
+    //                                                  breakaway. 2x2 hold A/B 2026-11-15 (FINDINGS): a
+    //                                                  secondary kP of 0.40 / 0.55 cuts that to 0.20 / 0.11
+    //                                                  in but adds ~4 pod flips per stop. Kept at 0.26: the
+    //                                                  secondary is the path cross-track gain, so it waits
+    //                                                  for path validation on the long strip.
     //
     // Measure all of it with the Foresight Tuner (Tuning.java - REMOVED 2026-11-01 with Sloth; it
     // survives in git history at cf5dcee9^ - no branch kept it), import it into TUNED VALUES with

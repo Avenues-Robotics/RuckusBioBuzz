@@ -2097,17 +2097,37 @@ poll();
   $$('dsStop').onclick = function () { setEnabled(false); send({ type: 'STOP_OP_MODE' }); };
   // ---- 20 Hz: read inputs, send
   function dz(v) { return Math.abs(v) < DEAD ? 0 : v; }
+  // Controller detection as FTC Dashboard 0.5.1 does it (its client accepts these three families).
+  function padKind(gp) {
+    var id = gp.id || '';
+    if (id.indexOf('Logitech Dual Action') >= 0) return 'logitech-dual-action';
+    if ((/054c/i.test(id) && /09cc|05c4|0ce6/i.test(id)) || (/7545/i.test(id) && /104/i.test(id))) return 'dualshock4';
+    if (gp.mapping === 'standard' || id.indexOf('Xbox 360') >= 0 || /xinput/i.test(id)) return 'standard';
+    return '';
+  }
+  // Deadzone with rescale, so the stick still reaches 1.0 (Dashboard's hr()).
+  function rs(v, d) { v = v || 0; if (Math.abs(v) < d) return 0; var s = v > 0 ? 1 : -1; return s * Math.min(1, (Math.abs(v) - d) / (1 - d)); }
   setInterval(function () {
     var g = neutral(), src = 'on-screen / keyboard';
-    var pads0 = (navigator.getGamepads ? Array.prototype.slice.call(navigator.getGamepads()) : []).filter(function (p) { return p && p.mapping === 'standard'; });
-    if (pads0.length) {
-      var p = pads0[0], B = function (i) { return !!(p.buttons[i] && p.buttons[i].pressed); };
-      src = 'controller: ' + p.id.slice(0, 40);
-      g.left_stick_x = dz(p.axes[0]); g.left_stick_y = dz(p.axes[1]); g.right_stick_x = dz(p.axes[2]); g.right_stick_y = dz(p.axes[3]);
-      g.a = B(0); g.b = B(1); g.x = B(2); g.y = B(3); g.left_bumper = B(4); g.right_bumper = B(5);
-      g.left_trigger = p.buttons[6] ? p.buttons[6].value : 0; g.right_trigger = p.buttons[7] ? p.buttons[7].value : 0;
+    var all = navigator.getGamepads ? Array.prototype.slice.call(navigator.getGamepads()) : [];
+    var p = null, kind = '';
+    all.forEach(function (gp) { if (!p && gp && gp.connected && (kind = padKind(gp))) p = gp; });
+    if (!p) { var anyPad = all.filter(function (gp) { return gp && gp.connected; })[0];
+      if (anyPad) src = 'unsupported controller "' + anyPad.id.slice(0, 50) + '" (mapping ' + (anyPad.mapping || 'none') + ') - using on-screen'; }
+    if (p) {
+      var B = function (i) { return !!(p.buttons[i] && p.buttons[i].pressed); }, V = function (i) { return p.buttons[i] ? p.buttons[i].value : 0; };
+      src = kind + ': ' + p.id.slice(0, 50);
+      var dzv = kind === 'logitech-dual-action' ? 0.06 : kind === 'dualshock4' ? 0.04 : 0.15;
+      if (kind === 'logitech-dual-action') {   // same axis/button map FTC Dashboard 0.5.1 uses for this pad
+        g.left_stick_x = rs(-p.axes[1], dzv); g.left_stick_y = rs(p.axes[2], dzv); g.right_stick_x = rs(-p.axes[3], dzv); g.right_stick_y = rs(p.axes[4], dzv);
+        g.a = B(1); g.b = B(2); g.x = B(0); g.y = B(3);
+      } else {
+        g.left_stick_x = rs(p.axes[0], dzv); g.left_stick_y = rs(p.axes[1], dzv); g.right_stick_x = rs(p.axes[2], dzv); g.right_stick_y = rs(p.axes[3], dzv);
+        g.a = B(0); g.b = B(1); g.x = B(2); g.y = B(3); g.guide = B(16);
+      }
+      g.left_bumper = B(4); g.right_bumper = B(5); g.left_trigger = V(6); g.right_trigger = V(7);
       g.back = B(8); g.start = B(9); g.left_stick_button = B(10); g.right_stick_button = B(11);
-      g.dpad_up = B(12); g.dpad_down = B(13); g.dpad_left = B(14); g.dpad_right = B(15); g.guide = B(16);
+      g.dpad_up = B(12); g.dpad_down = B(13); g.dpad_left = B(14); g.dpad_right = B(15);
     } else {
       var k = function (c) { return keys[c] ? 1 : 0; };
       g.left_stick_x = pads.L[0] + k('d') - k('a'); g.left_stick_y = pads.L[1] + k('s') - k('w');

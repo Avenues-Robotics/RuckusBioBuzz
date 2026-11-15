@@ -1544,3 +1544,30 @@ pods), not the pod snap - hypothesis refuted. (The ctgt column could not show th
 its demand; pod rotation came from the wheel angle.) Patch kept in the fork, **default 0 = upstream behaviour**,
 switchable for later (setMixer rollout=); RUCKUS_PATCHES.md row added. The operator's violent jolts were the hold
 oscillation (kD, fixed above).
+
+## 2026-11-15 — Foresight heading controller shipped (candidate B): turns stop overshooting
+
+Candidate A (the whole box-tuner set) through pedrocheck, one smoke block vs shipped: turns transformed
+(overshoot 9.1 / 20.3 -> 0.1 / 0.8 deg, residual ~4 -> 0.01-0.1 deg) but holds failed residual (0.57-0.86 vs
+0.25-0.32 in): its near-target translational kP 0.18 (< 0.26 shipped) cannot push through the ~0.19-power drive
+deadband. So candidate B = shipped translational/decel/braking + candidate A's heading only (kP 7.7173, heading
+braking 0.0505 / 0.0199).
+
+pedrocheck suite shipped vs candB, --only hold,turn --step 4, 5 blocks randomised interleaved, tiles, 2x2 fence,
+12.78 -> 12.53 V (label pc2x2_candB; hold+x refused in blocks 3-4 - the robot had drifted ~1 in toward +x, the
+hold point fell outside the fence margin, nothing moved):
+
+| | shipped | candB |
+|---|---|---|
+| turn overshoot +90 / -90 deg | 9.46 +/- 6.5 / 8.03 +/- 5.9 | 0.50 +/- 0.36 / 0.67 +/- 0.79 |
+| turn residual deg | 3.71 +/- 2.1 / 4.48 +/- 3.5 | 0.16 +/- 0.15 / 0.20 +/- 0.22 |
+| turn settle to 2 deg | mostly never | 1.04 / 1.05 s |
+| heading residual in holds | 1.42-1.43 deg | 0.12-0.24 deg |
+| hold position residual | 0.32-0.34 in | 0.34-0.38 in (inside the CIs) |
+
+Shipped (2be016e0, robot.py foresight --partial --write). **Acceptance on the deployed build** (gainsShipped true,
+no overrides, 3 blocks, 12.69 -> 12.48 V, label pc2x2_candB_accept): turn overshoot 0.17 / 1.43 deg, residual
+0.47 / 0.40 deg, settle 1.11 / 1.12 s (3 of 6 turns over the 1.0 s guess-threshold: 1.33, 1.56, 1.03 s); holds
+residual 0.34-0.41 in (1 of 12 at 0.527 > 0.5), heading 0.10-0.25 deg. FORESIGHT_MEASURED stays false: max
+velocity, the forward/strafe braking model and kV are not measured. Open: translational gains that beat the drive
+deadband near the target (candidate A's 0.18 secondary is too weak; 0.26 leaves 0.3-0.4 in).

@@ -1376,3 +1376,20 @@ sim's hold drift (x 55-75 in during the step): no aiming code can fix it, the sh
 1.5 s. The live unwind at 40.84 s came when the follower called chain6 done 11 in short of POINT_6 (sim
 path-end error) and live tracking resumed. n = 1 run per arm on a model chassis: indicative, not a measurement
 of the real auto.
+
+**Fifth run, new paths** (78a32da3: chain2 split, POINT_5 180 deg, POINT_3 0 deg; BLUE mirrored; on blocks, no
+pieces; RED 12.22 -> 11.75 V, BLUE 11.81 -> 11.59 V):
+
+| | run 4 RED (old paths) | run 5 RED | run 5 BLUE (first ever) |
+|---|---|---|---|
+| Shoot steps that fired | 3/4 | **4/4** | **4/4** |
+| gate first open | +0.29 / +0.39 / never / +0.45 s | +0.27 / +0.51 / +0.51 / +0.38 s | +0.28 / +0.56 / +0.43 / +0.41 s |
+| gate open per step | 1.19-1.21 s | 1.20-1.25 s | 1.20-1.24 s |
+| unwinds | 5 (3 live) | **3, all pre-aim in transit** | 4 (3 pre-aim, 1 live at a sim path end) |
+| chain2 (corner loop) | 0.77 s | 1.10 s | 1.71 s |
+| Done at | 57.4 s | 49.7 s | 49.7 s |
+
+POINT_5 now fires (+0.51 s) - the heading change, as the host turret model predicted (98 deg margin). The
+loop is driven instead of skipped. Every Shoot step's gate-open time sits at SHOOT_OPEN_TIME (1.2 s) and
+no step hit the 3 s cap. Path timing and "Done at" remain sim-only (the visualizer estimates 26.9 / 27.0 s).
+Not checked by any of this: whether chain3's new heading still lets the scoopula collect.

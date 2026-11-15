@@ -77,7 +77,9 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 ├── auto/{RedSoloAuto,BlueSoloAuto}.java   competition autos, Constants.createFollower + modules/AutoMechanisms
 │   ├── modules/{AutoMechanisms,PathStep}.java   AutoMechanisms builds systems/Shooter, Intake, Scoopula for autos
 │   ├── legacy/{shortAutoRed,redOption2,ExampleSwerveAuto}.java   older autos
-│   └── visualizerAutos/*.pp             visualizer sources the auto .java files are exported from
+│   └── visualizerAutos/*.pp             visualizer sources: Red/BlueSoloAuto.pp (rebuilt from the Java 2026-11-15, export reproduces
+│                                        the autos token-for-token; BLUE is NOT a pure mirror). A re-export drops the hand-wiring
+│                                        (AutoMechanisms, AutoConstants durations, eventDone hook): transplant statics + buildPaths only
 ├── modules/                             compute only, no hardware: predictiveAiming, shootingRegression, zoneCheck
 ├── systems/                             mechanisms (write hardware): intake, shooter (flywheels; owns turret), turret (aiming, was modules/aimingSystem), gate, scoopula
 ├── helpers/                             HivePosition, Alliance, PoseStorage (autos clear at init + save in stop(), TeleOp init take()s it once)
@@ -85,6 +87,8 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 ├── fieldview/                           http://192.168.43.1:8080/field - live field, robot, predicted pose, zone (TeleOp publishes at 20 Hz)
 ├── diagnostics/                         PreMatchSystemCheck (drive response, then every mechanism), motorbreakin
 ├── diagnostics/tests/                   blobDetectionTest, colorTunerTest, rangeTest, spinUpTest
+├── diagnostics/autosim/                 DIAGNOSTIC ONLY - Auto Dry Run RED/BLUE: the real auto on blocks, SimLocalizer pose (follower's
+│                                        own powers through the swerve mixer's limits), /field + logcat AutoDryRun. Path timing is sim-only
 ├── diagnostics/tuning/                  DIAGNOSTIC ONLY — "Mechanism Tuner" OpMode + /tune dashboard: flywheel PIDF
 │                                         (step / kick / shot recovery / ff sweep, step-trial overlay), shooter gate
 │                                         sequence + idle fraction, turrets (+offsets), gate, scoopula, intake color + brake, intake motor direction, intake break-in, shooting-zone map editor;

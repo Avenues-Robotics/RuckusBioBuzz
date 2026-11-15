@@ -9,7 +9,7 @@ API with those rules built in, so the same checks run every time.
     python robot.py cmd ACTION [k=v ...] [--confirmed-floor | --on-blocks]
                                           send one command, then report what the OpMode said about
                                           it (motion actions need one of the two surface flags)
-    python robot.py drive --f F [--s S] [--t T] --sec SEC (--confirmed-floor | --on-blocks) [--cap 0.30] [--rec LABEL]
+    python robot.py drive --f F [--s S] [--t T] [--rot DEG_S] --sec SEC (--confirmed-floor | --on-blocks) [--cap 0.30] [--rec LABEL]
     python robot.py pull LABEL            fetch the recorder CSV into runs/ and print true loop rate
     python robot.py stop                  zero the drive and put the OpMode in IDLE (OpMode keeps running)
     python robot.py estop                 STOP the OpMode through FTC Dashboard (kills it; operator restarts)
@@ -333,13 +333,17 @@ def cmd_drive(a) -> int:
     t = max(-cap, min(cap, a.t))
     if (f, s, t) != (a.f, a.s, a.t):
         print(f"capped to f={f} s={s} t={t} (cap {cap})")
+    if abs(a.rot) > 720:
+        print("REFUSED: --rot is at most 720 deg/s.")
+        return EXIT_REFUSED
+    extra = {"rot": round(a.rot, 2)} if a.rot else {}
     if a.sec > 10:
         print("REFUSED: one drive call is at most 10 s. Chain calls, re-checking /state between.")
         return EXIT_REFUSED
 
     p0, h0, v0 = st["pose"], st["heading"].get("deg"), st.get("voltage")
     surface = "blocks" if a.on_blocks else "floor"
-    print(f"drive f={f} s={s} t={t} for {a.sec}s  surface={surface}  volts={v0}  "
+    print(f"drive f={f} s={s} t={t}{f' rot={a.rot} deg/s' if a.rot else ''} for {a.sec}s  surface={surface}  volts={v0}  "
           f"start x={p0.get('x')} y={p0.get('y')} h={h0}")
     if a.rec:
         send("recStart", label=a.rec)
@@ -353,7 +357,7 @@ def cmd_drive(a) -> int:
     try:
         while time.time() < t_end:
             try:
-                send("drive", f=round(f, 3), s=round(s, 3), t=round(t, 3))
+                send("drive", f=round(f, 3), s=round(s, 3), t=round(t, 3), **extra)
                 last = state(retries=1, timeout=0.5)
                 fails = 0
                 clamped += 1 if last.get("box", {}).get("clamped") else 0
@@ -745,6 +749,8 @@ def main() -> int:
     p.add_argument("--f", type=float, default=0.0, help="forward, robot frame, [-1, 1]")
     p.add_argument("--s", type=float, default=0.0, help="strafe, robot frame, [-1, 1]")
     p.add_argument("--t", type=float, default=0.0, help="turn, [-1, 1]")
+    p.add_argument("--rot", type=float, default=0.0,
+                   help="sweep: the OpMode rotates the (f, s) stick vector at this rate, deg/s (+ = CCW), every loop")
     p.add_argument("--sec", type=float, required=True)
     p.add_argument("--cap", type=float, default=DEFAULT_CAP)
     p.add_argument("--allow-fast", action="store_true")

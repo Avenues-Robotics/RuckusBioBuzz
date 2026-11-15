@@ -567,6 +567,14 @@ public class SwerveBringUp extends OpMode {
     private double driveForward;
     private double driveStrafe;
     private double driveTurn;
+    /**
+     * Stick sweep (drive rot=, deg/s, 2026-11-15): the OpMode rotates the (f, s) stick vector by this rate every
+     * loop - a perfectly smooth circle input, like a driver sweeping the stick. Host-streamed sticks update at
+     * ~13 Hz and would step the demand. 0 = off; zeroed with the sticks everywhere they are zeroed.
+     */
+    private double driveRotDegS;
+    private double drivePhaseRad;
+    private long drivePhaseNanos;
     /** Watchdog: drive stops if the browser stops sending commands (closed tab, WiFi drop). */
     private long lastDriveCmdMs;
 
@@ -1044,6 +1052,9 @@ public class SwerveBringUp extends OpMode {
     private static final double VENDORED_SCHED_FLOOR = 0.24;
     private static final double VENDORED_SCHED_VEL_START_RAD_S = Math.toRadians(22);
     private static final double VENDORED_SCHED_ERR_GATE_RAD = Math.toRadians(20);
+    /** CoaxialPod demand-rate feed-forward defaults (2026-11-15 patch, OFF): {kV, tau s}. */
+    private static final double VENDORED_DEMAND_RATE_KV = 0.0;
+    private static final double VENDORED_DEMAND_RATE_TAU_S = 0.05;
     private static final double VENDORED_SCHED_RAMP_DRIVE = 0.10;
 
     /**
@@ -1074,6 +1085,7 @@ public class SwerveBringUp extends OpMode {
         Swerve.setSmallTurnRolloutS(VENDORED_SMALL_TURN_ROLLOUT_S);
         CoaxialPod.setScheduleTuning(VENDORED_SCHED_FLOOR, VENDORED_SCHED_VEL_START_RAD_S,
                 VENDORED_SCHED_ERR_GATE_RAD);
+        CoaxialPod.setDemandRateFeedforward(VENDORED_DEMAND_RATE_KV, VENDORED_DEMAND_RATE_TAU_S);
         CoaxialPod.setScheduleRamp(VENDORED_SCHED_RAMP_DRIVE);
     }
 
@@ -1098,7 +1110,9 @@ public class SwerveBringUp extends OpMode {
                 && Swerve.getDemandSlewDegPerSec() == VENDORED_DEMAND_SLEW_DEG_S
                 && Swerve.getSmallTurnRolloutS() == VENDORED_SMALL_TURN_ROLLOUT_S
                 && sch[0] == VENDORED_SCHED_FLOOR && sch[1] == VENDORED_SCHED_VEL_START_RAD_S
-                && sch[2] == VENDORED_SCHED_ERR_GATE_RAD;
+                && sch[2] == VENDORED_SCHED_ERR_GATE_RAD
+                && CoaxialPod.getDemandRateFeedforward()[0] == VENDORED_DEMAND_RATE_KV
+                && CoaxialPod.getDemandRateFeedforward()[1] == VENDORED_DEMAND_RATE_TAU_S;
     }
 
     /** Shared body so the dashboard is fully usable during init, before START is pressed. */
@@ -2084,6 +2098,7 @@ public class SwerveBringUp extends OpMode {
         driveForward = 0;
         driveStrafe = 0;
         driveTurn = 0;
+        driveRotDegS = 0;
         appliedForward = 0;
         appliedStrafe = 0;
         appliedTurn = 0;
@@ -2865,6 +2880,7 @@ public class SwerveBringUp extends OpMode {
             driveForward = 0;
             driveStrafe = 0;
             driveTurn = 0;
+            driveRotDegS = 0;
             // Zeroing the sticks is not enough under heading hold: the setpoint may still be up
             // to the lead cap ahead of the robot, and the heading PID would finish that rotation
             // with nobody at the controls. A watchdog trip means stop, so the setpoint comes back
@@ -3044,6 +3060,7 @@ public class SwerveBringUp extends OpMode {
                     driveForward = 0;
                     driveStrafe = 0;
                     driveTurn = 0;
+                    driveRotDegS = 0;
                     headingStuckSeconds = 0;
                     message = "Heading has not changed while turning - sensor looks dead. "
                             + "Heading hold disabled; recalibrate the Pinpoint.";
@@ -3076,6 +3093,19 @@ public class SwerveBringUp extends OpMode {
                 effStrafe = 0;
                 message = "Field-oriented drive lost heading - translation stopped.";
             }
+        }
+
+        if (driveRotDegS != 0 && (effForward != 0 || effStrafe != 0)) {
+            long nowNs = System.nanoTime();
+            if (drivePhaseNanos != 0) {
+                drivePhaseRad += Math.toRadians(driveRotDegS) * Math.min(0.1, (nowNs - drivePhaseNanos) / 1e9);
+            }
+            drivePhaseNanos = nowNs;
+            double c = Math.cos(drivePhaseRad);
+            double sn = Math.sin(drivePhaseRad);
+            double f0 = effForward;
+            effForward = f0 * c - effStrafe * sn;
+            effStrafe = f0 * sn + effStrafe * c;
         }
 
         // Hard limit: the saved box is enforced on every translation command, whoever sent it.
@@ -3747,6 +3777,9 @@ public class SwerveBringUp extends OpMode {
                         Math.toRadians(doubleArg(cmd, "gate", Double.NaN)));
                 com.pedropathing.revhub.drivetrains.CoaxialPod.setScheduleRamp(
                         doubleArg(cmd, "ramp", Double.NaN));
+                // Demand-rate feed-forward (vendored 2026-11-15, default off): ffkv power per rad/s, fftau s.
+                com.pedropathing.revhub.drivetrains.CoaxialPod.setDemandRateFeedforward(
+                        doubleArg(cmd, "ffkv", Double.NaN), doubleArg(cmd, "fftau", Double.NaN));
                 PodCal c = cals[selected];
                 if ("all".equals(cmd.get("scope"))) {
                     for (PodCal each : cals) {
@@ -3794,7 +3827,10 @@ public class SwerveBringUp extends OpMode {
                 }
                 podsDirty = true;
                 saveCalibration();
-                message = "PIDF updated.";
+                double[] schNow = CoaxialPod.getScheduleTuning();
+                double[] ffNow = CoaxialPod.getDemandRateFeedforward();
+                message = String.format(Locale.US, "PIDF updated. Schedule floor %.2f, gate %.0f deg; demand-rate "
+                        + "ff kV %.4f tau %.3f s.", schNow[0], Math.toDegrees(schNow[2]), ffNow[0], ffNow[1]);
                 break;
             }
             case "setRange":
@@ -4022,6 +4058,7 @@ public class SwerveBringUp extends OpMode {
                 driveForward = 0;
                 driveStrafe = 0;
                 driveTurn = 0;
+                driveRotDegS = 0;
                 lastDriveCmdMs = System.currentTimeMillis();
                 clearTrace(selected);
                 tracePod = -2;
@@ -4684,6 +4721,13 @@ public class SwerveBringUp extends OpMode {
                 driveStrafe = Utils.clamp(doubleArg(cmd, "s", 0), -1.0, 1.0);
                 driveTurn = Utils.clamp(doubleArg(cmd, "t", 0), -1.0, 1.0);
                 driveFieldOriented = doubleArg(cmd, "foc", 0) != 0;
+                double rot = Utils.clamp(doubleArg(cmd, "rot", 0), -720.0, 720.0);
+                if (rot == 0 || driveRotDegS == 0) {
+                    // Entering (or leaving) a sweep starts the phase at the stick's own direction.
+                    drivePhaseRad = 0;
+                    drivePhaseNanos = 0;
+                }
+                driveRotDegS = rot;
                 lastDriveCmdMs = System.currentTimeMillis();
                 message = "Drive test active.";
                 break;

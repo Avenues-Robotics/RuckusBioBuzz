@@ -269,7 +269,7 @@ commands need the box either way). `pedrocheck.py` likewise needs `--confirmed-f
 
 | Action | Params | Notes |
 |---|---|---|
-| `drive` | `f s t` in [-1,1], `foc=0\|1` | Robot frame unless `foc=1`. Enters DRIVE mode. **400 ms watchdog.** Use `robot.py drive`, never a one-shot |
+| `drive` | `f s t` in [-1,1], `foc=0\|1`, `rot=` deg/s | Robot frame unless `foc=1`. `rot` (2026-11-15) rotates the (f, s) vector by that rate every loop, OpMode-side - a smooth stick sweep (`robot.py drive --rot`). Enters DRIVE mode. **400 ms watchdog.** Use `robot.py drive`, never a one-shot |
 | `pidStep` / `pidStepAll` | `deg` | **Absolute** wheel heading, not a relative step. One pod (the selected one) / all four |
 | `rawServo` | `pod pow sec` | Open loop; `sec` ≤ 5. A duplicate restarts the dwell timer |
 | `nudge` / `spinServo` | `pod`, `dir` | Jog the selected pod |

@@ -30,6 +30,8 @@ public class Flywheel {
     private double filteredVolts = Double.NaN;
     private double appliedFScale = 1.0;
     private long lastCompNs;
+    /** TeleOp driver 2 (helpers/AimOffsets): ticks/s added to both regression targets - their y-intercept. */
+    private double speedOffset;
     public Flywheel(HardwareMap hardwareMap, Turret aiming) {
         regression = new ShootingRegression(aiming);
         battery = hardwareMap.voltageSensor.iterator().hasNext() ? hardwareMap.voltageSensor.iterator().next() : null;
@@ -80,11 +82,15 @@ public class Flywheel {
         }
     }
 
+    public void setSpeedOffset(double ticksPerSecond) {
+        speedOffset = ticksPerSecond;
+    }
+
     public void update(boolean inZone){
         compensateF();
         double scale = inZone ? 1 : SystemConstants.Flywheel.IDLE_FRACTION;
-        pollenTarget = regression.shooterspeedpollen();
-        nectarTarget = regression.shooterspeednectar();
+        pollenTarget = Math.max(0, regression.shooterspeedpollen() + speedOffset);
+        nectarTarget = Math.max(0, regression.shooterspeednectar() + speedOffset);
         pollenCommand = pollenTarget * scale;
         pollenWriter.set(pollenCommand, SystemConstants.Flywheel.POLLEN_FLYWHEEL_REVERSED);
         nectarWriter.set(nectarTarget * scale, SystemConstants.Flywheel.NECTAR_FLYWHEEL_REVERSED);

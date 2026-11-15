@@ -14,6 +14,10 @@ import org.firstinspires.ftc.teamcode.systems.Intake;
 
 import java.util.List;
 
+import com.qualcomm.robotcore.util.ElapsedTime;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.helpers.AimOffsets;
+
 import org.firstinspires.ftc.teamcode.fieldview.FieldView;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
 import org.firstinspires.ftc.teamcode.helpers.PinpointGuard;
@@ -24,6 +28,24 @@ import org.firstinspires.ftc.teamcode.systems.Scoopula;
 import org.firstinspires.ftc.teamcode.systems.Shooter;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+/**
+ * Competition TeleOp. Controls (2026-11-15):
+ * <pre>
+ * DRIVER 1 (gamepad1)
+ *   left stick          drive (robot-centric)
+ *   right stick x       turn - in SHOOTER LOCK the robot turns itself to the goal; the stick still overrides
+ *   right bumper        intake (hold)            left bumper   reject / outtake (hold)
+ *   right trigger       shoot now (hold)         in the zone the robot also shoots by itself (not in lock)
+ *   left trigger        scoopula (hold)
+ *   SHARE / BACK        hold 0.5 s at the relocalize spot (SystemConstants.TeleOp.RELOCALIZE_*) - pose reset
+ * DRIVER 2 (gamepad2) - aiming only
+ *   d-pad left / right  aim point one step left / right, as the coach sees it from the last shot ("2 RIGHT")
+ *   d-pad up / down     flywheel speed one step up / down (offset on the speed curve)
+ *   OPTIONS / START     SHOOTER LOCK on / off: turret straight ahead, driver 1's robot heading aims, no zone
+ *   SHARE / BACK        clear both offsets
+ * INIT: driver 1 X = blue, B = red.
+ * </pre>
+ */
 @com.qualcomm.robotcore.eventloop.opmode.TeleOp(name = "TeleOp", group = "TeleOp")
 public class TeleOp extends OpMode {
 
@@ -42,6 +64,14 @@ public class TeleOp extends OpMode {
     private PinpointGuard pinpointGuard;
     private Pose autoEndPose;
     private boolean frozenWarned;
+    private final AimOffsets offsets = new AimOffsets();
+    private boolean lockForward;
+    private double aimErrorRad = Double.NaN;
+    private final ElapsedTime relocalizeHeld = new ElapsedTime();
+    private boolean relocalizeHeldPrev;
+    private boolean relocalizeDone;
+    private String relocalizeNote = "";
+    private boolean prevLeft, prevRight, prevUp, prevDown, prevOptions, prevShare;
 
     @Override
     public void init() {
@@ -73,6 +103,8 @@ public class TeleOp extends OpMode {
         }
         out.addData("pinpoint", pinpointGuard.status());
         out.addData("alliance (X blue, B red)", alliance);
+        out.addData("D1", "LT scoopula, RT shoot, hold SHARE = relocalize at the start spot");
+        out.addData("D2", "d-pad aim L/R + speed U/D, OPTIONS shooter lock, SHARE clear");
         out.update();
     }
 
@@ -100,16 +132,27 @@ public class TeleOp extends OpMode {
             hub.clearBulkCache();
         }
 
+        driver2();
+        relocalize(pose);
+
         Swerve.setTranslationPriority(SystemConstants.TeleOp.TRANSLATION_PRIORITY);
-        follower.manual(-gamepad1.left_stick_y, -gamepad1.left_stick_x, -gamepad1.right_stick_x);
+        double turn = -gamepad1.right_stick_x;
+        aimErrorRad = Double.NaN;
+        if (lockForward && Math.abs(gamepad1.right_stick_x) < SystemConstants.TeleOp.AIM_STICK_OVERRIDE) {
+            turn = aimTurn(pose);
+        }
+        follower.manual(-gamepad1.left_stick_y, -gamepad1.left_stick_x, turn);
         follower.update();
-        // Heading not moving by a single bit while the driver turns hard = frozen Pinpoint: rumble once (works
-        // with telemetry off) and say so below. Recovery is a restart of TeleOp with the robot still.
-        boolean frozen = pinpointGuard.frozenWhileTurning(pose.heading(), -gamepad1.right_stick_x);
+        // Heading not moving by a single bit while turning hard = frozen Pinpoint: rumble once (works with
+        // telemetry off) and say so below. Recovery is a restart of TeleOp with the robot still.
+        boolean frozen = pinpointGuard.frozenWhileTurning(pose.heading(), turn);
         if (frozen && !frozenWarned) {
             gamepad1.rumble(600);
         }
         frozenWarned = frozen;
+        shooterSystem.setLockForward(lockForward);
+        shooterSystem.setZoneAutoShoot(!lockForward);
+        shooterSystem.setAimOffsets(offsets.goalDx(), offsets.goalDy(), offsets.speedOffset());
         // Right trigger held = shoot now: gate open, flywheel at full target, intake feeding (below).
         shooterSystem.setManualShoot(gamepad1.right_trigger > 0.5);
         // Shooter first, so the intake follows this loop's SHOOT decision, not last loop's.
@@ -119,7 +162,7 @@ public class TeleOp extends OpMode {
         }else {
             intake.update(gamepad1.left_bumper, gamepad1.right_bumper);
         }
-        scoopula.update(gamepad2.left_bumper && gamepad2.right_bumper);
+        scoopula.update(gamepad1.left_trigger > 0.5);
 
         if (!Config.telemetryEnabled() || !telemetryCache.due(SystemConstants.Cache.TELEMETRY_INTERVAL_MS)) {
             return;
@@ -128,6 +171,18 @@ public class TeleOp extends OpMode {
             out.addData("WARNING", "Pinpoint heading FROZEN - aiming and odometry are wrong");
         }
         out.addData("alliance", alliance);
+        out.addData("mode", lockForward
+                ? "SHOOTER LOCK - turret forward, heading aims, no zone (D2 OPTIONS)"
+                : "turret tracking, auto-shoot in zone");
+        if (lockForward && !Double.isNaN(aimErrorRad)) {
+            out.addData("aim error (deg)", Math.round(Math.toDegrees(aimErrorRad) * 10) / 10.0);
+        }
+        out.addData("aim offset", String.format(java.util.Locale.US, "%+d %s (%.1f, %.1f in)  speed %+d (%+.0f t/s)",
+                Math.abs(offsets.lateralClicks()), offsets.lateralClicks() >= 0 ? "R" : "L",
+                offsets.goalDx(), offsets.goalDy(), offsets.speedClicks(), offsets.speedOffset()));
+        if (!relocalizeNote.isEmpty()) {
+            out.addData("relocalize", relocalizeNote);
+        }
         out.addData("x", pose.x());
         out.addData("y", pose.y());
         out.addData("heading (deg)", Math.toDegrees(pose.heading()));
@@ -137,6 +192,81 @@ public class TeleOp extends OpMode {
         out.addData("F volt scale", Math.round(shooterSystem.flywheelFScale() * 1000) / 1000.0);
         addLoopStats();
         out.update();
+    }
+
+    /** Driver 2: aim offsets on the d-pad, shooter lock on OPTIONS, clear on SHARE. Rising edges only. */
+    private void driver2() {
+        boolean left = gamepad2.dpad_left, right = gamepad2.dpad_right;
+        boolean up = gamepad2.dpad_up, down = gamepad2.dpad_down;
+        boolean options = gamepad2.options || gamepad2.start;
+        boolean share = gamepad2.share || gamepad2.back;
+        Pose now = follower.pose();
+        if (left && !prevLeft) offsets.nudgeLateral(-1, shooterSystem.lastShotPose(), now, alliance);
+        if (right && !prevRight) offsets.nudgeLateral(1, shooterSystem.lastShotPose(), now, alliance);
+        if (up && !prevUp) offsets.nudgeSpeed(1);
+        if (down && !prevDown) offsets.nudgeSpeed(-1);
+        if (share && !prevShare) offsets.reset();
+        if (options && !prevOptions) {
+            lockForward = !lockForward;
+            // Both drivers feel it: two blips = lock on, one = off.
+            gamepad1.rumbleBlips(lockForward ? 2 : 1);
+            gamepad2.rumbleBlips(lockForward ? 2 : 1);
+        }
+        prevLeft = left;
+        prevRight = right;
+        prevUp = up;
+        prevDown = down;
+        prevOptions = options;
+        prevShare = share;
+    }
+
+    /**
+     * Shooter lock: turn so the (straight-ahead) shooter faces the goal. The pollen turret sits on the robot's
+     * centre line, so pointing the heading from the robot centre at the goal lines the shot up. Aimed from the
+     * lead pose (PredictiveAiming), so it leads a moving robot like the turret does. Controller: Foresight's
+     * heading shape - P on the heading projected ahead by the braking lookahead - so it slows before it arrives.
+     */
+    private double aimTurn(Pose pose) {
+        Pose lead = predictor.leadPose();
+        Pose goal = shooterSystem.goal(lead);
+        double target = Math.atan2(goal.y() - lead.y(), goal.x() - lead.x());
+        double w = follower.velocity().omega;
+        double projected = pose.heading() + w * SystemConstants.TeleOp.AIM_BRAKE_LINEAR
+                + w * Math.abs(w) * SystemConstants.TeleOp.AIM_BRAKE_QUADRATIC;
+        aimErrorRad = AngleUnit.normalizeRadians(target - pose.heading());
+        double err = AngleUnit.normalizeRadians(target - projected);
+        double max = SystemConstants.TeleOp.AIM_MAX_TURN;
+        return Math.max(-max, Math.min(max, SystemConstants.TeleOp.AIM_KP * err));
+    }
+
+    /** Driver 1 holds SHARE / BACK for RELOCALIZE_HOLD_S with the robot at the spot: the pose is set there. */
+    private void relocalize(Pose pose) {
+        boolean held = gamepad1.share || gamepad1.back;
+        if (held && !relocalizeHeldPrev) {
+            relocalizeHeld.reset();
+            relocalizeDone = false;
+        }
+        if (held && !relocalizeDone && relocalizeHeld.seconds() >= SystemConstants.TeleOp.RELOCALIZE_HOLD_S) {
+            Pose spot = relocalizePose();
+            follower.setPose(spot);
+            relocalizeDone = true;
+            gamepad1.rumble(400);
+            relocalizeNote = String.format(java.util.Locale.US, "set to (%.1f, %.1f, %.0f deg), was (%.1f, %.1f, %.0f deg)",
+                    spot.x(), spot.y(), Math.toDegrees(spot.heading()), pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        }
+        relocalizeHeldPrev = held;
+    }
+
+    /** The relocalize spot: SystemConstants.TeleOp.RELOCALIZE_* in the red frame, rotated 180 deg for blue. */
+    private Pose relocalizePose() {
+        double x = SystemConstants.TeleOp.RELOCALIZE_X;
+        double y = SystemConstants.TeleOp.RELOCALIZE_Y;
+        double h = Math.toRadians(SystemConstants.TeleOp.RELOCALIZE_HEADING_DEG);
+        if (alliance == Alliance.BLUE) {
+            double field = SystemConstants.Zone.FIELD_SIZE;
+            return new Pose(field - x, field - y, AngleUnit.normalizeRadians(h + Math.PI));
+        }
+        return new Pose(x, y, AngleUnit.normalizeRadians(h));
     }
 
     /** After the init IMU reset: the auto's pose if there was one, else the reset's 0,0,0 stands. */

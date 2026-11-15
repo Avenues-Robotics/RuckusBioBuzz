@@ -27,6 +27,11 @@ public class Turret {
     private boolean nectarAimed;
     /** Auto pre-aim: aim from this robot pose (a path's end pose) instead of the live lead pose; null = live. */
     private Pose aimPose;
+    /** TeleOp driver 2 (helpers/AimOffsets): field-frame shift of the aim point, inches. 0, 0 = the hive. */
+    private double goalOffsetX;
+    private double goalOffsetY;
+    /** TeleOp shooter lock: both turrets held straight ahead (theta 0); the driver aims the robot instead. */
+    private boolean lockForward;
 
     public class aimer {
         public double theta;
@@ -56,9 +61,9 @@ public class Turret {
 
 //in form dist, theta
     public void update(){
-        pollenAimed = pollenTurret.track(aimPollen().theta, SystemConstants.Turret.POLLEN_TURRET_CENTER, SystemConstants.Turret.POLLEN_TURRET_REVERSED, SystemConstants.Turret.POLLEN_TURRET_GEAR_RATIO,
+        pollenAimed = pollenTurret.track(lockForward ? 0 : aimPollen().theta, SystemConstants.Turret.POLLEN_TURRET_CENTER, SystemConstants.Turret.POLLEN_TURRET_REVERSED, SystemConstants.Turret.POLLEN_TURRET_GEAR_RATIO,
                 SystemConstants.Turret.POLLEN_TURRET_MIN, SystemConstants.Turret.POLLEN_TURRET_MAX);
-        nectarAimed = nectarTurret.track(aimNectar().theta, SystemConstants.Turret.NECTAR_TURRET_CENTER, SystemConstants.Turret.NECTAR_TURRET_REVERSED, SystemConstants.Turret.NECTAR_TURRET_GEAR_RATIO,
+        nectarAimed = nectarTurret.track(lockForward ? 0 : aimNectar().theta, SystemConstants.Turret.NECTAR_TURRET_CENTER, SystemConstants.Turret.NECTAR_TURRET_REVERSED, SystemConstants.Turret.NECTAR_TURRET_GEAR_RATIO,
                 SystemConstants.Turret.NECTAR_TURRET_MIN, SystemConstants.Turret.NECTAR_TURRET_MAX);
         if (aimPose != null) {   // aimed at where the robot WILL be, not where it is: never a reason to fire
             pollenAimed = false;
@@ -73,6 +78,23 @@ public class Turret {
      */
     public void setAimPose(Pose robotPose) {
         aimPose = robotPose;
+    }
+
+    /** TeleOp driver 2: shift the aim point by (dx, dy) inches, field frame. Applies to aim and flywheel distance. */
+    public void setGoalOffset(double dx, double dy) {
+        goalOffsetX = dx;
+        goalOffsetY = dy;
+    }
+
+    /** TeleOp shooter lock: true holds both turrets straight ahead. */
+    public void setLockForward(boolean lock) {
+        lockForward = lock;
+    }
+
+    /** Where the shooter aims for a robot at {@code robot}: the hive the shipped rule picks, plus the goal offset. */
+    public Pose goal(Pose robot) {
+        Pose hive = hivePosition.target(robot, alliance);
+        return new Pose(hive.x() + goalOffsetX, hive.y() + goalOffsetY);
     }
 
     public boolean unwinding(){
@@ -100,7 +122,7 @@ public class Turret {
     public boolean nectarAimed() { return nectarAimed; }
 
     private aimer aimFrom(Pose turret) {
-        Pose target = hivePosition.target(aimPose != null ? aimPose : predictor.leadPose(), alliance);
+        Pose target = goal(aimPose != null ? aimPose : predictor.leadPose());
         double dx = target.x() - turret.x();
         double dy = target.y() - turret.y();
         double dist = Math.hypot(dx, dy);

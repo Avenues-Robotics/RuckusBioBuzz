@@ -73,7 +73,9 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 │                                         TRANSLATION_PRIORITY 0.75 (vendored Swerve; manual only, unmeasured on the robot)
 │                                         telemetry throttled (TELEMETRY_INTERVAL_MS) and shows loop Hz = 1/mean(dt), dt mean/p90;
 │                                         flywheel velocity + turret servo writes deduped, color read throttled - all through
-│                                         modules/Cache, switches in SystemConstants.Cache
+│                                         modules/Cache, switches in SystemConstants.Cache. Controls (2026-11-15, class javadoc):
+│                                         D1 drive/intake/shoot/scoopula/relocalize, D2 aim offsets + SHOOTER LOCK (turret forward,
+│                                         heading auto-aims, no zone); in-zone auto-shoot is TeleOp-only (Shooter.zoneAutoShoot)
 ├── auto/{RedSoloAuto,BlueSoloAuto}.java   competition autos, Constants.createFollower + modules/AutoMechanisms
 │   ├── modules/{AutoMechanisms,PathStep}.java   AutoMechanisms builds systems/Shooter, Intake, Scoopula for autos
 │   ├── legacy/{shortAutoRed,redOption2,ExampleSwerveAuto}.java   older autos
@@ -82,7 +84,8 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 │                                        (AutoMechanisms, AutoConstants durations, eventDone hook): transplant statics + buildPaths only
 ├── modules/                             compute only, no hardware: predictiveAiming, shootingRegression, zoneCheck
 ├── systems/                             mechanisms (write hardware): intake, shooter (flywheels; owns turret), turret (aiming, was modules/aimingSystem), gate, scoopula
-├── helpers/                             HivePosition, Alliance, PoseStorage (autos clear at init + save in stop(), TeleOp init take()s it once)
+├── helpers/                             HivePosition, Alliance, PoseStorage (autos clear at init + save in stop(), TeleOp init take()s it once),
+│                                        AimOffsets (driver 2's coach-perspective aim shift + flywheel offset; host check AimOffsetsCheck.java)
 ├── field/biobuzz_field.json             BIOBUZZ obstacles - ONE source: the visualizer imports it, the bring-up field fence loads it
 ├── fieldview/                           http://192.168.43.1:8080/field - live field, robot, predicted pose, zone (TeleOp publishes at 20 Hz)
 ├── diagnostics/                         PreMatchSystemCheck (drive response, then every mechanism), motorbreakin
@@ -91,7 +94,7 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 │                                        own powers through the swerve mixer's limits), /field + logcat AutoDryRun. Path timing is sim-only
 ├── diagnostics/tuning/                  DIAGNOSTIC ONLY — "Mechanism Tuner" OpMode + /tune dashboard: flywheel PIDF
 │                                         (step / kick / shot recovery / ff sweep, step-trial overlay), shooter gate
-│                                         sequence + idle fraction, turrets (+offsets), gate, scoopula, intake color + brake, intake motor direction, intake break-in, shooting-zone map editor;
+│                                         sequence + idle fraction, turrets (+offsets), gate, scoopula, intake color + brake, intake motor direction, intake break-in, shooting-zone map editor (shows the robot's live cell);
 │                                         app-level operator banners (/tune/notify, notify.js - also on /swerve)
 ├── diagnostics/swerve/                  DIAGNOSTIC ONLY — never ships
 │   ├── SwerveBringUp.java               (~193 KB) bring-up OpMode + HTTP server

@@ -11,6 +11,26 @@ public final class SystemConstants {
     @Configurable
     public static class TeleOp {
         public static double TRANSLATION_PRIORITY = 0.75;
+        // Driver 2 aim corrections (helpers/AimOffsets): one d-pad left/right press moves the aim point this far
+        // sideways (in, coach's perspective, judged from the last shot); one up/down press adds this to the
+        // flywheel target (ticks/s, the regression's y-intercept). GUESSES - set them from real shots.
+        public static double AIM_STEP_IN = 1.0;
+        public static double SPEED_STEP = 25;
+        // Shooter lock (driver 2 OPTIONS): turret straight ahead, the robot's heading aims instead. P on a
+        // projected heading (heading + w*LIN + w|w|*QUAD), the shape and the values of Foresight's heading
+        // controller (Constants.headingKP / headingBrake*, measured 2026-11-15). NOT tested in TeleOp.
+        public static double AIM_KP = 7.7173;
+        public static double AIM_BRAKE_LINEAR = 0.050501;
+        public static double AIM_BRAKE_QUADRATIC = 0.019853;
+        public static double AIM_MAX_TURN = 0.8;
+        /** |right stick x| above this turns the robot by hand even in lock mode. */
+        public static double AIM_STICK_OVERRIDE = 0.10;
+        // Relocalize (driver 1 holds SHARE/BACK this long): the pose is set to this RED-frame pose, mirrored
+        // through the field centre for blue. Default = RedSoloAuto START_STEP, where the robot starts every match.
+        public static double RELOCALIZE_HOLD_S = 0.5;
+        public static double RELOCALIZE_X = 56.0;
+        public static double RELOCALIZE_Y = 8.561;
+        public static double RELOCALIZE_HEADING_DEG = 180.0;
     }
 
     @Config
@@ -26,11 +46,10 @@ public final class SystemConstants {
     @Config
     @Configurable
     public static class Shooter {
-        // Is the NECTAR shooter (turret + flywheel) mounted and wired? false (2026-11-15, it is not): an auto's
-        // Shoot event fires on the pollen side alone (aimed + at speed), and TeleOp shoots ONLY on the right
-        // trigger. true: both sides must be aimed and at speed - the original rule, in autos and TeleOp (TeleOp
-        // then also fires by itself in the zone). Auto Dry Run 2026-11-15: with the nectar side required, 4/4
-        // auto Shoot steps timed out with the gate shut.
+        // Is the NECTAR shooter (turret + flywheel) mounted and wired? false (2026-11-15, it is not): automatic
+        // shots (an auto's Shoot event, TeleOp's in-zone shot) need the pollen side alone aimed and at speed.
+        // true: both sides must be. Auto Dry Run 2026-11-15: with the nectar side required, 4/4 auto Shoot steps
+        // timed out with the gate shut. (Which shots are automatic is Shooter's autoFire, not this flag.)
         public static boolean NECTAR_MOUNTED = false;
         public static double MIN_GATE_OPEN_S = 0.3;
         public static double HOLD_SPEED_FRACTION = 0.20;

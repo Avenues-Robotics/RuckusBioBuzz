@@ -21,8 +21,15 @@ public class Shooter {
     private final HivePosition hivePosition;
     private Gate shooterGate;
 
-    private boolean inZone;
+    /** Shoot by itself this loop: an auto's Shoot event, or TeleOp in the zone (zoneAutoShoot, not locked). */
+    private boolean autoFire;
     private boolean forceZone;
+    /** TeleOp only: fire by itself when the robot is in the zone map. Autos never set it - they fire on events. */
+    private boolean zoneAutoShoot;
+    /** TeleOp shooter lock: turrets straight ahead, no zone logic, the flywheel always at full target. */
+    private boolean lockForward;
+    /** Robot pose when the gate last opened - driver 2's aim corrections are judged from it (AimOffsets). */
+    private Pose lastShotPose;
     /** Driver override (TeleOp right trigger): shoot now, whatever zone / aim / wheel speed say. */
     private boolean manualShoot;
     private final PredictiveAiming predictiveAiming;
@@ -61,13 +68,48 @@ public class Shooter {
         manualShoot = shoot;
     }
 
+    /** TeleOp: fire automatically in the zone (the autos leave this false and fire on their Shoot events). */
+    public void setZoneAutoShoot(boolean on) {
+        zoneAutoShoot = on;
+    }
+
+    /** TeleOp shooter lock: turrets straight ahead, zone logic off, flywheel always at full target. */
+    public void setLockForward(boolean lock) {
+        lockForward = lock;
+        aiming.setLockForward(lock);
+    }
+
+    public boolean lockedForward() {
+        return lockForward;
+    }
+
+    /** TeleOp driver 2: aim-point shift (field frame, in) and flywheel y-intercept (ticks/s). */
+    public void setAimOffsets(double goalDx, double goalDy, double speedOffset) {
+        aiming.setGoalOffset(goalDx, goalDy);
+        flywheel.setSpeedOffset(speedOffset);
+    }
+
+    /** The point the shooter aims at for a robot at {@code robot} (hive + driver 2's offset). */
+    public Pose goal(Pose robot) {
+        return aiming.goal(robot);
+    }
+
+    /** Robot pose when the gate last opened, or null before the first shot. */
+    public Pose lastShotPose() {
+        return lastShotPose;
+    }
+
     public boolean shooting(){
         return state == states.SHOOT;
     }
 
     public void update() {
-        inZone = forceZone || manualShoot || zone.inZone(predictiveAiming.predictPose());
-        flywheel.update(inZone);
+        boolean zoneIn = zone.inZone(predictiveAiming.predictPose());
+        autoFire = forceZone || (zoneAutoShoot && !lockForward && zoneIn);
+        // Full speed whenever a shot may come: automatic, the driver's trigger, the zone (pre-spin, unchanged for
+        // the autos), and all of lock mode - there is no zone there, the driver fires when the robot faces the goal.
+        flywheel.update(autoFire || manualShoot || zoneIn || lockForward);
+        states before = state;
 
         switch (state) {
             case RESET:
@@ -96,14 +138,17 @@ public class Shooter {
                     boolean hold = shootTimer.seconds() < SystemConstants.Shooter.MIN_GATE_OPEN_S
                             || (pollenReady(SystemConstants.Shooter.HOLD_SPEED_FRACTION)
                                 && nectarReady(SystemConstants.Shooter.HOLD_SPEED_FRACTION));
-                    if (!inZone || !hold) state = states.TRACK;
-                } else if (inZone && pollenReady(SystemConstants.Flywheel.AT_SPEED_FRACTION)
+                    if (!autoFire || !hold) state = states.TRACK;
+                } else if (autoFire && pollenReady(SystemConstants.Flywheel.AT_SPEED_FRACTION)
                         && nectarReady(SystemConstants.Flywheel.AT_SPEED_FRACTION)) {
                     state = states.SHOOT;
                     shootTimer.reset();
                 }
                 if (state == states.SHOOT) {
                     shooterGate.openGate();
+                    if (before != states.SHOOT) {
+                        lastShotPose = predictiveAiming.predictPose(0);
+                    }
 
                 } else {
                     shooterGate.closeGate();
@@ -118,12 +163,13 @@ public class Shooter {
 
     /**
      * Nectar side aimed and at speed. With SystemConstants.Shooter.NECTAR_MOUNTED false the nectar side is not
-     * there, so it counts as ready ONLY during an auto's Shoot event (forceZone - set by AutoMechanisms alone):
-     * autos fire on the pollen side, and TeleOp's automatic path stays shut (it shoots on the right trigger).
+     * there and counts as ready, so automatic shots go on the pollen side alone. WHEN a shot may be automatic is
+     * autoFire: an auto's Shoot event (forceZone), or TeleOp in the zone (zoneAutoShoot, not locked). Until
+     * 2026-11-15 this returned forceZone instead, which kept TeleOp's in-zone shot shut.
      */
     private boolean nectarReady(double speedFraction) {
         if (!SystemConstants.Shooter.NECTAR_MOUNTED) {
-            return forceZone;
+            return true;
         }
         return aiming.nectarAimed() && flywheel.atSpeedNectar(speedFraction);
     }

@@ -18,3 +18,9 @@
 {"arm": "A", "kd": 0.025, "k": 11, "axis": "strafe", "path": "runs/20261115-141609_holdkd_A_11.csv.gz", "reversals": 82, "peak_cmd": 6.475998484102799, "min_volts": 11.169, "n": 733, "end_pose": [23.8602, 23.6678, 88.5238]}
 {"arm": "A", "kd": 0.025, "k": 12, "axis": "forward", "path": "runs/20261115-141616_holdkd_A_12.csv.gz", "reversals": 63, "peak_cmd": 1.734674494188751, "min_volts": 11.322, "n": 496, "end_pose": [23.462, 23.2948, 88.5454]}
 {"arm": "A", "kd": 0.025, "k": 13, "axis": "strafe", "path": "runs/20261115-141624_holdkd_A_13.csv.gz", "reversals": 79, "peak_cmd": 4.3211032803450795, "min_volts": 11.016, "n": 521, "end_pose": [23.7783, 23.665, 88.7489]}
+{"arm": "installed_kd0", "k": 0, "path": "runs/20261115-142130_holdinstalled_0.csv.gz", "reversals": 1, "peak_cmd": 1.1287100072671452, "end_err": 0.17170492130396037, "volts": 12.869}
+{"arm": "installed_kd0", "k": 1, "path": "runs/20261115-142136_holdinstalled_1.csv.gz", "reversals": 1, "peak_cmd": 1.1255453305584853, "end_err": 0.21936601833465552, "volts": 12.86}
+{"arm": "installed_kd0", "k": 2, "path": "runs/20261115-142147_holdinstalled_2.csv.gz", "reversals": 3, "peak_cmd": 1.1298862861983234, "end_err": 0.28111842700185874, "volts": 12.847}
+{"arm": "installed_kd0", "k": 3, "path": "runs/20261115-142154_holdinstalled_3.csv.gz", "reversals": 0, "peak_cmd": 1.1150169488175685, "end_err": 0.19721744344758171, "volts": 12.847}
+{"arm": "installed_kd0", "k": 4, "path": "runs/20261115-142201_holdinstalled_4.csv.gz", "reversals": 0, "peak_cmd": 1.1216539229832034, "end_err": 0.17781231678373968, "volts": 12.839}
+{"arm": "installed_kd0", "k": 5, "path": "runs/20261115-142207_holdinstalled_5.csv.gz", "reversals": 0, "peak_cmd": 1.125598494073335, "end_err": 0.10177706028373804, "volts": 12.83}

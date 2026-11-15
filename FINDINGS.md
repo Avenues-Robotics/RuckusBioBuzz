@@ -1487,3 +1487,8 @@ brake command; can also occur at a path end. Candidate vendored fix: while trans
 rest still act. Needs its own test; not changed.
 
 Also: Pinpoint heading froze a 4th time after an app restart (85.2568 deg, 20/20 reads); resetImu cleared it.
+
+**Verified on the deployed build** (9559cf8a installed, gainsShipped true, no pedroPidf override - exactly what an
+auto runs; 12.89 -> 12.83 V): 6 two-hold units, drive-power reversals 1, 1, 3, 0, 0, 0 (mean 0.8, was 77.7),
+peak command 1.12-1.13, hold end error 0.10-0.28 in. Data: runs/*holdinstalled_*, runs/hold_kd_ab.jsonl
+(arm installed_kd0). Heading froze a 5th time on that app restart (88.7488 deg, 20/20) - every restart today.

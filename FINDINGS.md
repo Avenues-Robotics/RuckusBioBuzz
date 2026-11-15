@@ -1296,3 +1296,12 @@ wheel); the motor-side target then scales (same wheel speed at 1.6x = 2400 x 1.2
 resetMode NONE does nothing to the IMU at init). resetImu in Bring-Up fixed it again (-0.013 at rest;
 TeleOp then 0.0035-0.0056). Not every restart does it (11:12 was fine). The Pinpoint's device-status flags
 are not read anywhere - next step to find the cause; TeleOp/autos still have no frozen-heading check.
+
+### 2026-11-15 — operator confirmation: RT shooting, 2400 stopgap, turret stops, unwind aiming
+
+Operator, after testing on the robot: TeleOp's right-trigger shoot (2b10d3e2), the flat 2400 ticks/s
+shooting speed (c4aae62d), the pollen turret stops 0.018 / 0.982 (9680018e, 805f74b5) and keeping the aim
+through the unwind settle (dd88da25) "have all been tested, it works". No numbers were recorded for these
+checks (operator observation). The --pods shipped turns-only pedrocheck on the installed F gains
+(pc2x2_shippedF_turns, n=3/direction, 12.5 V) failed every turn on the follower's heading (overshoot
+5.4-14.8 deg, residual 3.3-6.3 deg) exactly like both arms before - a follower-level issue, not the pods.

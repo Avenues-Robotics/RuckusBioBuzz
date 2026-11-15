@@ -99,6 +99,11 @@ public class AutoDryRun extends OpMode {
         }
         auto.loop();
         FieldView.publish(localizer.pose(), localizer.pose());
+        if (localizer.diverged()) {
+            log("SIM DIVERGED - non-finite pose refused, stopping the dry run");
+            requestOpModeStop();
+            return;
+        }
         String line = "seq=" + readInt(sequenceField) + " " + (mechanisms == null ? "" : mechanisms.stateLine());
         if (!line.equals(lastLine)) {
             lastLine = line;

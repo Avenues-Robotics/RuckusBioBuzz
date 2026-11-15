@@ -1305,3 +1305,41 @@ through the unwind settle (dd88da25) "have all been tested, it works". No number
 checks (operator observation). The --pods shipped turns-only pedrocheck on the installed F gains
 (pc2x2_shippedF_turns, n=3/direction, 12.5 V) failed every turn on the follower's heading (overshoot
 5.4-14.8 deg, residual 3.3-6.3 deg) exactly like both arms before - a follower-level issue, not the pods.
+
+## 2026-11-15 — Auto Dry Run: RED auto on blocks with a simulated pose - the gate never opens
+
+**New diagnostic** (bfc477b3 shipped hook, aca55e68 tool): `Auto Dry Run (on blocks, sim pose)` runs
+RedSoloAuto unmodified (paths, events, shooter, intake, gate, turret, scoopula on the real hardware) with a
+kinematic SimLocalizer in place of the Pinpoint, integrating the follower's own commanded DrivePowers.
+Pose on /field. It bypasses requireForesightMeasured() for the simulated follower only (the real autos still
+refuse to run: FORESIGHT_MEASURED is false).
+
+**First run diverged** (pose 1e135 in within 1.5 s; NaN reached the turret servo, the SDK refused it and
+stopped the OpMode - no hardware harm). Cause: the sim took DrivePowers unclipped; Foresight's braking term
+grows with v^2, so an ideal integrator ran away. Fixed in the tool: powers go through the vendored Swerve
+mixer's limits (translation clipped to 1, pod vectors normalised by the largest), and a non-finite pose is
+refused and stops the dry run.
+
+**Second run** (robot on blocks, no pieces, 12.60 -> 12.25 V, RED, MOVE_PODS true): all 14 steps ran in
+order, the auto reached Done at 52.4 s, stop() clean. Mechanism results (real code on real hardware):
+
+| | result |
+|---|---|
+| Shoot steps (SHOOT_TIME 1.5 s) | **4/4 timed out with the gate shut** - shooter never left TRACK/RESET |
+| Shooter during Shoot | pollen aimed (aimP) in all 4; **nectar never aimed** in any; pollen wheel 2400-2460 at step end |
+| Intake | never ran (it runs only while the shooter is in SHOOT) |
+| Turret unwinds (RESET) | 9 during the auto; Shoot step 3 began mid-unwind (~0.7 s of its 1.5 s lost) |
+| Scoopula | down 8.09 s / up 16.83 s, down 33.50 s / up 38.37 s - as the callbacks place them |
+
+Cause of the shut gate: Shooter fires only with BOTH turrets aimed and BOTH wheels at speed; the nectar side
+is not mounted (turret limits 0.45-0.55 unmeasured guess, wheel absent). Predicted before the run, confirmed.
+
+**Path finding, mechanism in code, risk on the robot plausible but not measured:** chain2 is a loop whose end
+(10.2, 10.3) is 2.1 in from its start (9.9, 8.2). BezierCurve.closestParameter seeds from a GLOBAL coarse
+search (t = 0, 0.1 .. 1.0), and Foresight ends a path once closestT >= 0.975 (parametricTConstraint 0.025).
+In the sim the robot arrived 12 in past POINT_1 and the follower declared chain2 done after 0.39 s, the loop
+never driven. A real robot reaching POINT_1 ~1 in north of the line would be nearer t = 1 than t = 0 too.
+
+**Sim-only, not a prediction:** path-end overshoot 2.8-17.6 in, lateral wander up to ~12 in (chain5, chain8),
+and the 52.4 s total (> the 30 s auto period) come from an invented chassis model (vMax = the 73.9 in/s
+placeholder, 0.15 s lag) against placeholder Foresight constants. Do not read path timing from this tool.

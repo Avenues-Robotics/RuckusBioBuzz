@@ -866,6 +866,112 @@ def cmd_rapidfire(args) -> int:
     return EXIT_OK
 
 
+def burst_metrics(path: str, frac: float, wheel: str = "pollen") -> dict:
+    """Scores a burst trace (runs/LABEL.csv): every dip below (1 - frac) * target is one contact.
+    Per dip: velocity just before it (the speed that ball left at, as a proxy), depth, time back in band
+    (None if the next ball arrived first), gap to the previous dip. Plus the whole burst."""
+    with open(path, encoding="utf-8") as fh:
+        rows = [ln.split(",") for ln in fh if ln and not ln.startswith(("#", "t,"))]
+    t = [float(r[0]) for r in rows]
+    ti, vi = (2, 3) if wheel == "pollen" else (4, 5)   # FlyRecorder: t,dtMs,pTgt,pVel,nTgt,nVel,...,volts,..,event
+    v = [float(r[vi]) for r in rows]
+    tgt = [float(r[ti]) for r in rows]
+    volts = [float(r[8]) for r in rows if r[8]]
+    open_t = next((t[i] for i, r in enumerate(rows) if r[11].strip() == "5"), None)
+    dips, i = [], 0
+    while i < len(t):
+        T = tgt[i]
+        if T > 0 and v[i] < T * (1 - frac):
+            j0 = i
+            pre = max(v[max(0, j0 - 8):j0] or [v[j0]])
+            k, vmin = i, v[i]
+            while k < len(t) and v[k] < T * (1 - frac):
+                vmin = min(vmin, v[k]); k += 1
+            dips.append({"t": t[j0], "pre": pre, "min": vmin, "dropPct": 100 * (T - vmin) / T,
+                         "preErrPct": 100 * (pre - T) / T,
+                         "backMs": (t[k] - t[j0]) * 1000 if k < len(t) else None})
+            i = k
+        else:
+            i += 1
+    for a, b in zip(dips, dips[1:]):
+        b["gapMs"] = (b["t"] - a["t"]) * 1000
+    out = {"dips": dips, "n": len(dips), "target": tgt[0] if tgt else None,
+           "voltsMin": min(volts) if volts else None, "voltsMax": max(volts) if volts else None}
+    if dips:
+        out["burstMs"] = ((dips[-1]["t"] + (dips[-1]["backMs"] or 0) / 1000) - dips[0]["t"]) * 1000
+        out["worstDropPct"] = max(d["dropPct"] for d in dips)
+        out["preSpreadPct"] = max(d["preErrPct"] for d in dips) - min(d["preErrPct"] for d in dips)
+        if open_t is not None:
+            out["firstContactMs"] = (dips[0]["t"] - open_t) * 1000
+    return out
+
+
+def cmd_burst(args) -> int:
+    """Rapid fire the way TeleOp's right trigger does it: wheel at --target, recorder on, gate open,
+    intake feeding; the operator drops the pieces in; Done ends it. The trace is pulled and scored."""
+    need_clear(args)
+    s = state()
+    gate = next((x for x in s.get("servos", []) if x["name"] == "gate"), None)
+    if not gate or gate["marks"].get("open") is None or gate["marks"].get("close") is None:
+        raise RobotError("mark the gate 'open' and 'close' first")
+    g_open, g_close = gate["marks"]["open"], gate["marks"]["close"]
+    if args.pidf:
+        set_pidf(args.wheel, [float(x) for x in args.pidf.split()])
+    pidf = wheel_of(state(), args.wheel)["pidf"]
+    label = args.label or time.strftime(f"burst-{args.wheel}-%H%M%S")
+    send("servoPos", name="gate", pos=g_close)
+    send("fly", wheel=args.wheel, vel=args.target)
+    wait_armed(args.wheel, 15.0)
+    send("recStart", label=label)
+    time.sleep(0.4)
+    nid = None
+    try:
+        send("servoPos", name="gate", pos=g_open)
+        send("intake", mode="IN")
+        piece = "POLLEN" if args.wheel == "pollen" else "NECTAR"
+        nid = post_note(f"BURST: gate OPEN, intake RUNNING, wheel at {int(args.target)}. Drop {args.balls} "
+                        f"{piece} into the intake now, back to back. Press Done when the last one is out.",
+                        "action", "ack")
+        print(f"[asked operator #{nid}] burst of {args.balls} at {args.target:.0f}, pidf {pidf}", flush=True)
+        end = time.time() + args.timeout
+        while time.time() < end:
+            st = gstate()
+            notes = json.loads(_get("/notes", {"since": nid - 1}))["notes"]
+            note = next((x for x in notes if x["id"] == nid), None)
+            if note and note["resolved"]:
+                break
+            if wheel_of(st, args.wheel)["mode"] != "VEL":
+                print("wheel left VEL mode: " + st["message"]); break
+            if st["rec"].get("size", 0) >= st["rec"].get("capacity", 6000):
+                print("recorder full"); break
+            time.sleep(0.15)
+    finally:
+        send("servoPos", name="gate", pos=g_close)
+        send("intake", mode="OFF")
+        time.sleep(0.8)
+        send("recStop")
+        if not args.keep_spinning:
+            send("flyOff", wheel=args.wheel)
+        if nid is not None:
+            _get("/ack", {"id": nid, "resolution": "cleared"}, retries=1)
+    time.sleep(0.2)
+    cmd_pull(argparse.Namespace(label=label), quiet=True)
+    m = burst_metrics(os.path.join(RUNS, f"{label}.csv"), state().get("atSpeedFrac", 0.05), args.wheel)
+    print(f"{label}: {m['n']} contacts at target {m['target']:.0f}, pidf {pidf}, "
+          f"{m['voltsMin']:.2f}-{m['voltsMax']:.2f} V")
+    for k, d in enumerate(m["dips"], 1):
+        print(f"  ball {k}: speed before {d['pre']:.0f} ({d['preErrPct']:+.1f}%)  drop {d['dropPct']:.1f}%  "
+              f"back in band {('%.0f ms' % d['backMs']) if d['backMs'] is not None else 'never'}"
+              + (f"  gap {d['gapMs']:.0f} ms" if 'gapMs' in d else ""))
+    if m["n"]:
+        print(f"  burst {m['burstMs']:.0f} ms first contact -> back in band; worst drop {m['worstDropPct']:.1f}%; "
+              f"speed-before spread {m['preSpreadPct']:.1f}% of target")
+    log_trial("burst", {"wheel": args.wheel, "label": label, "pidf": pidf, "target": args.target,
+                        "balls": args.balls, **{k: v for k, v in m.items() if k != "dips"},
+                        "dips": [{k: (round(v, 1) if isinstance(v, float) else v) for k, v in d.items()} for d in m["dips"]]})
+    return EXIT_OK
+
+
 def _step_summary(rs: list[dict]) -> dict:
     return {"overshoot": statistics.fmean(r["overshootPct"] for r in rs),
             "overshootMax": max(r["overshootPct"] for r in rs),
@@ -1127,6 +1233,10 @@ def main(argv: list[str]) -> int:
     p.add_argument("--target", type=float, required=True); p.add_argument("--sec", type=float, default=4.0)
     p.add_argument("--n", type=int, default=6); p.add_argument("--seed", type=int, default=None)
     clear(p); p.set_defaults(fn=cmd_hold)
+    p = sub.add_parser("burst"); wheel(p); p.add_argument("--target", type=float, required=True)
+    p.add_argument("--balls", type=int, default=4); p.add_argument("--pidf", default=None, help='"P I D F" to set first')
+    p.add_argument("--timeout", type=float, default=60); p.add_argument("--label", default=None)
+    p.add_argument("--keep-spinning", action="store_true"); clear(p); p.set_defaults(fn=cmd_burst)
     p = sub.add_parser("rapidfire"); wheel(p); p.add_argument("--target", type=float, required=True)
     clear(p); p.set_defaults(fn=cmd_rapidfire)
     p = sub.add_parser("autotune"); wheel(p); p.add_argument("--target", type=float, required=True)

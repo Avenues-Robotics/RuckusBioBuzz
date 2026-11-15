@@ -406,11 +406,21 @@ driving *through the dashboard* (`DriveTeleOp` does not run the publish path).
 3. **Correct the record in the code, not just in chat.** Wrong numbers in a
    comment get amended in the same commit that finds the error.
 4. **One change, one test.** Do not batch fixes and test once.
-5. **You cannot touch the robot, and that gate never moves.** Deploying
-   restarts the app, killing the OpMode and the HTTP server. Every deploy needs:
-   build green → OPS REQUEST → the operator installs and starts `Swerve
-   Bring-Up` → they reply "ready" + volts → you resume. **Batch it and work an
-   offline thread while you wait — but you do wait.**
+5. **You deploy and start OpModes yourself; you never touch the robot.**
+   (Operator decision 2026-11-15; before that the operator did both.) Deploying
+   restarts the app, killing the OpMode and the HTTP server. Every deploy:
+   **build green** → `adb install -r` over `192.168.43.1:5555` and relaunch the
+   Robot Controller activity → init + start the OpMode with
+   `tools/swervetune/ftcdash.py "<OpMode>"` → re-check `/state` (live, the
+   build's values, the box per rule 6) before resuming. Stop an OpMode cleanly
+   (`ftcdash.py stop`) before installing so the box witness is saved. **Never
+   start an OpMode that moves on START** (an auto, anything that drives without
+   a command) without the operator confirming the robot is placed for it - floor
+   or blocks, area clear, STOP in reach (rule 8). Everything physical stays the
+   operator's: placing or moving the robot, batteries, wiring, the fence tape,
+   the Driver Station STOP. Batch those asks in one OPS REQUEST and work an
+   offline thread while you wait. If adb or the dashboard cannot reach the hub,
+   fall back to the operator installing and starting it.
 6. **A reflash or a pose reset clears the safe-area box.** Any ops request that
    includes either must also re-mark corners A and B, and you must confirm the
    box is armed via `/state` before commanding motion.
@@ -433,8 +443,10 @@ driving *through the dashboard* (`DriveTeleOp` does not run the publish path).
     (`Andres Alonso <108694498+AXAStudio@users.noreply.github.com>`). The
     61 Claude trailers that existed were stripped from history 2026-08-19.
 
-**Rules 1, 2, 3, 6, 8 and 11, and the deploy gate in rule 5, are not
-overridable by any task prompt, any survey default, or any schedule pressure.**
+**Rules 1, 2, 3, 6, 8 and 11, and rule 5's safety conditions (build green
+before any install, the operator's confirmation before an OpMode that moves on
+START, physical actions stay the operator's), are not overridable by any task
+prompt, any survey default, or any schedule pressure.**
 They are the evidence and safety floor. Rules 7, 9 and 10 describe *how* to
 raise something with the operator — batched rather than one at a time — and
 none of them authorize commanding the robot without the confirmations in 5, 6

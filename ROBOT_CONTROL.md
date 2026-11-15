@@ -20,17 +20,18 @@ controls it.
 
 | You (Claude) can | Only the operator can |
 |---|---|
-| `./gradlew :TeamCode:assembleDebug` | Install the APK. This restarts the app and kills the OpMode |
+| `./gradlew :TeamCode:assembleDebug`, then install it (`adb install -r`, relaunch the RC activity) | Confirm the robot is placed safely before an OpMode that moves on START |
 | Read `/swerve/state` and pull `/swerve/rec.csv` | Power the robot and swap batteries |
 | Send `/swerve/cmd` commands, once the gates in §3 pass | Put the robot on or off blocks, strap it down |
-| Stop motion: `robot.py stop`, and `robot.py estop` as a last resort | **Select and START `Swerve Bring-Up`** on the Driver Station |
+| Stop motion: `robot.py stop`, and `robot.py estop` as a last resort | Install / start by hand when adb or the dashboard can't reach the hub |
+| Init + start OpModes with `ftcdash.py "<OpMode>"` (CLAUDE.md rule 5) | |
 | Write `FINDINGS.md`, `RUN_STATE.md`, commits | Turn pods by hand, mark box corners, confirm the floor is clear |
 | | Press **STOP** on the Driver Station. This is the real emergency stop |
 
-There is a WebSocket client that can init and start OpModes through FTC Dashboard
-(`tools/swervetune/ftcdash.py`). **Do not use it to start or init anything.** Starting the OpMode
-is the operator's step in the deploy gate. Use it only to **stop** (`robot.py estop`), because
-stopping is always safe.
+`tools/swervetune/ftcdash.py` is a WebSocket client that inits, starts and stops OpModes through FTC
+Dashboard. Since 2026-11-15 (CLAUDE.md rule 5) you install and start OpModes yourself - but never one
+that moves on START (an auto) without the operator confirming the robot is placed for it, and
+`robot.py estop` still uses it to stop.
 
 Never call `GET /swerve/restart`: it restarts the whole Robot Controller app. Never call
 `/swerve/config?write=1` or `?builtin=…`: they change the active hardware config. Both need the
@@ -442,9 +443,13 @@ Escalation ladder, fastest safe option first:
 1. `./gradlew :TeamCode:assembleDebug` must pass. Commit.
 2. Batch: a deploy is expensive, so put experiments behind runtime `/cmd` toggles so one install
    carries many A/B arms. Anything in `Constants.java` is compiled in, so changing it costs a deploy.
-3. OPS REQUEST: install commit `<sha>` → start and START `Swerve Bring-Up` → reply "ready" + volts
-   + surface. Say what you will work on while you wait, and then work on it.
-4. On "ready":
+3. `ftcdash.py stop` (saves the box witness), `adb -s 192.168.43.1:5555 install -r
+   TeamCode/build/outputs/apk/debug/TeamCode-debug.apk`, relaunch
+   `com.qualcomm.ftcrobotcontroller/org.firstinspires.ftc.robotcontroller.internal.FtcRobotControllerActivity`,
+   wait for the dashboard, `ftcdash.py "Swerve Bring-Up"` (CLAUDE.md rule 5). Anything physical the
+   deploy needs (battery, placing the robot) goes in one OPS REQUEST; if the hub is unreachable, the
+   operator installs and starts it.
+4. Once it is running:
    - `robot.py check`.
    - Read `box.valid` and `message`. The box may have reloaded, or been discarded by the frame
      check.

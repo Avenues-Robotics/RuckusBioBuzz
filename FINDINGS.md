@@ -1571,3 +1571,48 @@ no overrides, 3 blocks, 12.69 -> 12.48 V, label pc2x2_candB_accept): turn oversh
 residual 0.34-0.41 in (1 of 12 at 0.527 > 0.5), heading 0.10-0.25 deg. FORESIGHT_MEASURED stays false: max
 velocity, the forward/strafe braking model and kV are not measured. Open: translational gains that beat the drive
 deadband near the target (candidate A's 0.18 secondary is too weak; 0.26 leaves 0.3-0.4 in).
+
+## 2026-11-15 — Near-target translational gain (2x2): a higher secondary kP fixes the hold stall; NOT shipped
+
+**Why holds stop 0.3-0.4 in short.** Every acceptance hold (pc2x2_candB_accept, 12 holds) ends with the robot
+stopped (speed 0.00 in/s) while the follower still commands 0.06-0.14 = 0.26 x the remaining error, and no pod
+above 0.18 power: it is stalled under the drive breakaway (~0.19 power, box tuner), whose band at kP 0.26 is
++/-0.19/0.26 = +/-0.7 in. Follower.hold(pose) is unscaled (holdPointTranslationalScaling 0.45 applies only to
+hold(pose, true), which nothing here calls). The follower also brakes on a projected pose (pose + v|v| x
+1/(2 x 40)); the box measured 88 / 64 in/s^2 of coast-down, so that projection is ~2x too far and the robot starts
+braking early (held back: the braking model needs path speeds, the long strip).
+
+**A/B** (`pedrocheck suite --only hold --step 4`, arms in current_runs/arms_hold_secondary.json: shipped vs
+secondary kP tfs=tss 0.40 vs 0.55, primary 0.26 above 2.5 in unchanged). 8 blocks randomised interleaved, 32 holds
+per arm, 0 refused, tiles, 2x2 border fence 47.16 in, fresh battery 13.55 -> 12.79 V, label pc2x2_hold2nd. Scored
+by tools/swervetune/holdstall.py (new, diagnostic, read-only: re-reads the archived recordings). Diff vs shipped,
+95% CI, Welch:
+
+| | shipped 0.26 | 0.40 | 0.55 |
+|---|---|---|---|
+| hold residual (mean \|err\|, last 0.5 s) | 0.324 +/- 0.041 in | 0.198: -0.127 [-0.173, -0.080] p=1e-6 | 0.109: -0.216 [-0.262, -0.170] p=2e-12 |
+| stopped short along the step | 0.192 in | 0.115: -0.077 [-0.153, -0.001] | 0.064: -0.128 [-0.194, -0.063] |
+| settle to 1 in | 0.836 s | 0.732: -0.104 [-0.183, -0.025] | 0.684: -0.151 [-0.215, -0.087] |
+| overshoot / zero crossings at the target | 0.026 in / 0.19 | n.s. / n.s. | n.s. / n.s. |
+| push reversals per hold (wheel push vector > 90 deg, \|change\| > 0.3) | 2.9 | 6.6: +3.7 [+1.5, +5.9] p=0.001 | 7.1: +4.2 [+1.7, +6.6] p=0.001 |
+| pod azimuth travel per hold, 4 pods | 1151 deg | 1283: +133 [-53, +318] n.s. | 1406: +255 [+97, +414] p=0.002 |
+
+Smoke block before it (11.9-12.1 V, n=4/arm): kP 0.85 reached 0.07 in but doubled pod travel (1714 deg) and
+reversals (11.8), and was dropped. The operator saw the pods "move a LOT" on the left/right holds during it.
+
+**What the extra reversals are:** 225 of 226 (0.55 arm) happen at a pod FLIP, 0.25-0.67 s into the hold, robot at
+~9 in/s - the braking moment, when the projected pose crosses the target and the pods flip to push back. Same size
+as shipped (median |power| after 0.28 vs 0.25, braking clamped at maxBrakingPower 0.2 on the translation part);
+none in the final creep, no hunting. Not the kD jolt (77 full-voltage reversals per hold pair), but more pods
+flipping at every stop. A heading-gain explanation for the pod travel was checked and is not supported: the
+shipped-vs-candB A/B earlier today (heading kP 1.2 vs 7.7, same holds) had pod travel 789 vs 823 deg, p=0.63.
+
+**Not shipped, because the benefit does not reach the robot's real use:**
+- Autos do not wait for the hold: Foresight drops busy 100 ms after a hold starts (timeoutConstraint 100 ms,
+  calculateHold), and RedSoloAuto/BlueSoloAuto advance on !isBusy(), so a 0.3 in stall costs no auto time.
+- Shooting holds: the turret aims from the measured pose, so 0.3 in of position error is not an aim error.
+- Below 2.5 in is where almost all of a PATH's cross-track correction happens, so the secondary kP is really the
+  path-following gain - untestable in the 2x2 (hold points must sit 18.7 in inside the fence).
+- The pre-stated guard (no significant rise in reversals or pod travel) failed for both arms.
+0.40 and 0.55 go to the long-strip session as path candidates (pedrocheck on the real .pp paths: cross-track error,
+end error, pod travel), next to the braking-model change that may remove the early braking at its source.

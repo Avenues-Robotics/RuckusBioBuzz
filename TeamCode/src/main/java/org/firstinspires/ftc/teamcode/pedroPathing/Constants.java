@@ -50,9 +50,9 @@ public class Constants {
     public static final double maxAchievableStrafeVelocity = PLACEHOLDER_MAX_VELOCITY;
     public static final double naturalForwardDeceleration = 40.0;
     public static final double naturalStrafeDeceleration = 40.0;
-    public static final double headingKP = 1.20;
-    public static final double headingBrakeLinear = 0.0;
-    public static final double headingBrakeQuadratic = 0.0;
+    public static final double headingKP = 7.7173;
+    public static final double headingBrakeLinear = 0.050501;
+    public static final double headingBrakeQuadratic = 0.019853;
     public static final double forwardBrakeLinear = 0.0;
     public static final double strafeBrakeLinear = 0.0;
     public static final double forwardBrakeQuadratic = 1.0 / (2 * naturalForwardDeceleration);
@@ -124,15 +124,22 @@ public class Constants {
     //                                                  brakes actively, so this over-predicts the
     //                                                  stopping distance - it brakes early, the
     //                                                  safe direction.
-    //   headingBrakeCoefficients 0                     UNMEASURED. Zero disables heading lookahead.
+    //   headingBrakeCoefficients 0.0505 / 0.0199       MEASURED 2026-11-15, Foresight box tuner heading
+    //                                                  braking (12 trials, 0.2-1.0 power, tiles); was 0,
+    //                                                  which disabled heading lookahead. Validated with
+    //                                                  headingKP below (pedrocheck pc2x2_candB).
     //   coast / brake kV 1/73.9                        UNMEASURED. Power = v / vmax, the naive
     //                                                  feed-forward.
-    //   headingFeedback kP 1.20                        CARRIED from the 2.x heading PIDF (see the
-    //                                                  2.x history below). P only: Foresight calls
-    //                                                  this controller twice per update with two
-    //                                                  different errors, which would corrupt a D
-    //                                                  term - the v3 Quickstart's tuner emits P only
-    //                                                  for the same reason.
+    //   headingFeedback kP 7.7173                      MEASURED 2026-11-15, Foresight box tuner heading ID
+    //                                                  (n=3: 6.53 / 7.89 / 8.73; K 6.45-6.61 rad/s/power,
+    //                                                  tau 0.127-0.173 s - a later run gave 13.8, the plant
+    //                                                  is not stationary). P only, as before. Was 1.20,
+    //                                                  carried from 2.x: turns overshot 8-9.5 deg and sat
+    //                                                  3.7-4.5 deg off. pedrocheck shipped vs this (+ the
+    //                                                  heading braking above), 5 blocks interleaved, tiles:
+    //                                                  turn overshoot 9.5/8.0 -> 0.50/0.67 deg, residual
+    //                                                  3.7/4.5 -> 0.16/0.20 deg, settle 1.04 s; hold
+    //                                                  position residual unchanged (0.32-0.34 vs 0.34-0.38).
     //   forward/strafeTranslational P 0.26             CARRIED from the 2.x translational PIDF,
     //                                                  2026-08-14. Same units (power per inch). Its kD
     //                                                  0.025 was removed 2026-11-15 (see translationalKD).

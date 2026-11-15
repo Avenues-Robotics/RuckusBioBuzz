@@ -1,0 +1,6 @@
+# CANDIDATE B (2026-11-15): candidate A's heading controller only - heading kP + heading braking (lookahead).
+# Identification: Foresight box tuner (heading kP mean of 3, heading braking 12 trials). Validation: pedrocheck
+# suite shipped vs candB, 5 blocks interleaved (label pc2x2_candB). Translational / decel / braking stay shipped.
+heading kP: 7.7173
+headingBrakingLinearCoefficient: 0.050501
+headingBrakingQuadraticCoefficient: 0.019853

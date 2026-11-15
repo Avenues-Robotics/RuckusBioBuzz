@@ -1,0 +1,4 @@
+{
+  "shipped": [["pedroReset", {}]],
+  "candA":   [["pedroReset", {}], ["pedroPidf", {"hp": 7.72, "tfp": 0.496, "tfs": 0.183, "tsp": 0.399, "tss": 0.148, "td": 0, "fzpa": 88, "lzpa": 64, "hbl": 0.0505, "hbq": 0.0199, "fbq": 0.0125, "sbq": 0.0125}]]
+}

@@ -1343,3 +1343,20 @@ never driven. A real robot reaching POINT_1 ~1 in north of the line would be nea
 **Sim-only, not a prediction:** path-end overshoot 2.8-17.6 in, lateral wander up to ~12 in (chain5, chain8),
 and the 52.4 s total (> the 30 s auto period) come from an invented chassis model (vMax = the 73.9 in/s
 placeholder, 0.15 s lag) against placeholder Foresight constants. Do not read path timing from this tool.
+
+**Third run, NECTAR_MOUNTED = false** (a10797e1; on blocks, no pieces, 12.54 -> 12.12 V): 14/14 steps,
+Done at 55.3 s. **2/4 Shoot steps opened the gate** (was 0/4):
+
+| Shoot step | gate opened | gate open | what happened |
+|---|---|---|---|
+| 1 (start) | +0.28 s, wheel 2380 | 1.18 s | wheel 0 -> 2380 inside 0.28 s from rest |
+| 2 (POINT_3) | never | 0 | aim lost at +0.27 s while the sim robot slid 14 in past POINT_3, then unwinding to the end |
+| 3 (POINT_5) | never | 0 | began mid-unwind (as in run 2); the unwind took 1.35 s of the 1.5 s window |
+| 4 (POINT_7) | +0.31 s, wheel 2280 | 1.23 s | |
+
+12 unwinds in the auto. Along chain5 the heading is fixed at 270 deg, so those unwinds come from the hive
+bearing sweeping as the robot translates - path geometry the real robot shares; WHEN they land relative to
+a Shoot step depends on path timing, which this tool cannot predict. Step 2's lost aim rides on the sim's
+overshoot (run 2 held aim at the same step). Either way **a fixed 1.5 s Shoot step has no margin for an
+unwind (~1.0-1.35 s each).** Whether the intake actually fed during the open windows is not in this log
+(its `intake=` field is the auto's Intake event flag, not the motor) - operator observation pending.

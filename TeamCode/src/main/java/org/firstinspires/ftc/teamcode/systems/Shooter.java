@@ -41,6 +41,8 @@ public class Shooter {
         this.predictiveAiming = predictor;
 
     }
+    /** An auto's Shoot event is active (AutoMechanisms only): treat the robot as in the zone, and with the nectar
+     *  side unmounted let the pollen side fire alone (nectarReady). */
     public void setForceZone(boolean force) {
         forceZone = force;
     }
@@ -48,7 +50,7 @@ public class Shooter {
     /**
      * While true the gate is open (state SHOOT, so TeleOp feeds the intake) and the flywheel runs at its
      * full target, bypassing the zone, aim and at-speed checks - except while the turret is unwinding.
-     * The automatic path needs BOTH wheels at speed, so with one wheel mounted it can never fire.
+     * The automatic path is for autos while the nectar side is unmounted (NECTAR_MOUNTED, nectarReady).
      */
     public void setManualShoot(boolean shoot) {
         manualShoot = shoot;
@@ -76,7 +78,6 @@ public class Shooter {
             case TRACK:
             case SHOOT:
                 aiming.update();
-                boolean aimed = aiming.pollenAimed() && aiming.nectarAimed();
                 if (aiming.unwinding()) {
                     state = states.RESET;
                 } else if (manualShoot) {
@@ -88,10 +89,11 @@ public class Shooter {
                     // back to the driver mid-shot, so hold SHOOT for a minimum open time and then
                     // on a wider speed band. Leaving the zone still ends it at once.
                     boolean hold = shootTimer.seconds() < SystemConstants.Shooter.MIN_GATE_OPEN_S
-                            || (aimed && flywheel.atSpeedPollen(SystemConstants.Shooter.HOLD_SPEED_FRACTION)
-                                && flywheel.atSpeedNectar(SystemConstants.Shooter.HOLD_SPEED_FRACTION));
+                            || (pollenReady(SystemConstants.Shooter.HOLD_SPEED_FRACTION)
+                                && nectarReady(SystemConstants.Shooter.HOLD_SPEED_FRACTION));
                     if (!inZone || !hold) state = states.TRACK;
-                } else if (inZone && aimed && flywheel.atSpeedPollen() && flywheel.atSpeedNectar()) {
+                } else if (inZone && pollenReady(SystemConstants.Flywheel.AT_SPEED_FRACTION)
+                        && nectarReady(SystemConstants.Flywheel.AT_SPEED_FRACTION)) {
                     state = states.SHOOT;
                     shootTimer.reset();
                 }
@@ -103,6 +105,22 @@ public class Shooter {
                 }
                 break;
         }
+    }
+
+    private boolean pollenReady(double speedFraction) {
+        return aiming.pollenAimed() && flywheel.atSpeedPollen(speedFraction);
+    }
+
+    /**
+     * Nectar side aimed and at speed. With SystemConstants.Shooter.NECTAR_MOUNTED false the nectar side is not
+     * there, so it counts as ready ONLY during an auto's Shoot event (forceZone - set by AutoMechanisms alone):
+     * autos fire on the pollen side, and TeleOp's automatic path stays shut (it shoots on the right trigger).
+     */
+    private boolean nectarReady(double speedFraction) {
+        if (!SystemConstants.Shooter.NECTAR_MOUNTED) {
+            return forceZone;
+        }
+        return aiming.nectarAimed() && flywheel.atSpeedNectar(speedFraction);
     }
 
     public boolean ready() {

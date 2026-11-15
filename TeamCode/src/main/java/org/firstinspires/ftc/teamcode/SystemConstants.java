@@ -26,6 +26,12 @@ public final class SystemConstants {
     @Config
     @Configurable
     public static class Shooter {
+        // Is the NECTAR shooter (turret + flywheel) mounted and wired? false (2026-11-15, it is not): an auto's
+        // Shoot event fires on the pollen side alone (aimed + at speed), and TeleOp shoots ONLY on the right
+        // trigger. true: both sides must be aimed and at speed - the original rule, in autos and TeleOp (TeleOp
+        // then also fires by itself in the zone). Auto Dry Run 2026-11-15: with the nectar side required, 4/4
+        // auto Shoot steps timed out with the gate shut.
+        public static boolean NECTAR_MOUNTED = false;
         public static double MIN_GATE_OPEN_S = 0.3;
         public static double HOLD_SPEED_FRACTION = 0.20;
     }

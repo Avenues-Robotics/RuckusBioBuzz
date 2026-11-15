@@ -268,8 +268,12 @@ turnKSPerPod = {0.080, 0.080, 0.080, 0.080};   // was 0.022; NOT the 0.035 scala
 turnKSBandDegPerPod = {6.0, 6.0, 6.0, 6.0};  turnKI = 0.0;  turnKF = 0.0;   // band was 2.0
 cache = 0.01;  motorCaching = 0.05;
 pod.setPulsedApproach(true, 3.5°, 3.0°, 0.045, 20 ms, 20°/s, 0.10 s);   // was 6.0°, 0.6°, 0.035
-CoaxialPod.TURN_GAIN_SCHEDULING = true;        // floor 0.24, ramps on drive power (0.24 vs 0.50 n.s. on the rebuilt pods)
-Swerve.epsilonTaper = true;  Swerve.demandSlewDegPerSec = 214;   // vendored, 2026-08-16 (sized for the OLD 214 deg/s pods)
+CoaxialPod.TURN_GAIN_SCHEDULING = true;        // floor 0.30 (was 0.24), ramps on drive power
+CoaxialPod demand-rate feed-forward kV 0.045 power/(rad/s), tau 0.015 s, only below 240 deg/s   // vendored patch
+Swerve.epsilonTaper = true;  Swerve.demandSlewDegPerSec = 300;   // was 214, sized for the OLD 214 deg/s pods
+// ^ these three: Constants.turnScheduleFloor / turnDemandRate* / demandSlewDegPerSec, applied by createSwerve
+//   (applySteeringStatics) - 2026-11-15 TeleOp steering, FINDINGS. The old "0.24 vs 0.50 n.s." was not a
+//   driving test: on a stick circle 0.24 stalls a rolling pod into a staircase (~25 wheel reversals/lap).
 // Calibration 2026-11-14: podZeroDeg trimmed -3.9 deg (crab +0.6 deg); Pinpoint X/Y cables swapped,
 // pinpointXPodReversed false, offsets -2.84 / -5.988 (scale = tape).
 ```

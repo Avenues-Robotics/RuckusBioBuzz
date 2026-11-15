@@ -102,6 +102,15 @@ public class Constants {
     public static final double pulseStationaryDegPerSec = 20.0;
     public static final double pulseCoastSeconds = 0.10;
 
+    // Steering response while driving - robot-wide statics, applied by createSwerve (applySteeringStatics), so
+    // TeleOp and the autos both run them. 2026-11-15, 2x2 tiles, heading hold off (TeleOp has none):
+    // stick circle (circle.py) + stick-flick square (square.py), FINDINGS "TeleOp steering".
+    public static final double turnScheduleFloor = 0.30;
+    public static final double turnDemandRateKV = 0.045;
+    public static final double turnDemandRateTauS = 0.015;
+    public static final double turnDemandRateMaxDegS = 240.0;
+    public static final double demandSlewDegPerSec = 300.0;
+
     // =======================================================================================
     // FOLLOWER CONSTANTS
     // =======================================================================================
@@ -645,8 +654,36 @@ public class Constants {
     // FACTORIES
     // =======================================================================================
 
+    /**
+     * The steering statics (turn gain schedule floor, demand-rate feed-forward, Swerve's demand slew limit). They
+     * are static in the vendored classes and survive across OpModes in one app process, so every drivetrain build
+     * re-applies them: before 2026-11-15 a bench session's live values leaked into the next TeleOp.
+     *
+     * <p>Values and evidence (2x2 tiles, 12.2-12.7 V, heading hold off; stick circle 110 deg/s at 0.25 drive,
+     * n=4-5 per arm; stick-flick square, 90 deg flicks at 0.25 drive, n=4 per arm; randomised, interleaved):
+     * <ul>
+     * <li>floor 0.24 -> 0.30: 0.24 (sized 2026-08-15 on the OLD 214 deg/s pods) left a rolling pod below
+     *     breakaway inside the 20 deg gate - a stall-and-jump staircase, ~25 wheel reversals per lap;</li>
+     * <li>demand-rate feed-forward kV 0.045 power per rad/s (vendored, CoaxialPod): pods no longer trail a
+     *     turning stick by the error that makes the push - circle error 14.0 -> 6.2 deg mean, 28 -> ~13 p95,
+     *     lag ~100 -> ~20 ms, wheel reversals 24 -> 9.6 per lap; tau 15 ms;</li>
+     * <li>feed-forward only below 240 deg/s, slew 214 -> 300 deg/s: Swerve ramps every flick at exactly the slew
+     *     rate, and fed forward that ramp overshot 27-41 deg; excluded, flicks align in 373 vs 563 ms (-190
+     *     [-229, -151]) with 8.6 vs 16.6 deg overshoot.</li>
+     * </ul>
+     * Pod kD stays 0.015: 0.03 / 0.045 / 0.06 damp flicks but push the rolling wobble to ~4.6 Hz on the left pods
+     * (circle reversals 16 / 25 / 28 per lap vs 9.6).
+     */
+    public static void applySteeringStatics() {
+        Swerve.setDemandSlewDegPerSec(demandSlewDegPerSec);
+        CoaxialPod.setScheduleTuning(turnScheduleFloor, Double.NaN, Double.NaN);
+        CoaxialPod.setDemandRateFeedforward(turnDemandRateKV, turnDemandRateTauS,
+                Math.toRadians(turnDemandRateMaxDegS));
+    }
+
     /** The competition drivetrain on its own - also what the tuners drive. */
     public static Swerve createSwerve(HardwareMap hardwareMap) {
+        applySteeringStatics();
         return new Swerve(hardwareMap, swerveConfig, leftFront(hardwareMap),
                 rightFront(hardwareMap), leftBack(hardwareMap), rightBack(hardwareMap));
     }

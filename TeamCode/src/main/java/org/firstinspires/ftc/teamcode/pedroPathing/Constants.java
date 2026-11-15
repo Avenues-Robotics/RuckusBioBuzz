@@ -67,7 +67,12 @@ public class Constants {
     public static final double strafeTranslationalSecondaryKP = 0.26;
     public static final double translationalSwitchIn = 2.5;
     public static final double translationalKI = 0.0;
-    public static final double translationalKD = 0.025;
+    // 0.025 -> 0 (2026-11-15): the D term acts on Foresight's PROJECTED error (pose + a v^2 brake displacement),
+    // which jumps with velocity noise every loop; holds commanded 4-8x full scale and reversed the drive motors at
+    // full voltage (the operator's 'violent jolts'). Hold A/B, n=10/arm randomised interleaved: drive-power
+    // reversals per hold pair 77.7 (SD 15.6) -> 2.3 (SD 3.0), diff 75.4 [64.8, 86.0], Welch t=15.0; peak command
+    // 5.1 -> 1.28; hold end error 0.22 -> 0.34 in. P only, as the Foresight Tuner identifies it.
+    public static final double translationalKD = 0.0;
 
     // Localizer (Pinpoint), inches
     public static final double pinpointXPodOffset = -2.84;
@@ -128,8 +133,9 @@ public class Constants {
     //                                                  different errors, which would corrupt a D
     //                                                  term - the v3 Quickstart's tuner emits P only
     //                                                  for the same reason.
-    //   forward/strafeTranslational PD 0.26/0.025      CARRIED from the 2.x translational PIDF,
-    //                                                  2026-08-14. Same units (power per inch).
+    //   forward/strafeTranslational P 0.26             CARRIED from the 2.x translational PIDF,
+    //                                                  2026-08-14. Same units (power per inch). Its kD
+    //                                                  0.025 was removed 2026-11-15 (see translationalKD).
     //
     // Measure all of it with the Foresight Tuner (Tuning.java - REMOVED 2026-11-01 with Sloth; it
     // survives in git history at cf5dcee9^ - no branch kept it), import it into TUNED VALUES with

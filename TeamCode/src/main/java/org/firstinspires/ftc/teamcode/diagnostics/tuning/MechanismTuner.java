@@ -5,6 +5,7 @@ import org.firstinspires.ftc.teamcode.SystemConstants;
 
 import com.pedropathing.math.Pose;
 import com.pedropathing.revhub.localizers.PinpointLocalizer;
+import org.firstinspires.ftc.teamcode.modules.ZoneCheck;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.ColorSensor;
@@ -1245,6 +1246,15 @@ public class MechanismTuner extends OpMode {
                 intakeAmps[i] = Double.NaN;
             }
         }
+    }
+
+    /** ,"pollen":{"cx":..,"cy":..,"in":..} - the cell ZoneCheck puts the robot in, and its verdict. */
+    private void zoneCellJson(StringBuilder sb, String name, int offset, int[][] map) {
+        ZoneCheck check = new ZoneCheck(alliance, offset, map);
+        boolean in = check.inZone(pose);
+        int[] cell = check.getZone();
+        sb.append(",\"").append(name).append("\":{\"cx\":").append(cell[0]).append(",\"cy\":").append(cell[1])
+                .append(",\"in\":").append(in).append('}');
     }
 
     private static int[][] zoneMap(String name) {
@@ -2514,7 +2524,19 @@ public class MechanismTuner extends OpMode {
                 .append(",\"offPollen\":").append(SystemConstants.Zone.yOffsetPollen)
                 .append(",\"offNectar\":").append(SystemConstants.Zone.yOffsetNectar)
                 .append(",\"pollen\":").append(mapJson(SystemConstants.Zone.mapPollen))
-                .append(",\"nectar\":").append(mapJson(SystemConstants.Zone.mapNectar)).append('}');
+                .append(",\"nectar\":").append(mapJson(SystemConstants.Zone.mapNectar))
+                .append(",\"alliance\":\"").append(alliance).append('"');
+        // Where the robot is on the map (2026-11-15): the cell ZoneCheck itself evaluates - the same code TeleOp
+        // runs, shooter offset and blue mirroring included - so pushing the robot around shows the zone as shipped.
+        if (pose != null) {
+            sb.append(",\"robot\":{\"x\":").append(nanToNull(pose.x(), 2))
+                    .append(",\"y\":").append(nanToNull(pose.y(), 2))
+                    .append(",\"h\":").append(nanToNull(Math.toDegrees(pose.heading()), 1));
+            zoneCellJson(sb, "pollen", SystemConstants.Zone.yOffsetPollen, SystemConstants.Zone.mapPollen);
+            zoneCellJson(sb, "nectar", SystemConstants.Zone.yOffsetNectar, SystemConstants.Zone.mapNectar);
+            sb.append('}');
+        }
+        sb.append(",\"poseError\":\"").append(TuningHub.esc(poseError)).append("\"}");
 
         sb.append(",\"color\":{\"ok\":").append(color != null)
                 .append(",\"hasDistance\":").append(colorDistance != null)

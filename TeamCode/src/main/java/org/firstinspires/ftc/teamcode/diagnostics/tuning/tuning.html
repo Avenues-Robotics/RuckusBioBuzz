@@ -62,6 +62,8 @@
   .zgrid td.on { background: #123122; border-color: var(--good); color: #7ee095; }
   .zgrid td.on.nectar { background: #10263f; border-color: var(--nectar); color: #9ccaff; }
   .zgrid td.ax { cursor: default; border: none; width: auto; padding: 0 4px; }
+  .zgrid td.robot { outline: 3px solid #f5c542; outline-offset: -3px; }
+  .zgrid .rarrow { display: inline-block; color: #f5c542; font-size: 18px; line-height: 1; }
   .zgrid td:not(.ax):hover { outline: 2px solid var(--accent); outline-offset: -2px; }
   .bar { height: 10px; background: #0c1015; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
   .bar > div { height: 100%; background: var(--good); }
@@ -639,6 +641,17 @@
       <label class="inline">shooter offset pollen <input type="number" id="zOffP" step="1"> in</label>
       <label class="inline">nectar <input type="number" id="zOffN" step="1"> in</label>
       <button class="small" onclick="cmd('zoneOffsets',{pollen:num('zOffP'),nectar:num('zOffN')})">Apply live</button>
+    </div>
+    <div class="row">
+      <span class="stat" id="zRobot"></span>
+    </div>
+    <div class="row">
+      <label class="inline">set pose x <input type="number" id="zPx" step="0.5"></label>
+      <label class="inline">y <input type="number" id="zPy" step="0.5"></label>
+      <label class="inline">heading <input type="number" id="zPh" step="1"> deg</label>
+      <button class="small" onclick="cmd('setPose',{x:num('zPx'),y:num('zPy'),deg:num('zPh')})">Set pose</button>
+      <span class="hint">The robot's cell is outlined in yellow, the arrow is its heading (5 Hz, from the Pinpoint).
+        Push the robot around to see where the zone is. Field frame: x from the red wall, y from the audience wall.</span>
     </div>
   </section>
   <div class="grid">
@@ -1236,13 +1249,18 @@ function renderBreakIn() {
 var zonePaint = null;
 function zoneGrid(name, map, z) {
   var cw = z.field / Math.max(1, z.x), ch = z.field / Math.max(1, z.y);
+  // The robot's cell as ZoneCheck sees it (already mirrored for blue - the grid is the red frame).
+  var rc = z.robot && z.robot[name];
+  var rh = z.robot ? z.robot.h + (z.alliance === 'BLUE' ? 180 : 0) : 0;
   var h = '<table class="zgrid">';
   for (var y = map.length - 1; y >= 0; y--) {
     h += '<tr><td class="ax">' + f(y * ch, 0) + '</td>';
     for (var x = 0; x < map[y].length; x++) {
+      var here = rc && rc.cx === x && rc.cy === y;
       h += '<td data-map="' + name + '" data-x="' + x + '" data-y="' + y + '" class="' + (map[y][x] ? 'on ' + name : '') +
+        (here ? ' robot' : '') +
         '" title="x ' + f(x * cw, 1) + '–' + f((x + 1) * cw, 1) + ' in, y ' + f(y * ch, 1) + '–' + f((y + 1) * ch, 1) + ' in">' +
-        (map[y][x] ? '●' : '') + '</td>';
+        (here ? '<span class="rarrow" style="transform:rotate(' + f(-rh, 0) + 'deg)">➤</span>' : map[y][x] ? '●' : '') + '</td>';
     }
     h += '</tr>';
   }
@@ -1256,6 +1274,11 @@ function renderZone() {
   var count = function (m) { return m.reduce(function (a, r) { return a + r.reduce(function (b, v) { return b + v; }, 0); }, 0); };
   setText('zInfo', z.x + ' × ' + z.y + ' cells of ' + f(z.field / z.x, 1) + ' × ' + f(z.field / z.y, 1) + ' in · pollen ' +
     count(z.pollen) + ' on · nectar ' + count(z.nectar) + ' on');
+  var r = z.robot;
+  setText('zRobot', !r ? 'Robot position: no pose' + (z.poseError ? ' (' + z.poseError + ')' : '') + ' - set it below.'
+    : 'Robot ' + (z.alliance || '') + ': x ' + f(r.x, 1) + ', y ' + f(r.y, 1) + ' in, heading ' + f(r.h, 0) + '° · pollen cell (' +
+      r.pollen.cx + ', ' + r.pollen.cy + ') ' + (r.pollen.in ? 'IN ZONE' : 'not in zone') + ' · nectar ' +
+      (r.nectar.in ? 'IN ZONE' : 'not in zone'));
   if (zonePaint !== null) return;
   setHtml('zonePollen', zoneGrid('pollen', z.pollen, z));
   setHtml('zoneNectar', zoneGrid('nectar', z.nectar, z));

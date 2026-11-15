@@ -78,7 +78,7 @@ public class Constants {
     // candidate "F", accepted 2026-11-15 (FINDINGS). Gain history further down is the old plant.
     public static final double[] turnKPPerPod = {0.380, 0.380, 0.380, 0.380};
     public static final double[] turnKDPerPod = {0.015, 0.015, 0.015, 0.015};
-    public static final double[] turnKSPerPod = {0.022, 0.022, 0.022, 0.022};
+    public static final double[] turnKSPerPod = {0.080, 0.080, 0.080, 0.080};
     public static final double[] turnKSBandDegPerPod = {2.0, 2.0, 2.0, 2.0};
     public static final double[] podZeroDeg = {210.108701, 246.728678, 153.233917, 327.317849};
     public static final double[] podMinV = {0.083, 0.073, 0.145, 0.164};

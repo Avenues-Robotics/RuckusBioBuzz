@@ -1,0 +1,6 @@
+{
+  "ship":         [["setPidf", {"scope": "all", "kd": 0.015, "floor": 0.24, "ffkv": 0.0, "fftau": 0.05, "ffmax": 900}], ["setMixer", {"slew": 214}]],
+  "d15_s400_m320": [["setPidf", {"scope": "all", "kd": 0.015, "floor": 0.30, "ffkv": 0.045, "fftau": 0.015, "ffmax": 320}], ["setMixer", {"slew": 400}]],
+  "d30_s400_m320": [["setPidf", {"scope": "all", "kd": 0.030, "floor": 0.30, "ffkv": 0.045, "fftau": 0.015, "ffmax": 320}], ["setMixer", {"slew": 400}]],
+  "d15_s300_m240": [["setPidf", {"scope": "all", "kd": 0.015, "floor": 0.30, "ffkv": 0.045, "fftau": 0.015, "ffmax": 240}], ["setMixer", {"slew": 300}]]
+}

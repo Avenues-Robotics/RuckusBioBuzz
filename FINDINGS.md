@@ -1616,3 +1616,70 @@ shipped-vs-candB A/B earlier today (heading kP 1.2 vs 7.7, same holds) had pod t
 - The pre-stated guard (no significant rise in reversals or pod travel) failed for both arms.
 0.40 and 0.55 go to the long-strip session as path candidates (pedrocheck on the real .pp paths: cross-track error,
 end error, pod travel), next to the braking-model change that may remove the early braking at its source.
+
+## 2026-11-15 — TeleOp steering: schedule floor 0.30, demand-rate feed-forward, slew 300 (shipped)
+
+Operator: "our driver needs a responsive and smooth drivetrain ... make it go in a circle while maintaining heading
+... record the pod headings for any swerving or wiggling". Two new diagnostic tests on the 2x2 (tiles, border fence
+47.16 in, 0.25 drive power, ~7 in/s):
+- **stick circle** (`circle.py`, `drive rot=`): the OpMode rotates the stick vector every loop, a perfectly smooth
+  sweep, 110 deg/s (and 220); scored per pod: |error|, lag, wheel reversals per lap (0.5 deg hysteresis, steerqual),
+  jitter, flips.
+- **stick-flick square** (`square.py`): forward/left/back/right, 0.7 s legs, 90 deg flicks; per flick and pod: time
+  to within 10 deg (and 5) of the new direction and staying, overshoot, the mixer's own demand time.
+
+**The bench heading hold confounded the first circles.** With it on, the turn command was 0.14 RMS (peaks 0.34)
+against 0.25 translation at ~1.3 Hz: each pod's demand was tilted tens of degrees, opposite pods opposite ways
+(pod errors uncorrelated, r ~ 0), and heading rocked +/-3 deg. TeleOp has no heading hold, so every scored run has
+it off (`setHeadingHold value=false`); the demand then reverses 0 times per lap and heading wanders ~1-3 deg RMS.
+
+**What was wrong (shipped, circle 110 deg/s):** 14 deg mean / 30 deg p95 pod error, ~100 ms behind the stick, ~25
+wheel reversals per lap - a stall-and-jump staircase. Inside the 20 deg error gate a rolling pod's whole turn output
+is scaled by the schedule floor 0.24 (sized 2026-08-15 on the OLD 214 deg/s pods); ~15 deg of error then commands
+~0.04, under breakaway, so the pod waits until 20+ deg and jumps. Floor 1.0 (no schedule) instead oscillates at
+~3 Hz, the August finding: the feedback cannot both track a turning demand and stay stable with ~60 ms of loop
+dead time (estimated from the flick traces: the wheel starts ~60 ms after the demand).
+
+**Fix 1 - demand-rate feed-forward** (vendored CoaxialPod, commits 53a2d34c / 4590e6b2): turn power +=
+kV x d(target)/dt, so the pod gets the sweep's push up front and feedback only corrects the rest.
+A/Bs (circle 110 deg/s, randomised interleaved, 12.2-12.7 V):
+
+| arm (vs shipped) | n | mean err | lag | reversals/lap |
+|---|---|---|---|---|
+| shipped (floor 0.24, no FF) | 5-6 | 13.7-14.2 deg | 100-105 ms | 23-26 |
+| floor 0.50, no FF | 6 | 13.8 | 121 | 14.3 |
+| floor 0.50, kV 0.04 | 5 | 4.8 | 9 | 16.3 |
+| floor 0.35, kV 0.04 | 5 | 4.6 | 28 | 7.2 |
+| floor 0.30, kV 0.05 | 5 | 4.5 | 3 | 7.2 |
+kV 0.08 leads (pods ahead of the stick by ~90 ms). The left pods (2 LF, 3 LB) wobble 3-6x more than the right at
+equal gains, whether flipped or not (encoder noise equal, ~0.05 deg) - a lower floor calms them.
+
+**Fix 2 - flicks.** Swerve's demand slew limiter ramps every flick at exactly the slew rate; fed forward, that ramp
+overshot 27-41 deg (vs 17-20 shipped). Pod kD 0.04-0.06 damped it but moved the rolling wobble to ~4.6 Hz on the
+left pods (circle reversals: kD 0.015 / 0.03 / 0.045 / 0.06 -> 9.6 / 16 / 25 / 28 per lap; feed-forward tau 15 vs
+50 ms n.s.). So the feed-forward now ignores demand rates at or above a threshold (`demandRateMaxRadS`, vendored,
+tunable): just under the slew rate, flicks go to the feedback and sweeps keep the feed-forward. Square, n=4/arm:
+kD 0.015 + slew 300 + FF only below 240 deg/s: align 373 vs 563 ms shipped (-190 [-229, -151]), overshoot 8.6 vs
+16.6 deg (-8.0 [-11.6, -4.4]); slew 400 / threshold 320 overshot 22.8.
+
+**Shipped** (Constants TUNED VALUES, applied by `createSwerve` -> `applySteeringStatics`, so TeleOp and the autos
+both run them; pod kD unchanged 0.015): `turnScheduleFloor 0.30`, `turnDemandRateKV 0.045`, `turnDemandRateTauS
+0.015`, `turnDemandRateMaxDegS 240`, `demandSlewDegPerSec 300` (was 214). Re-applying them on every drivetrain
+build also fixes a leak: these statics live for the whole app process, so a bench session's live values used to
+carry into the next TeleOp.
+
+**Acceptance on the deployed build** (gainsShipped + staticsShipped true, installed vs the old values set live,
+n=3/arm interleaved, 11.94-12.00 V loaded, label accept2_*): circle 110 deg/s error 14.0 -> 5.1 deg (-8.9
+[-10.3, -7.5]), p95 29.7 -> 10.7, lag 105 -> 27 ms, reversals 27.5 -> 6.9 per lap (-20.6 [-25.9, -15.4]), jitter
+5.1 -> 3.3 deg; flicks align 538 -> 358 ms (-179 [-262, -97]), settle to 5 deg 578 -> 377 ms, overshoot 19.4 -> 12.8
+(n.s.). The 220 deg/s circle on the installed build: 6.8 deg mean error, 5.5 reversals/lap (n=3).
+
+**Rule 9 / harness note:** the first acceptance (label accept_*) is void for the 'old' arm. circle.py / square.py
+applied arm settings before the re-centring move, whose pedroStart builds a drivetrain - which now re-applies the
+shipped statics - so 'old' ran the new values (it scored 6.0 deg / 10.6 reversals). Arms now go after the move
+(`apply_arm`). Every A/B before this build is unaffected (createSwerve did not touch the statics then). The same
+applies to live tuning on the bench: any pedroStart resets slew / floor / feed-forward to Constants.
+
+Open: TeleOp's own loop rate is unmeasured (the bench ran 52-65 Hz here); the driver's real stick inputs, faster
+than 240 deg/s sweeps, and full-speed driving were not tested - the 2x2 caps speed at ~7-10 in/s. Pedro paths
+(autos) now run these statics too; validate on the long strip with the rest of Foresight.

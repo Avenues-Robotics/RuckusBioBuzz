@@ -198,7 +198,16 @@ def premove(x: float, y: float, timeout_s: float = 5.0) -> None:
         time.sleep(0.4)
 
 
-def run_one(a, label: str, speed: float) -> dict:
+def apply_arm(cmds) -> None:
+    """Arm commands go AFTER the re-centring move: premove builds a Pedro follower (pedroStart), and since
+    2026-11-15 every drivetrain build re-applies the shipped steering statics (Constants.applySteeringStatics) -
+    an arm applied before it was silently reset (acceptance run accept_*, 'old' arm)."""
+    for action, params in cmds:
+        send(action, **params)
+        time.sleep(0.15)
+
+
+def run_one(a, label: str, speed: float, cmds=()) -> dict:
     s = state()
     b = s["box"]
     cx, cy = (b["minX"] + b["maxX"]) / 2, (b["minY"] + b["maxY"]) / 2
@@ -206,6 +215,7 @@ def run_one(a, label: str, speed: float) -> dict:
     # Stick starts robot-forward (= field +y at heading 90); a CCW sweep curves left, so the centre is r to the
     # left of the start: start r to the right of the box centre (mirrored for CW).
     premove(cx + (r if a.rate > 0 else -r), cy)
+    apply_arm(cmds)
     sec = min(10.0, a.laps * 360.0 / abs(a.rate) + 0.5)
     args = [sys.executable, os.path.join(HERE, "robot.py"), "drive", "--f", str(a.power), "--rot", str(a.rate),
             "--sec", f"{sec:.2f}", "--confirmed-floor", "--rec", label]
@@ -242,11 +252,8 @@ def cmd_run(a) -> int:
             order = list(arms.items())
             random.shuffle(order)
             for name, cmds in order:
-                for action, params in cmds:
-                    send(action, **params)
-                    time.sleep(0.15)
                 label = f"{a.label}_{name}_b{block}"
-                res = run_one(a, label, speed)
+                res = run_one(a, label, speed, cmds)
                 rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "label": a.label, "arm": name, "block": block,
                        "power_req": a.power, "rate_req": a.rate, "surface": "tiles", **res}
                 with open(LOG, "a", encoding="utf-8") as f:

@@ -36,7 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from robot import EXIT_OK, EXIT_REFUSED, gates, send, state, _get  # noqa: E402
 from steerqual import reversals  # noqa: E402
-from circle import load, unwrap, premove  # noqa: E402
+from circle import load, unwrap, premove, apply_arm  # noqa: E402
 
 LOG = os.path.join(HERE, "current_runs", "square.jsonl")
 MODE_DRIVE = 9
@@ -132,13 +132,14 @@ def drive_square(power: float, leg_s: float) -> None:
                 print(f"WARNING: could not send {action}: {e}")
 
 
-def run_one(a, label: str) -> dict:
+def run_one(a, label: str, cmds=()) -> dict:
     s = state()
     b = s["box"]
     cx, cy = (b["minX"] + b["maxX"]) / 2, (b["minY"] + b["maxY"]) / 2
     # The square goes +y, -x, -y, +x from its start corner: start half a side down-right of the centre.
     side = a.speed * a.leg
     premove(cx + side / 2, cy - side / 2)
+    apply_arm(cmds)   # after the move: see circle.apply_arm
     send("recStart", label=label)
     time.sleep(0.3)
     drive_square(a.power, a.leg)
@@ -167,11 +168,8 @@ def cmd_run(a) -> int:
             order = list(arms.items())
             random.shuffle(order)
             for name, cmds in order:
-                for action, params in cmds:
-                    send(action, **params)
-                    time.sleep(0.15)
                 label = f"{a.label}_{name}_b{block}"
-                res = run_one(a, label)
+                res = run_one(a, label, cmds)
                 rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "label": a.label, "arm": name, "block": block,
                        "power": a.power, "leg_s": a.leg, "surface": "tiles", **res}
                 with open(LOG, "a", encoding="utf-8") as f:

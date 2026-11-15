@@ -1047,14 +1047,16 @@ public class SwerveBringUp extends OpMode {
 
     // Vendored defaults (third_party/.../Swerve.java and CoaxialPod.java). Keep in step with them.
     private static final boolean VENDORED_EPSILON_TAPER = true;
-    private static final double VENDORED_DEMAND_SLEW_DEG_S = 214.0;
+    // Shipped steering statics come from Constants since 2026-11-15 (applySteeringStatics); the names stay.
+    private static final double VENDORED_DEMAND_SLEW_DEG_S = Constants.demandSlewDegPerSec;
     private static final double VENDORED_SMALL_TURN_ROLLOUT_S = 0.0;
-    private static final double VENDORED_SCHED_FLOOR = 0.24;
+    private static final double VENDORED_SCHED_FLOOR = Constants.turnScheduleFloor;
     private static final double VENDORED_SCHED_VEL_START_RAD_S = Math.toRadians(22);
     private static final double VENDORED_SCHED_ERR_GATE_RAD = Math.toRadians(20);
-    /** CoaxialPod demand-rate feed-forward defaults (2026-11-15 patch, OFF): {kV, tau s}. */
-    private static final double VENDORED_DEMAND_RATE_KV = 0.0;
-    private static final double VENDORED_DEMAND_RATE_TAU_S = 0.05;
+    /** CoaxialPod demand-rate feed-forward as shipped (Constants): kV, tau s, max rate. */
+    private static final double VENDORED_DEMAND_RATE_KV = Constants.turnDemandRateKV;
+    private static final double VENDORED_DEMAND_RATE_TAU_S = Constants.turnDemandRateTauS;
+    private static final double VENDORED_DEMAND_RATE_MAX_RAD_S = Math.toRadians(Constants.turnDemandRateMaxDegS);
     private static final double VENDORED_SCHED_RAMP_DRIVE = 0.10;
 
     /**
@@ -1085,7 +1087,8 @@ public class SwerveBringUp extends OpMode {
         Swerve.setSmallTurnRolloutS(VENDORED_SMALL_TURN_ROLLOUT_S);
         CoaxialPod.setScheduleTuning(VENDORED_SCHED_FLOOR, VENDORED_SCHED_VEL_START_RAD_S,
                 VENDORED_SCHED_ERR_GATE_RAD);
-        CoaxialPod.setDemandRateFeedforward(VENDORED_DEMAND_RATE_KV, VENDORED_DEMAND_RATE_TAU_S);
+        CoaxialPod.setDemandRateFeedforward(VENDORED_DEMAND_RATE_KV, VENDORED_DEMAND_RATE_TAU_S,
+                VENDORED_DEMAND_RATE_MAX_RAD_S);
         CoaxialPod.setScheduleRamp(VENDORED_SCHED_RAMP_DRIVE);
     }
 
@@ -1112,7 +1115,8 @@ public class SwerveBringUp extends OpMode {
                 && sch[0] == VENDORED_SCHED_FLOOR && sch[1] == VENDORED_SCHED_VEL_START_RAD_S
                 && sch[2] == VENDORED_SCHED_ERR_GATE_RAD
                 && CoaxialPod.getDemandRateFeedforward()[0] == VENDORED_DEMAND_RATE_KV
-                && CoaxialPod.getDemandRateFeedforward()[1] == VENDORED_DEMAND_RATE_TAU_S;
+                && CoaxialPod.getDemandRateFeedforward()[1] == VENDORED_DEMAND_RATE_TAU_S
+                && CoaxialPod.getDemandRateFeedforward()[2] == VENDORED_DEMAND_RATE_MAX_RAD_S;
     }
 
     /** Shared body so the dashboard is fully usable during init, before START is pressed. */
@@ -3779,7 +3783,8 @@ public class SwerveBringUp extends OpMode {
                         doubleArg(cmd, "ramp", Double.NaN));
                 // Demand-rate feed-forward (vendored 2026-11-15, default off): ffkv power per rad/s, fftau s.
                 com.pedropathing.revhub.drivetrains.CoaxialPod.setDemandRateFeedforward(
-                        doubleArg(cmd, "ffkv", Double.NaN), doubleArg(cmd, "fftau", Double.NaN));
+                        doubleArg(cmd, "ffkv", Double.NaN), doubleArg(cmd, "fftau", Double.NaN),
+                        Math.toRadians(doubleArg(cmd, "ffmax", Double.NaN)));
                 PodCal c = cals[selected];
                 if ("all".equals(cmd.get("scope"))) {
                     for (PodCal each : cals) {
@@ -3830,7 +3835,8 @@ public class SwerveBringUp extends OpMode {
                 double[] schNow = CoaxialPod.getScheduleTuning();
                 double[] ffNow = CoaxialPod.getDemandRateFeedforward();
                 message = String.format(Locale.US, "PIDF updated. Schedule floor %.2f, gate %.0f deg; demand-rate "
-                        + "ff kV %.4f tau %.3f s.", schNow[0], Math.toDegrees(schNow[2]), ffNow[0], ffNow[1]);
+                        + "ff kV %.4f tau %.3f s max %.0f deg/s.", schNow[0], Math.toDegrees(schNow[2]), ffNow[0], ffNow[1],
+                        Math.toDegrees(ffNow[2]));
                 break;
             }
             case "setRange":

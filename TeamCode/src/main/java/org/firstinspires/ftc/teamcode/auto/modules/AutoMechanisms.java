@@ -5,6 +5,7 @@ import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.AutoConstants;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
 import org.firstinspires.ftc.teamcode.modules.PredictiveAiming;
 import org.firstinspires.ftc.teamcode.systems.Intake;
@@ -15,6 +16,11 @@ import java.util.List;
 
 public final class AutoMechanisms {
     private final List<LynxModule> hubs;
+    private final Follower follower;
+    /** Gate-open time accumulated during the current Shoot event (eventDone). */
+    private double gateOpenMs;
+    private long lastUpdateNs;
+    private boolean preAiming;
     private final Shooter shooter;
     private final Intake intake;
     private final Scoopula scoopula;
@@ -23,6 +29,7 @@ public final class AutoMechanisms {
     private boolean scoopDown;
 
     public AutoMechanisms(HardwareMap hardwareMap, Follower follower, Alliance alliance) {
+        this.follower = follower;
         hubs = hardwareMap.getAll(LynxModule.class);
         for (LynxModule hub : hubs) {
             hub.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
@@ -39,7 +46,16 @@ public final class AutoMechanisms {
     }
 
     public void update() {
+        long now = System.nanoTime();
+        double dtMs = lastUpdateNs == 0 ? 0 : (now - lastUpdateNs) / 1e6;
+        lastUpdateNs = now;
+        // Pre-aim: while a path is followed, aim from its end pose (AutoConstants.Autonomous.PRE_AIM).
+        preAiming = AutoConstants.Autonomous.PRE_AIM && follower.following() && follower.currentPath() != null;
+        shooter.setAimPose(preAiming ? follower.currentPath().endPose() : null);
         shooter.update();
+        if (shooting && shooter.shooting()) {
+            gateOpenMs += dtMs;
+        }
         if (shooting) {
             intake.update(false, shooter.shooting());
         } else {
@@ -52,6 +68,7 @@ public final class AutoMechanisms {
         switch (event) {
             case "Shoot":
                 shooting = true;
+                gateOpenMs = 0;
                 shooter.setForceZone(true);
                 break;
             case "Intake":
@@ -86,7 +103,20 @@ public final class AutoMechanisms {
         }
     }
 
+    /**
+     * Whether a timed event step is over. A Shoot step ends once the gate has been open SHOOT_OPEN_TIME in total,
+     * or at {@code durationMs} (SHOOT_TIME, the cap) - so a turret unwind at its start delays the shot instead
+     * of eating it. Every other event: {@code durationMs}.
+     */
+    public boolean eventDone(String event, long elapsedMs, long durationMs) {
+        if ("Shoot".equals(event)) {
+            return gateOpenMs >= AutoConstants.Autonomous.SHOOT_OPEN_TIME || elapsedMs >= durationMs;
+        }
+        return elapsedMs >= durationMs;
+    }
+
     public void stop() {
+        shooter.setAimPose(null);
         shooting = false;
         intaking = false;
         shooter.setForceZone(false);
@@ -107,7 +137,8 @@ public final class AutoMechanisms {
     public String stateLine() {
         return "shoot=" + (shooting ? 1 : 0) + " intake=" + (intaking ? 1 : 0) + " scoop=" + (scoopDown ? "down" : "up")
                 + " shooter=" + shooter.stateName() + (shooter.inZone() ? "/zone" : "")
-                + (shooter.pollenAimed() ? "/aimP" : "") + (shooter.nectarAimed() ? "/aimN" : "");
+                + (shooter.pollenAimed() ? "/aimP" : "") + (shooter.nectarAimed() ? "/aimN" : "")
+                + (preAiming ? " preaim" : "") + (shooting ? " open=" + Math.round(gateOpenMs / 100) * 100 : "");
     }
 
     public double pollenVelocity() {

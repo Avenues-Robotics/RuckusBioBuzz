@@ -25,6 +25,8 @@ public class Turret {
 
     private boolean pollenAimed;
     private boolean nectarAimed;
+    /** Auto pre-aim: aim from this robot pose (a path's end pose) instead of the live lead pose; null = live. */
+    private Pose aimPose;
 
     public class aimer {
         public double theta;
@@ -58,24 +60,47 @@ public class Turret {
                 SystemConstants.Turret.POLLEN_TURRET_MIN, SystemConstants.Turret.POLLEN_TURRET_MAX);
         nectarAimed = nectarTurret.track(aimNectar().theta, SystemConstants.Turret.NECTAR_TURRET_CENTER, SystemConstants.Turret.NECTAR_TURRET_REVERSED, SystemConstants.Turret.NECTAR_TURRET_GEAR_RATIO,
                 SystemConstants.Turret.NECTAR_TURRET_MIN, SystemConstants.Turret.NECTAR_TURRET_MAX);
+        if (aimPose != null) {   // aimed at where the robot WILL be, not where it is: never a reason to fire
+            pollenAimed = false;
+            nectarAimed = false;
+        }
+    }
+
+    /**
+     * Autos only (AutoMechanisms): aim from {@code robotPose} - the end pose of the path being followed - instead
+     * of the live pose, so the turret holds one robot-relative angle through the path (no unwinds in transit)
+     * and arrives aimed. While set, pollenAimed / nectarAimed are false. null = live tracking (TeleOp always).
+     */
+    public void setAimPose(Pose robotPose) {
+        aimPose = robotPose;
     }
 
     public boolean unwinding(){
         return pollenTurret.unwinding() || nectarTurret.unwinding();
     }
     public aimer aimNectar() {
-        return aimFrom(predictor.leadPose(SystemConstants.Turret.nectarTurretOffset));
+        return aimFrom(turretPose(SystemConstants.Turret.nectarTurretOffset));
     }
 
     public aimer aimPollen() {
-        return aimFrom(predictor.leadPose(SystemConstants.Turret.pollenTurretOffset));
+        return aimFrom(turretPose(SystemConstants.Turret.pollenTurretOffset));
+    }
+
+    /** Turret position on the field: the live lead pose, or the pre-aim pose with the same offset applied. */
+    private Pose turretPose(double[] offset) {
+        if (aimPose == null) {
+            return predictor.leadPose(offset);
+        }
+        double c = Math.cos(aimPose.heading()), s = Math.sin(aimPose.heading());
+        return new Pose(aimPose.x() + offset[0] * c - offset[1] * s, aimPose.y() + offset[0] * s + offset[1] * c,
+                aimPose.heading());
     }
 
     public boolean pollenAimed() { return pollenAimed; }
     public boolean nectarAimed() { return nectarAimed; }
 
     private aimer aimFrom(Pose turret) {
-        Pose target = hivePosition.target(predictor.leadPose(), alliance);
+        Pose target = hivePosition.target(aimPose != null ? aimPose : predictor.leadPose(), alliance);
         double dx = target.x() - turret.x();
         double dy = target.y() - turret.y();
         double dist = Math.hypot(dx, dy);

@@ -52,6 +52,11 @@ public class Shooter {
      * full target, bypassing the zone, aim and at-speed checks - except while the turret is unwinding.
      * The automatic path is for autos while the nectar side is unmounted (NECTAR_MOUNTED, nectarReady).
      */
+    /** Autos only: pre-aim the turret from a path's end pose (Turret.setAimPose); null = live tracking. */
+    public void setAimPose(com.pedropathing.math.Pose robotPose) {
+        aiming.setAimPose(robotPose);
+    }
+
     public void setManualShoot(boolean shoot) {
         manualShoot = shoot;
     }

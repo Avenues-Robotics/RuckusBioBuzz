@@ -434,7 +434,9 @@ public class RedSoloAuto extends OpMode {
             stepStarted = true;
         }
 
-        if (System.currentTimeMillis() - stepStartTime >= durationMs) {
+        // Hand-wired to AutoMechanisms (a Shoot step waits for the shot) - re-apply after a visualizer export.
+        long elapsedMs = System.currentTimeMillis() - stepStartTime;
+        if (mechanisms != null ? mechanisms.eventDone(eventName, elapsedMs, durationMs) : elapsedMs >= durationMs) {
             finishEvent(eventName);
             advanceSequence();
         }

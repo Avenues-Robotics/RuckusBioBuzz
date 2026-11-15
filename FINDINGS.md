@@ -1423,7 +1423,7 @@ spun 0.16 rad/s at 0.2 vs 2.6 at 0.4), it runs the given power and FAILS if the 
 (5 % last-15 vs previous-15); foresightbox recentres linear stages to the end of their axis (hold points must be
 6 in + half-diagonal inside the fence: ~19 in of run instead of 14.5 from the middle).
 
-**Pinpoint heading froze a third time** right after an app restart (91.1944 deg on 20 of 20 reads over 4 s, rate
+**[CORRECTED below - not established] Pinpoint heading froze a third time** right after an app restart (91.1944 deg on 20 of 20 reads over 4 s, rate
 exactly 0.0); resetImu cleared it (reads flicker in the 4th decimal again) and the fence was re-armed on the
 operator's pose (robot unmoved since a closed-loop return to it, within 0.2 in / 1.2 deg). Still unguarded in
 TeleOp and the autos.
@@ -1486,9 +1486,37 @@ brake command; can also occur at a path end. Candidate vendored fix: while trans
 ~0.3 s, treat a sub-0.05 rotation as zero for steering (hold the travel direction), so heading corrections at
 rest still act. Needs its own test; not changed.
 
-Also: Pinpoint heading froze a 4th time after an app restart (85.2568 deg, 20/20 reads); resetImu cleared it.
+Also [CORRECTED below - not established]: Pinpoint heading froze a 4th time after an app restart (85.2568 deg, 20/20 reads); resetImu cleared it.
 
 **Verified on the deployed build** (9559cf8a installed, gainsShipped true, no pedroPidf override - exactly what an
 auto runs; 12.89 -> 12.83 V): 6 two-hold units, drive-power reversals 1, 1, 3, 0, 0, 0 (mean 0.8, was 77.7),
 peak command 1.12-1.13, hold end error 0.10-0.28 in. Data: runs/*holdinstalled_*, runs/hold_kd_ab.jsonl
-(arm installed_kd0). Heading froze a 5th time on that app restart (88.7488 deg, 20/20) - every restart today.
+(arm installed_kd0). [CORRECTED below - not established] Heading froze a 5th time on that app restart (88.7488 deg, 20/20) - every restart today.
+
+## 2026-11-15 — Pinpoint "freeze" #3-#5 were not freezes; IMU reset guard at init (shipped)
+
+**Correction.** The three "freezes" logged today (after app restarts: 91.19, 85.26, 88.75 deg) were called on 20
+bit-identical heading reads at rest. That test cannot tell a frozen Pinpoint from a still one: with the new
+`/state` pinpointDev block, right after the next app restart the device reported READY, loop 846-863 us (1.17 kHz),
+firmware v4, and the raw heading changed only in the 7th digit between runs of 2-7 identical reads; a 93 deg
+spin then tracked (89.1 -> -177.9 deg) with no reset. So today's resets were unnecessary (harmless), and the
+claims above are withdrawn. The two TeleOp freezes from earlier sessions (heading exactly 0.0, rate 0.0, while
+DRIVING) remain real and unexplained.
+
+Driver reading (SDK 12.0 GoBildaPinpointDriver): on a read it judges corrupt (NaN, a jump past the threshold,
+or loopTime < 1 on v1/v2 firmware) it keeps the OLD value and flags FAULT_BAD_READ - so a new driver object after
+an app restart that is fed bad reads holds its initial 0.0, which fits the old freezes (exactly 0.0, rate 0.0).
+Not confirmed; the pinpointDev block (status, loopTime, version, encoders, raw heading, same-read count) is there
+to catch the next one.
+
+**Guard (shipped: helpers/PinpointGuard, tele/TeleOp, auto/Red|BlueSoloAuto - hand-wired):** a freeze cannot be
+detected at rest, so at init - the robot must stand still anyway - every competition OpMode resets position +
+IMU (resetPosAndIMU, the reset that cleared the old freezes), waits for READY (>= 0.35 s, 2 s timeout), then
+re-applies its pose (TeleOp: the auto's stored pose; autos: START_STEP, again in start()). TeleOp also rumbles
+gamepad 1 and shows a WARNING when the heading does not change by a single bit for 0.6 s while the driver turns
+the stick past 0.4. The shared PinpointConfig keeps resetMode NONE: Bring-Up rebuilds its follower mid-session.
+Verified: TeleOp INIT and the auto's init (through Auto Dry Run RED) both logged "PinpointGuard: OK (IMU reset,
+READY after 0.35 s)". Not yet exercised against a real freeze.
+
+Also measured on the way: heading ID without a reset gave K 4.02 rad/s per power, kP 13.8 (vs K 6.45-6.61 in the
+three runs earlier today) - the turning plant is not stationary; pedrocheck, not one run, has to decide kP.

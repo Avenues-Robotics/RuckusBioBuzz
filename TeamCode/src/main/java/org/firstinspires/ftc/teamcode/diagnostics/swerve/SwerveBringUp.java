@@ -578,6 +578,8 @@ public class SwerveBringUp extends OpMode {
 
     // ---- robot heading (Pinpoint IMU; works with no odometry pods attached) ----
     private GoBildaPinpointDriver pinpoint;
+    private double podoLastHeading = Double.NaN;
+    private int podoSameHeadingReads;
     private double headingRad;
     private boolean headingOk;
 
@@ -1481,6 +1483,9 @@ public class SwerveBringUp extends OpMode {
         try {
             pinpoint.update();
             double h = pinpoint.getHeading(AngleUnit.RADIANS);
+            // Freeze diagnosis (2026-11-15): how many reads in a row returned the bit-identical heading.
+            podoSameHeadingReads = h == podoLastHeading ? podoSameHeadingReads + 1 : 0;
+            podoLastHeading = h;
             headingOk = !Double.isNaN(h);
             if (headingOk) {
                 headingRad = h;
@@ -5055,6 +5060,25 @@ public class SwerveBringUp extends OpMode {
                 .append(",\"vx\":").append(fmt(poseVxIn))
                 .append(",\"vy\":").append(fmt(poseVyIn))
                 .append('}');
+        // Pinpoint device state, for the heading freeze after app restarts (2026-11-15): the driver keeps the
+        // OLD values whenever a read looks corrupt - with LOCAL_TEST that includes "loopTime < 1" on v1/v2
+        // firmware - so a stalled device reads as a frozen pose with zero rates.
+        if (pinpoint != null) {
+            try {
+                sb.append(",\"pinpointDev\":{\"status\":\"").append(pinpoint.getDeviceStatus().name())
+                        .append("\",\"loopTimeUs\":").append(pinpoint.getLoopTime())
+                        .append(",\"hz\":").append(fmt(pinpoint.getFrequency()))
+                        .append(",\"version\":").append(pinpoint.getDeviceVersion())
+                        .append(",\"encX\":").append(pinpoint.getEncoderX())
+                        .append(",\"encY\":").append(pinpoint.getEncoderY())
+                        .append(",\"yawScalar\":").append(fmt(pinpoint.getYawScalar()))
+                        .append(",\"headingRaw\":").append(Double.toString(podoLastHeading))
+                        .append(",\"sameHeadingReads\":").append(podoSameHeadingReads)
+                        .append('}');
+            } catch (RuntimeException e) {
+                sb.append(",\"pinpointDev\":{\"error\":\"").append(esc(String.valueOf(e))).append("\"}");
+            }
+        }
         sb.append(",\"pedro\":{\"active\":").append(mode == Mode.FOLLOW)
                 .append(",\"job\":\"").append(esc(pedroJob)).append('"')
                 .append(",\"pods\":\"").append(pedro == null ? "none"

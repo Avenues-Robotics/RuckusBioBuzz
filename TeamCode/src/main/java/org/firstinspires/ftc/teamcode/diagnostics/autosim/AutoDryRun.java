@@ -54,10 +54,15 @@ public class AutoDryRun extends OpMode {
     private long startNs;
     private final ArrayDeque<String> events = new ArrayDeque<>();
 
+    /** Which auto to run; the BLUE entry overrides it (AutoDryRunBlue). */
+    protected String alliance() {
+        return AUTO;
+    }
+
     @Override
     public void init() {
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
-        auto = "BLUE".equalsIgnoreCase(AUTO) ? new BlueSoloAuto() : new RedSoloAuto();
+        auto = "BLUE".equalsIgnoreCase(alliance()) ? new BlueSoloAuto() : new RedSoloAuto();
         auto.hardwareMap = hardwareMap;
         auto.telemetry = telemetry;
         auto.gamepad1 = gamepad1;
@@ -73,7 +78,7 @@ public class AutoDryRun extends OpMode {
         }
         mechanisms = (AutoMechanisms) read(auto, "mechanisms");
         sequenceField = field(auto, "sequenceIndex");
-        log("init " + AUTO + " auto, simulated pose " + fmt(localizer.pose()) + ", MOVE_PODS " + MOVE_PODS);
+        log("init " + alliance() + " auto, simulated pose " + fmt(localizer.pose()) + ", MOVE_PODS " + MOVE_PODS);
     }
 
     @Override
@@ -92,7 +97,7 @@ public class AutoDryRun extends OpMode {
     @Override
     public void loop() {
         // Lines added before the auto's own telemetry.update() inside its loop().
-        telemetry.addData("DRY RUN", AUTO + " auto, robot on blocks, simulated pose");
+        telemetry.addData("DRY RUN", alliance() + " auto, robot on blocks, simulated pose");
         telemetry.addData("sim pose", fmt(localizer.pose()));
         for (String e : events) {
             telemetry.addLine(e);

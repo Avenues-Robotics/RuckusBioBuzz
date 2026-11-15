@@ -48,11 +48,18 @@ public final class SystemConstants {
         public static double[] pollenTurretOffset = {-5.91, 0};
         public static double POLLEN_TURRET_CENTER = 0.5;
         public static double NECTAR_TURRET_CENTER = 0.5;
-        // Wire limits, servo units. 2026-11-14: operator does not know the safe range yet, so these are
-        // a deliberately narrow start (+/-18.7 deg of turret around 0.5: 0.05 x 358.6 x 370/355 = 0.05 x 373.75, as the Mechanism Tuner reports it), to be widened in small steps
-        // with the operator watching the wires. NOT a measured limit.
-        public static double POLLEN_TURRET_MIN = 0.45;
+        // Limits, servo units; every turret command (tracking, unwind, start) is clamped to them.
+        // POLLEN, 2026-11-14 (operator): with the servo at 0.5 the turret faces straight, and the
+        // mechanism's own limits ARE the servo's travel ends (0 / 1 = -/+186.9 deg of turret,
+        // 373.75 deg across). The Axon MAX+ on the full 500-2500 us range can overshoot an end,
+        // cross its encoder's wrap and drive the wrong way through the mechanism (it has broken
+        // it), so each limit stops 0.003 inside the end (1.1 deg of turret, 1.1 deg of servo),
+        // the operator's 1-degree stop. That leaves 371.6 deg: 360 deg tracking plus the unwind
+        // hysteresis. Overshoot size at the ends is NOT measured; up to ~0.018 per side (6.9 deg)
+        // still keeps 360 deg if 0.003 proves too little.
+        public static double POLLEN_TURRET_MIN = 0.003;
         public static double POLLEN_TURRET_MAX = 0.55;
+        // NECTAR: not mounted on 2026-11-14 - still the narrow +/-18.7 deg guess, NOT measured.
         public static double NECTAR_TURRET_MIN = 0.45;
         public static double NECTAR_TURRET_MAX = 0.55;
         public static double POLLEN_TURRET_START = 0.5;

@@ -143,7 +143,7 @@ public class TeleLoopProbe {
             samplePods();
             recorder.add(dt, volts, loopHz, MODE_DRIVE, Double.NaN, Double.NaN,
                     podVolts, wheelDeg, targetDeg, cmdTargetDeg, errDeg, power, flipped,
-                    headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, null);
+                    headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, null, null);
         }
 
         if (publishTimer.seconds() >= PUBLISH_INTERVAL_S) {

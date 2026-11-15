@@ -1156,7 +1156,8 @@ public class SwerveBringUp extends OpMode {
         // While the follower drives, the pods that matter are ITS pods, and the tool's own
         // mixer mirror (targetTheta) is stale - so tgt is blanked and err/pwr/flip/ctgt come
         // from the follower's pods. That is what lets a Pedro run be scored on pod tracking.
-        boolean following = mode == Mode.FOLLOW && pedro != null && pedroPods != null;
+        // FORESIGHT drives the follower's pods too (ForesightBoxTuner), so it records them like FOLLOW.
+        boolean following = (mode == Mode.FOLLOW || mode == Mode.FORESIGHT) && pedro != null && pedroPods != null;
         SwervePod[] src = following ? pedroPods : pods;
         for (int i = 0; i < POD_COUNT; i++) {
             PodCal c = cals[i];
@@ -1200,7 +1201,52 @@ public class SwerveBringUp extends OpMode {
                 poseOk ? poseYIn : Double.NaN,
                 // Post-fence, post-field-rotation robot frame: what actually drove the pods.
                 appliedForward, appliedStrafe, appliedTurn,
-                following ? followerSample() : null);
+                mode == Mode.FOLLOW && pedro != null && pedroPods != null ? followerSample() : null,
+                driveSample(following, src));
+    }
+
+    private final double[] driveSample = new double[PodRecorder.DRIVE_COLS];
+
+    /**
+     * {p0..p3 drive power, command forward / strafe / turn, body vx, vy in/s, yaw rate rad/s}. Drive power is
+     * what each pod's motor was last set to (the follower's pods while following, else the tool's motorCmd);
+     * the command is the follower's / stage's DrivePowers as the vendored Swerve recorded them (Swerve.debug),
+     * else the tool's applied mixer input. Velocity is the bring-up's own pose, rotated into the robot frame.
+     */
+    private double[] driveSample(boolean following, SwervePod[] src) {
+        java.util.Arrays.fill(driveSample, Double.NaN);
+        for (int i = 0; i < POD_COUNT; i++) {
+            if (following && src != null && src[i] instanceof CoaxialPod) {
+                driveSample[i] = ((CoaxialPod) src[i]).getLastDrivePower();
+            } else {
+                driveSample[i] = motorCmd[i];
+            }
+        }
+        if (following) {
+            try {
+                Map<String, Object> dbg = pedro.drivetrain.debug();
+                driveSample[4] = asDouble(dbg.get("forward"));
+                driveSample[5] = asDouble(dbg.get("strafe"));
+                driveSample[6] = asDouble(dbg.get("rotation"));
+            } catch (RuntimeException e) {
+                // leave NaN
+            }
+        } else {
+            driveSample[4] = appliedForward;
+            driveSample[5] = appliedStrafe;
+            driveSample[6] = appliedTurn;
+        }
+        if (poseOk && headingOk) {
+            double c = Math.cos(headingRad), sn = Math.sin(headingRad);
+            driveSample[7] = poseVxIn * c + poseVyIn * sn;
+            driveSample[8] = -poseVxIn * sn + poseVyIn * c;
+            driveSample[9] = headingRateRadS;
+        }
+        return driveSample;
+    }
+
+    private static double asDouble(Object o) {
+        return o instanceof Number ? ((Number) o).doubleValue() : Double.NaN;
     }
 
     private final double[] followSample = new double[PodRecorder.FOLLOW_COLS];

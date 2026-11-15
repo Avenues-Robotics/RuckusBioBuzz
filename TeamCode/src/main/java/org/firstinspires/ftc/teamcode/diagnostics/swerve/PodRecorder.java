@@ -48,7 +48,16 @@ public class PodRecorder {
      */
     public static final int FOLLOW_COLS = 7;
 
-    private static final int COLS = GLOBAL_COLS + POD_COUNT * POD_COLS + FOLLOW_COLS;
+    /**
+     * Drive columns, appended AFTER the follower block on 2026-11-15 (jolt diagnosis) so every existing
+     * column keeps its position: {@code p0..p3_dpwr} (drive-motor power each pod was commanded - times
+     * {@code volts} it is the motor voltage), {@code dcf,dcs,dct} (the forward / strafe / turn command the
+     * drivetrain was handed - the follower's or a Foresight stage's DrivePowers, else the tool's own mixer),
+     * {@code bvx,bvy} (body-frame velocity, in/s) and {@code bw} (yaw rate, rad/s) from the bring-up's pose.
+     */
+    public static final int DRIVE_COLS = 10;
+
+    private static final int COLS = GLOBAL_COLS + POD_COUNT * POD_COLS + FOLLOW_COLS + DRIVE_COLS;
 
     /**
      * Roughly 30 s at 100 Hz. Floats rather than doubles: the widest value recorded is an angle in
@@ -133,12 +142,13 @@ public class PodRecorder {
      * @param cmdS strafe command applied this loop
      * @param cmdT rotation actually applied (heading-hold output, not the raw stick)
      * @param follow the {@link #FOLLOW_COLS} follower values, or null outside FOLLOW
+     * @param drive the {@link #DRIVE_COLS} drive values, or null
      */
     public void add(double dt, double volts, double loopHz, int mode, double servoMa,
             double batteryMa, double[] podVolts, double[] wheelDeg, double[] targetDeg,
             double[] cmdTargetDeg, double[] errDeg, double[] power, boolean[] flipped,
             double headingDeg, double headingTgtDeg, double poseX, double poseY,
-            double cmdF, double cmdS, double cmdT, double[] follow) {
+            double cmdF, double cmdS, double cmdT, double[] follow, double[] drive) {
         if (!recording) {
             return;
         }
@@ -178,6 +188,10 @@ public class PodRecorder {
         for (int k = 0; k < FOLLOW_COLS; k++) {
             data[f + k] = follow == null ? Float.NaN : (float) follow[k];
         }
+        int d = f + FOLLOW_COLS;
+        for (int k = 0; k < DRIVE_COLS; k++) {
+            data[d + k] = drive == null ? Float.NaN : (float) drive[k];
+        }
 
         count++;
     }
@@ -210,6 +224,7 @@ public class PodRecorder {
                     .append(",p").append(i).append("_ctgt");
         }
         sb.append(",fterr,fherr,fcx,fcy,fch,fvel,fbusy");
+        sb.append(",p0_dpwr,p1_dpwr,p2_dpwr,p3_dpwr,dcf,dcs,dct,bvx,bvy,bw");
         sb.append('\n');
 
         for (int r = 0; r < rows; r++) {

@@ -23,6 +23,8 @@ public class Shooter {
 
     private boolean inZone;
     private boolean forceZone;
+    /** Driver override (TeleOp right trigger): shoot now, whatever zone / aim / wheel speed say. */
+    private boolean manualShoot;
     private final PredictiveAiming predictiveAiming;
 
     private enum states {
@@ -43,12 +45,21 @@ public class Shooter {
         forceZone = force;
     }
 
+    /**
+     * While true the gate is open (state SHOOT, so TeleOp feeds the intake) and the flywheel runs at its
+     * full target, bypassing the zone, aim and at-speed checks - except while the turret is unwinding.
+     * The automatic path needs BOTH wheels at speed, so with one wheel mounted it can never fire.
+     */
+    public void setManualShoot(boolean shoot) {
+        manualShoot = shoot;
+    }
+
     public boolean shooting(){
         return state == states.SHOOT;
     }
 
     public void update() {
-        inZone = forceZone || zone.inZone(predictiveAiming.predictPose());
+        inZone = forceZone || manualShoot || zone.inZone(predictiveAiming.predictPose());
         flywheel.update(inZone);
 
         switch (state) {
@@ -68,6 +79,9 @@ public class Shooter {
                 boolean aimed = aiming.pollenAimed() && aiming.nectarAimed();
                 if (aiming.unwinding()) {
                     state = states.RESET;
+                } else if (manualShoot) {
+                    if (state != states.SHOOT) shootTimer.reset();
+                    state = states.SHOOT;
                 } else if (state == states.SHOOT) {
                     // A ball hitting the wheel dips its speed past the 5% entry band. Re-checking
                     // the entry condition here closed the gate on that ball and handed the intake

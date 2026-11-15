@@ -50,14 +50,17 @@ public final class SystemConstants {
         public static double NECTAR_TURRET_CENTER = 0.5;
         // Limits, servo units; every turret command (tracking, unwind, start) is clamped to them.
         // POLLEN, 2026-11-14 (operator): with the servo at 0.5 the turret faces straight, and the
-        // mechanism's own limits ARE the servo's travel ends (0 / 1 = -/+186.9 deg of turret,
-        // 373.75 deg across). The Axon MAX+ on the full 500-2500 us range can overshoot an end,
-        // cross its encoder's wrap and drive the wrong way through the mechanism (it has broken
-        // it), so each limit stops 0.003 inside the end (1.1 deg of turret, 1.1 deg of servo),
-        // the operator's 1-degree stop. That leaves 371.6 deg: 360 deg tracking plus the unwind
-        // hysteresis. Overshoot size at the ends is NOT measured; up to ~0.018 per side (6.9 deg)
-        // still keeps 360 deg if 0.003 proves too little.
-        public static double POLLEN_TURRET_MIN = 0.003;
+        // mechanism's own limits ARE the servo's travel ends. The Axon MAX+ travels ~359 deg of
+        // its 360 deg encoder over 500-2500 us (323.0 deg measured at 600-2400 on 2026-11-01,
+        // servoRangeTest, x 2000/1800), so each end is only ~0.6 deg from the encoder wrap: an
+        // overshoot past it reads as the far end and drives through the mechanism (it has broken
+        // it, twice). A 1-deg stop (0.003) was NOT enough - it skipped at 0.003 on 2026-11-14.
+        // 0.018 is the most that keeps 360 deg of turret: 360 deg needs 360 x 355/370 = 345.4 deg
+        // of servo, leaving (358.9 - 345.4)/2 = 6.7 deg per side -> ~7 deg from the wrap.
+        // Range 0.018-0.982 = 360.3 deg; an unwind (UNWIND_HYSTERESIS_DEG 10) lands 10.3 deg inside.
+        // Overshoot at the ends is still NOT measured. If this skips too, 360 deg is not reachable
+        // at full servo speed: slow the approach near the ends, or give up a few degrees.
+        public static double POLLEN_TURRET_MIN = 0.018;
         public static double POLLEN_TURRET_MAX = 0.997;
         // NECTAR: not mounted on 2026-11-14 - still the narrow +/-18.7 deg guess, NOT measured.
         public static double NECTAR_TURRET_MIN = 0.45;

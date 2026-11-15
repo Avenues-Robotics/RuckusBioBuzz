@@ -1,0 +1,13 @@
+# CANDIDATE A - Foresight box tuner 2026-11-15 (tiles, 2x2 border fence, shipped pods, 13.3 -> 12.9 V).
+# Identification only, NOT validated: pedrocheck (TUNING_TASK.md stage 6) decides. Means over n runs.
+# Left OUT on purpose (keep the placeholders): max velocity (not measured), coast/brake kV (static deadband
+# ~0.19 power makes a single kV speed-dependent), forward/strafe braking (n=1, <=31 in/s, scatter 3.7x).
+heading kP: 7.7173
+headingBrakingLinearCoefficient: 0.050501
+headingBrakingQuadraticCoefficient: 0.019853
+naturalForwardDeceleration: 87.98
+naturalStrafeDeceleration: 63.80
+forwardTranslational Primary kP: 0.4959
+forwardTranslational Secondary kP: 0.1832
+strafeTranslational Primary kP: 0.3991
+strafeTranslational Secondary kP: 0.1475

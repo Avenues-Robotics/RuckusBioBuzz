@@ -1414,3 +1414,35 @@ needs the long strip). Changes against the tuner, all for the box:
 Host check (ForesightBoxTunerCheck.java, simulated swerve, 30 x 30 in box): heading kP 8.04 vs 8.33 true, decel
 34.9 / 35.7 vs 35, K 79.7 / 79.9 vs 80, tau 0.174 / 0.181 vs 0.18; no excursion outside the box. Not yet run on
 the robot. These are identification numbers - pedrocheck (TUNING_TASK.md stage 6) still decides.
+
+**First run on the robot, 2026-11-15** (tiles, 2x2 border fence 47.16 in, robot centred facing up, shipped pods
+= candidate F, battery 13.3 -> 12.9 V). Data: tools/swervetune/runs/foresight_box.jsonl; candidate set
+runs/foresight_box_candidateA.txt. Two tool fixes on the way, both before any data was kept:
+TRANSLATIONAL no longer scales itself down to power 0.2 (the drive sits in a static deadband there - heading
+spun 0.16 rad/s at 0.2 vs 2.6 at 0.4), it runs the given power and FAILS if the room cuts it before a plateau
+(5 % last-15 vs previous-15); foresightbox recentres linear stages to the end of their axis (hold points must be
+6 in + half-diagonal inside the fence: ~19 in of run instead of 14.5 from the middle).
+
+**Pinpoint heading froze a third time** right after an app restart (91.1944 deg on 20 of 20 reads over 4 s, rate
+exactly 0.0); resetImu cleared it (reads flicker in the 4th decimal again) and the fence was re-armed on the
+operator's pose (robot unmoved since a closed-loop return to it, within 0.2 in / 1.2 deg). Still unguarded in
+TeleOp and the autos.
+
+| constant | now (placeholder) | measured | n | note |
+|---|---|---|---|---|
+| heading kP | 1.20 | **7.72** (6.53, 7.89, 8.73) | 3 | K 6.45-6.61 rad/s per power; tau 0.127-0.173 s carries the spread |
+| heading braking lin / quad | 0 / 0 | **0.0505 / 0.0199** | 1 x 12 trials | 78-102 deg to stop from 7.6-7.9 rad/s; power 0.2 barely turns |
+| natural decel fwd | 40 | tuner mean dv/dt 101.6 (SD 8.5); **v^2/2d 88.0 (SD 15.3)** | 3 | coast with pods released, from 22-24 in/s |
+| natural decel strafe | 40 | 85.1 (SD 6.6); **63.8 (SD 10.4)** | 3 | |
+| fwd translational kP prim / sec | 0.26 / 0.26 (kD 0.025) | **0.496 / 0.183** | 2 | K 42.2 / 45.3 in/s per power at 0.35; the 0.4 run was cut by room |
+| strafe translational kP prim / sec | 0.26 / 0.26 | **0.399 / 0.148** | 2 | K 38.8 / 53.6 |
+| coast / brake kV | 1/73.9 | 1/K = 0.0228 / 0.0194 | 2 | NOT recommended: v ~ 94 (power - 0.19) from 0.35 vs 0.4 runs (2 points) - a single kV is speed-dependent |
+| fwd / strafe braking | 0 / 1/80 | 0.0203 / 0.0016; 0.0001 / 0.0027 | 1 x 5 trials | NOT recommended: <= 31 in/s, same-speed trials stop 0.83 vs 3.11 in (the tuner's brake is never weaker than the heading hold, so heading noise brakes) |
+| max velocity | 73.9 | not measured (deadband model hints ~76) | - | needs the long strip |
+
+Why distance-based decel: Foresight's coast model is v^2 = v0^2 - 2ad (a distance average); the tuner's
+mean dv/dt is a time average and comes out higher when the robot slows hardest at the end (released pods
+scrubbing), i.e. it would predict shorter coasts than happen. **Import trap:** Constants derives
+forward/strafeBrakeQuadratic as 1/(2 * naturalDeceleration), so importing 88 / 64 would halve the predicted
+stopping distance - the braking change held back above. Candidate A must pin those at 1/(2*40).
+Not imported, nothing shipped. Next: candidate A through pedrocheck (stage 6) against the current constants.

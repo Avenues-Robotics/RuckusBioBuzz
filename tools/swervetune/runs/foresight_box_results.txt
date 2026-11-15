@@ -1,0 +1,17 @@
+# Foresight box-tuner results (foresightbox.py). Identification only - NOT validated.
+# Max velocity NOT measured (needs the long strip). Import: robot.py foresight <this file> --partial
+heading kP: 8.730348
+headingBrakingLinearCoefficient: 0.050501
+headingBrakingQuadraticCoefficient: 0.019853
+naturalForwardDeceleration: 111.443131
+naturalStrafeDeceleration: 92.275872
+forwardTranslational Primary kP: 0.454375
+forwardTranslational Secondary kP: 0.167879
+coast kV: 0.022069
+brake kV: 0.018759
+strafeTranslational Primary kP: 0.406835
+strafeTranslational Secondary kP: 0.150315
+forwardBrakingLinearCoefficient: 0.020319
+forwardBrakingQuadraticCoefficient: 0.001626
+strafeBrakingLinearCoefficient: 0.000108
+strafeBrakingQuadraticCoefficient: 0.002689

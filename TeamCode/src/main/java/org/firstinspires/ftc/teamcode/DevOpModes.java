@@ -10,6 +10,7 @@ import org.firstinspires.ftc.teamcode.auto.legacy.redOption2;
 import org.firstinspires.ftc.teamcode.auto.legacy.shortAutoRed;
 import org.firstinspires.ftc.teamcode.diagnostics.PreMatchSystemCheck;
 import org.firstinspires.ftc.teamcode.diagnostics.motorbreakin;
+import org.firstinspires.ftc.teamcode.diagnostics.autosim.AutoDryRun;
 import org.firstinspires.ftc.teamcode.diagnostics.swerve.DashboardDriveTeleOp;
 import org.firstinspires.ftc.teamcode.diagnostics.swerve.RawMotorTest;
 import org.firstinspires.ftc.teamcode.diagnostics.swerve.SwerveBringUp;
@@ -42,6 +43,7 @@ public final class DevOpModes {
         teleOp(manager, "Swerve Bring-Up", "Diagnostics", SwerveBringUp.class);
         teleOp(manager, "Swerve TeleOp", "Diagnostics", SwerveDirectTeleOp.class);
         teleOp(manager, "Mechanism Tuner", "Diagnostics", MechanismTuner.class);
+        teleOp(manager, "Auto Dry Run (on blocks, sim pose)", "Diagnostics", AutoDryRun.class);
         teleOp(manager, "colorTuner", "TeleOp", colorTuner.class);
         teleOp(manager, "Range Test", "TeleOp", rangeTest.class);
         teleOp(manager, "SpinUpTest", "TeleOp", spinUpTest.class);

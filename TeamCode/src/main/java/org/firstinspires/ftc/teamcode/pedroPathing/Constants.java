@@ -132,7 +132,7 @@ public class Constants {
     //                                                  2026-08-14. Same units (power per inch).
     //
     // Measure all of it with the Foresight Tuner (Tuning.java - REMOVED 2026-11-01 with Sloth; it
-    // survives on branch autotune-sloth), import it into TUNED VALUES with
+    // survives in git history at cf5dcee9^ - no branch kept it), import it into TUNED VALUES with
     // robot.py foresight, VALIDATE IT THROUGH PEDRO (TUNING_TASK.md stage 6), and only then set
     // FORESIGHT_MEASURED by hand. No tool sets it.
     public static final boolean FORESIGHT_MEASURED = false;

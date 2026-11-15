@@ -67,7 +67,7 @@ public final class SystemConstants {
         public static double NECTAR_TURRET_MAX = 0.55;
         public static double POLLEN_TURRET_START = 0.5;
         public static double NECTAR_TURRET_START = 0.5;
-        public static boolean POLLEN_TURRET_REVERSED = false;
+        public static boolean POLLEN_TURRET_REVERSED = true;
         public static boolean NECTAR_TURRET_REVERSED = false;
         public static double[] POLLEN_TURRET_GEAR_RATIO = {355, 370};
         public static double[] NECTAR_TURRET_GEAR_RATIO = {355, 370};

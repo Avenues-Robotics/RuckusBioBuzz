@@ -37,6 +37,13 @@ public final class SystemConstants {
         public static boolean NECTAR_FLYWHEEL_REVERSED = false;
         public static double AT_SPEED_FRACTION = 0.05;
         public static double IDLE_FRACTION = 0.5;
+        // Feed-forward voltage compensation (systems/Flywheel.compensateF): F x (F_NOMINAL_VOLTS / battery V).
+        // 12.6 V is where POLLEN_PIDF F = 12.4 held 2400 within 0.9% (2026-11-15, n=4 steps); at 11.9 V the same
+        // gains sat 2.5% low. Battery volts smoothed over F_COMP_TAU_S, re-applied every F_COMP_UPDATE_MS.
+        public static boolean F_VOLTAGE_COMP = true;
+        public static double F_NOMINAL_VOLTS = 12.6;
+        public static double F_COMP_TAU_S = 1.0;
+        public static double F_COMP_UPDATE_MS = 250;
         public static PIDFCoefficients POLLEN_PIDF = new PIDFCoefficients(10, 0.1, 0, 12.4);
         public static PIDFCoefficients NECTAR_PIDF = new PIDFCoefficients(500, 0, 0, 11.7);
     }

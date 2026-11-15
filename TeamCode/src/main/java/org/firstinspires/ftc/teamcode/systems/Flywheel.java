@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 
 import org.firstinspires.ftc.teamcode.modules.Cache;
 import org.firstinspires.ftc.teamcode.modules.ShootingRegression;
@@ -24,8 +25,13 @@ public class Flywheel {
     private double nectarTarget;
     private double pollenVelocity;
     private double nectarVelocity;
+    private final VoltageSensor battery;
+    private double filteredVolts = Double.NaN;
+    private double appliedFScale = 1.0;
+    private long lastCompNs;
     public Flywheel(HardwareMap hardwareMap, Turret aiming) {
         regression = new ShootingRegression(aiming);
+        battery = hardwareMap.voltageSensor.iterator().hasNext() ? hardwareMap.voltageSensor.iterator().next() : null;
 
         pollenFlywheel = hardwareMap.get(DcMotorEx.class, "pollenTurret");
         nectarFlywheel = hardwareMap.get(DcMotorEx.class, "nectarTurret");
@@ -40,10 +46,41 @@ public class Flywheel {
         nectarWriter = new VelocityWriter(nectarFlywheel);
     }
     private static void setVelocityPidf(DcMotorEx flywheel, PIDFCoefficients pidf) {
-        flywheel.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER,
-                new com.qualcomm.robotcore.hardware.PIDFCoefficients(pidf.P, pidf.I, pidf.D, pidf.F));
+        setVelocityPidf(flywheel, pidf, 1.0);
     }
+
+    private static void setVelocityPidf(DcMotorEx flywheel, PIDFCoefficients pidf, double fScale) {
+        flywheel.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER,
+                new com.qualcomm.robotcore.hardware.PIDFCoefficients(pidf.P, pidf.I, pidf.D, pidf.F * fScale));
+    }
+
+    /**
+     * Voltage-compensated feed-forward. The hub's velocity F is a fixed fraction of full power per tick/s, so
+     * the same F gives less speed on a lower battery: 2026-11-15 the pollen wheel sat 2.5% under 2400 at
+     * 11.9 V and 0.9% under at 12.6 V on the same gains. Every F_COMP_UPDATE_MS this re-applies the PIDF with
+     * F x (F_NOMINAL_VOLTS / battery volts), battery volts smoothed with time constant F_COMP_TAU_S, only when
+     * the factor moved by more than 0.5%, clamped to [0.85, 1.25] against a bad reading.
+     */
+    private void compensateF() {
+        if (!SystemConstants.Flywheel.F_VOLTAGE_COMP || battery == null) return;
+        long now = System.nanoTime();
+        double dtS = lastCompNs == 0 ? 0 : (now - lastCompNs) / 1e9;
+        if (lastCompNs != 0 && dtS * 1000 < SystemConstants.Flywheel.F_COMP_UPDATE_MS) return;
+        lastCompNs = now;
+        double v = battery.getVoltage();
+        if (!(v > 6)) return;   // no reading / brownout: keep the last factor
+        double tau = Math.max(1e-3, SystemConstants.Flywheel.F_COMP_TAU_S);
+        filteredVolts = Double.isNaN(filteredVolts) ? v : filteredVolts + (v - filteredVolts) * Math.min(1, dtS / tau);
+        double scale = Math.max(0.85, Math.min(1.25, SystemConstants.Flywheel.F_NOMINAL_VOLTS / filteredVolts));
+        if (Math.abs(scale - appliedFScale) > 0.005 * appliedFScale) {
+            setVelocityPidf(pollenFlywheel, SystemConstants.Flywheel.POLLEN_PIDF, scale);
+            setVelocityPidf(nectarFlywheel, SystemConstants.Flywheel.NECTAR_PIDF, scale);
+            appliedFScale = scale;
+        }
+    }
+
     public void update(boolean inZone){
+        compensateF();
         double scale = inZone ? 1 : SystemConstants.Flywheel.IDLE_FRACTION;
         pollenTarget = regression.shooterspeedpollen();
         nectarTarget = regression.shooterspeednectar();

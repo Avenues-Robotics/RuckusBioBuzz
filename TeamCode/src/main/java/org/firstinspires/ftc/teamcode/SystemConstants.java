@@ -22,7 +22,7 @@ public final class SystemConstants {
         // flywheel target (ticks/s, the regression's y-intercept). GUESSES - set them from real shots.
         public static double AIM_STEP_IN = 1.0;
         // ticks/s at the MOTOR: 18 at 35:21 is the same wheel-speed step 25 was at 24:20 (25 x 1.2 / 1.667).
-        public static double SPEED_STEP = 18;
+        public static double SPEED_STEP = 25;   // HELD at the 24:20 value until the gears are swapped; then 18
         // Shooter lock (driver 2 OPTIONS): turret straight ahead, the robot's heading aims instead. P on a
         // projected heading (heading + w*LIN + w|w|*QUAD), the shape and the values of Foresight's heading
         // controller (Constants.headingKP / headingBrake*, measured 2026-11-15). NOT tested in TeleOp.
@@ -38,10 +38,13 @@ public final class SystemConstants {
         // LEFT side on the audience wall - the side the auto start uses (START_STEP y 8.561 = centre to the left
         // side). Blue: the far corner of the blue wall, facing the blue wall, left side on the far wall. Corners are
         // clear at drive height (field/biobuzz_field.json: the nearest FLOWER is 43.6 in along each wall).
-        // RELOCALIZE_X = centre to the FRONT face: 8.561 assumes a square footprint - MEASURE it.
+        // MEASURED 2026-11-16 on a competition field: pose set at the audience-wall centre seam (x 70.75 by eye, back
+        // on the wall, y 8.561), driven/pushed into this corner 3 times, odometry read each time: x 10.71 / 11.10 /
+        // 11.11 (10.97 +/- 0.23), y 9.67 / 9.57 / 9.84 (9.69 +/- 0.14). Was 8.561 / 8.561 (square-robot guess).
+        // Accuracy ~0.5 in (the start's seam placement); a tape measure of the robot would confirm it.
         public static double RELOCALIZE_HOLD_S = 0.5;
-        public static double RELOCALIZE_X = 8.561;
-        public static double RELOCALIZE_Y = 8.561;
+        public static double RELOCALIZE_X = 10.97;
+        public static double RELOCALIZE_Y = 9.69;
         public static double RELOCALIZE_HEADING_DEG = 180.0;
     }
 

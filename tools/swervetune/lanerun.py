@@ -4,7 +4,8 @@
 DIAGNOSTIC. The robot sits at one end of a clear lane facing along it (field fence armed). Each run streams the
 stick at +power (out) for --sec, stops, then the next run goes at -power (back), so the robot shuttles in the lane and
 never needs re-positioning. Arms (setPidf / setMixer) are applied before each run, in random order per block.
-Bench heading hold must be OFF (it fights the drive) - this script turns it off.
+Bench heading hold: OFF by default (pure open loop); --hold keeps it ON. 2026-11-16 field: open loop yawed
+25-45 deg per 0.9 s run at 0.8 power, angling the robot into the fence (40-57% of samples clamped) - use --hold there.
 
 Scored per run over the fast part (pose speed > --fast in/s): pod |error| mean / p95 (deg), wheel turning-direction
 reversals per second (0.5 deg hysteresis), demand movement per sample p95 (a moving demand = the fence or the mixer,
@@ -83,6 +84,33 @@ def one_run(a, f: float) -> str | None:
     return None
 
 
+def recentre(a, timeout_s: float = 6.0) -> None:
+    """Follower hold back onto the lane line (y = --yline, heading 0) at the nearest x inside [xmin+24, xmax-24].
+    Open-loop yaw otherwise walks the robot out of the lane within a run or two (2026-11-16). Arms go AFTER this:
+    pedroStart re-applies the shipped steering statics."""
+    s = state()
+    p, h = s["pose"], s["heading"]["deg"]
+    x = min(max(p["x"], a.xmin + 24), a.xmax - 24)
+    dh = ((0 - h + 180) % 360) - 180
+    if math.hypot(x - p["x"], a.yline - p["y"]) < 1.0 and abs(dh) < 2.0:
+        return
+    send("pedroStart", pods="shipped")
+    time.sleep(0.6)
+    send("pedroHold", dx=round(x - p["x"], 2), dy=round(a.yline - p["y"], 2), dh=round(dh, 2))
+    end = time.time() + timeout_s
+    try:
+        while time.time() < end:
+            time.sleep(0.2)
+            s = state()
+            if math.hypot(x - s["pose"]["x"], a.yline - s["pose"]["y"]) < 1.0 and abs(((0 - s["heading"]["deg"] + 180) % 360) - 180) < 2.0:
+                time.sleep(0.3)
+                break
+    finally:
+        send("pedroStop")
+        time.sleep(0.4)
+    send("setHeadingHold", value="true" if a.hold else "false")
+
+
 def score(path: str, fast: float) -> dict:
     d = load(path)
     t = d["t"]
@@ -126,6 +154,9 @@ def main() -> int:
     ap.add_argument("--ymax", type=float, default=40)
     ap.add_argument("--restore", default=None)
     ap.add_argument("--confirmed-floor", action="store_true")
+    ap.add_argument("--yline", type=float, default=None, help="re-centre onto this y (heading 0) before every run")
+    ap.add_argument("--hold", action="store_true",
+                    help="keep the bench heading hold ON (open-loop yaw of 25-45 deg per run otherwise angles the robot into the fence)")
     a = ap.parse_args()
     if not a.confirmed_floor:
         print("REFUSED: --confirmed-floor")
@@ -137,7 +168,7 @@ def main() -> int:
     if not inside(st, a):
         print(f"REFUSED: pose ({st['pose']['x']:.1f}, {st['pose']['y']:.1f}) is outside the lane box")
         return EXIT_REFUSED
-    send("setHeadingHold", value="false")
+    send("setHeadingHold", value="true" if a.hold else "false")
     arms = json.load(open(a.arms, encoding="utf-8"))
     sign = 1.0
     results = []
@@ -146,6 +177,9 @@ def main() -> int:
             order = list(arms.items())
             random.shuffle(order)
             for name, cmds in order:
+                if a.yline is not None:
+                    recentre(a)
+                    sign = 1.0 if state()["pose"]["x"] < (a.xmin + a.xmax) / 2 else -1.0
                 apply_arm(cmds)
                 label = f"{a.label}_{name}_b{block}_{'out' if sign > 0 else 'back'}"
                 send("recStart", label=label)
@@ -158,7 +192,7 @@ def main() -> int:
                 path = sorted(glob.glob(os.path.join(HERE, "runs", f"*_{label}.csv*")))[-1]
                 res = score(path, a.fast)
                 rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "label": a.label, "arm": name, "block": block,
-                       "dir": "out" if sign > 0 else "back", "power": a.power, "abort": why, "surface": "tiles", **res}
+                       "dir": "out" if sign > 0 else "back", "power": a.power, "hold": a.hold, "abort": why, "surface": "tiles", **res}
                 with open(LOG, "a", encoding="utf-8") as fh:
                     fh.write(json.dumps(rec) + "\n")
                 results.append(rec)

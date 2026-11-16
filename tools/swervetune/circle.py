@@ -211,6 +211,8 @@ def run_one(a, label: str, speed: float, cmds=()) -> dict:
     s = state()
     b = s["box"]
     cx, cy = (b["minX"] + b["maxX"]) / 2, (b["minY"] + b["maxY"]) / 2
+    if a.cx is not None and a.cy is not None:   # open floor on a full field (the fence centre is under the hive)
+        cx, cy = a.cx, a.cy
     r = speed / math.radians(abs(a.rate))
     # Stick starts robot-forward (= field +y at heading 90); a CCW sweep curves left, so the centre is r to the
     # left of the start: start r to the right of the box centre (mirrored for CW).
@@ -242,6 +244,7 @@ def cmd_run(a) -> int:
     if code != EXIT_OK:
         print(f"NOT READY: {reason}")
         return code
+    send("setHeadingHold", value="false")   # TeleOp has none; the bench hold fights the pods (2026-11-15)
     arms = {"live": []}
     if a.arms:
         arms = json.load(open(a.arms, encoding="utf-8"))
@@ -315,6 +318,8 @@ def main() -> int:
     p.add_argument("--laps", type=float, default=2.0)
     p.add_argument("--speed", type=float, default=5.5, help="expected robot speed at --power, in/s (sizes r)")
     p.add_argument("--label", required=True)
+    p.add_argument("--cx", type=float, default=None, help="circle centre x, in (default: the fence centre)")
+    p.add_argument("--cy", type=float, default=None, help="circle centre y, in")
     p.add_argument("--arms", default=None)
     p.add_argument("--restore", default=None, help="arm to re-apply at the end (e.g. the shipped one)")
     p.add_argument("--n", type=int, default=1)

@@ -1,0 +1,5 @@
+{
+  "f30": [["setPidf", {"floor": 0.30}]],
+  "f20": [["setPidf", {"floor": 0.20}]],
+  "f12": [["setPidf", {"floor": 0.12}]]
+}

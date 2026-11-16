@@ -45,9 +45,11 @@ public class Constants {
     // Follower (Foresight). The same set, and the same names, as Pedro's Foresight Tuner prints
     // (robot.py foresight imports its output). An initialiser naming PLACEHOLDER_MAX_VELOCITY is
     // NOT a measurement - the visualizer refuses to import it, and so should you.
-    private static final double PLACEHOLDER_MAX_VELOCITY = 73.9;
-    public static final double maxAchievableForwardVelocity = PLACEHOLDER_MAX_VELOCITY;
-    public static final double maxAchievableStrafeVelocity = PLACEHOLDER_MAX_VELOCITY;
+    // Max velocity MEASURED 2026-11-16 on a competition field (was the 73.9 placeholder): open-loop full-power run
+    // along the audience-side lane, steady ~50-53 in/s on a loaded battery (11.3-12.6 V); 0.80 power -> 44, 0.47 -> 27.5.
+    // Strafe is assumed equal (swerve), not measured.
+    public static final double maxAchievableForwardVelocity = 52.0;
+    public static final double maxAchievableStrafeVelocity = 52.0;
     public static final double naturalForwardDeceleration = 40.0;
     public static final double naturalStrafeDeceleration = 40.0;
     public static final double headingKP = 7.7173;
@@ -57,8 +59,8 @@ public class Constants {
     public static final double strafeBrakeLinear = 0.0;
     public static final double forwardBrakeQuadratic = 1.0 / (2 * naturalForwardDeceleration);
     public static final double strafeBrakeQuadratic = 1.0 / (2 * naturalStrafeDeceleration);
-    public static final double coastKV = 1.0 / PLACEHOLDER_MAX_VELOCITY;
-    public static final double brakeKV = 1.0 / PLACEHOLDER_MAX_VELOCITY;
+    public static final double coastKV = 1.0 / 52.0;
+    public static final double brakeKV = 1.0 / 52.0;
     // Translational: primary kP above translationalSwitchIn of error, secondary below it (the
     // tuner's piecewise shape). Equal primary/secondary builds ONE PID, exactly as before.
     public static final double forwardTranslationalPrimaryKP = 0.26;
@@ -124,10 +126,9 @@ public class Constants {
     //
     //   naturalForward/StrafeDeceleration  40 in/s^2   MEASURED 2026-08-14, the coast-down below
     //                                                  (same quantity the v3 tuner measures).
-    //   maxAchievableForward/StrafeVelocity 73.9 in/s  UNMEASURED. Carried from the 2.x
-    //                                                  SwerveConstants.velocity(73.9), which has
-    //                                                  been there since the 2026-05-14 skeleton,
-    //                                                  before the pods existed.
+    //   maxAchievableForward/StrafeVelocity 52 in/s    MEASURED 2026-11-16 forward (full-power run on a
+    //                                                  competition field); strafe assumed equal. Was 73.9,
+    //                                                  carried from the 2.x skeleton - 40% optimistic.
     //   quadraticBrakeCoefficients 1/(2*40)            DERIVED, not measured: stopping distance
     //   linearBrakeCoefficients 0                      under pure coast, v^2/(2a). Foresight also
     //                                                  brakes actively, so this over-predicts the

@@ -296,7 +296,7 @@
   "settings": {
     "rWidth": 18,
     "rHeight": 16.39,
-    "maxVelocity": 73.9,
+    "maxVelocity": 52,
     "maxAcceleration": 30,
     "maxDeceleration": 197.1,
     "aVelocity": 3.141592653589793,

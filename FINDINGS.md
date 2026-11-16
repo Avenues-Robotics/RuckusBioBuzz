@@ -1683,3 +1683,39 @@ applies to live tuning on the bench: any pedroStart resets slew / floor / feed-f
 Open: TeleOp's own loop rate is unmeasured (the bench ran 52-65 Hz here); the driver's real stick inputs, faster
 than 240 deg/s sweeps, and full-speed driving were not tested - the 2x2 caps speed at ~7-10 in/s. Pedro paths
 (autos) now run these statics too; validate on the long strip with the rest of Foresight.
+
+## 2026-11-16 — Competition field: corner reset point measured, max velocity 52 in/s (shipped), field-fence lessons
+
+Surface: competition field tiles. Battery 13.1 V fresh -> 11.3 V loaded at the end. Field fence (`fieldFence`, walls +
+6 keep-outs from field/biobuzz_field.json) armed for every move - its first use on a real field.
+
+**Incident (my error):** "move the robot to the center" was the centre of the AUDIENCE wall, not of the field. I armed the
+fence at (70.75, 70.75); the robot was really at (70.75, 8.6), back on the wall, so a 40 in "down" follower line pushed
+it into the wall for 15 s at 0.4 (no damage reported). The fence could not help - it trusted the wrong pose. A stall
+guard (stop if < 1 in of progress after 2-3 s) was added to the move script used for the rest of the session. Lesson:
+confirm the operator's placement against the field drawing before arming a fence.
+
+**Corner reset point (SystemConstants.TeleOp.RELOCALIZE_X/Y):** pose set at the audience-wall centre seam (x 70.75 by
+eye, y 8.561 = back on the wall), follower to (22, 22), turned to face the red wall, pushed into the corner by the
+operator 3 times: x 10.71 / 11.10 / 11.11 = **10.97 +/- 0.23 in**, y 9.67 / 9.57 / 9.84 = **9.69 +/- 0.14 in**; heading
+178.6-178.9 (Pinpoint drift since the set, the walls hold 180). Was 8.561 / 8.561 (square-robot guess). Accuracy ~0.5
+in from the start placement. NOTE: this change was committed inside f055ee7e (the flywheel-hold commit), whose message
+does not mention it.
+
+**Max velocity (Constants, f677b2e8):** open-loop forward runs, recorded (runs/*vmax_*): 0.47 power -> ~27.5 in/s,
+0.80 -> 44, 1.00 -> ~50-53 (loaded battery). 73.9 -> **52**, strafe assumed equal (not measured), coast/brake kV 1/52.
+Route review at 52 in/s: red 27.7 s, blue 27.8 s of 30. Acceptance on the deployed build, follower lines +/-45 in at
+power 1.0 along the audience band (n=4, accept_vmax_lines): end 0.09-0.53 in short, no overshoot, 3.3-4.9 s, no clamp.
+
+**Field-fence lessons:** keep-out margins grow with speed (4 in + 0.3 s x v + 6 in taper, robot = half-diagonal circle),
+so a lane 4 in from a flower (x = 22 along the red wall) or 10 in from a hive rail (the centre corridor) clamps fast
+runs; the per-axis clamp then ROTATES the command and all four pods swing together (the operator's "pods swinging
+like crazy" at 0.8 in the corridor: pod errors -38 -> +38 deg in unison, i.e. the demand moved). The clean fast lane is
+the audience band along x at y ~25-29 (rails 13 in away, flower only near x 90). Bench heading hold must be off for
+open-loop runs (it fought the drive, +/-0.2-0.4 turn). Pods held by `pidStepAll` hunt while the robot is pushed
+by hand - release them (`pidHold`) for pushes.
+
+**Not done (needs more field time):** forward/strafe braking and natural decel at speed (still 40 in/s^2 - the follower
+brakes early, peak only 23-30 in/s on 45 in lines), strafe max velocity, the real auto paths through pedrocheck (they
+run into corners the fence will not allow). FORESIGHT_MEASURED stays false. Flywheel 35:21 target (6d190513) held at
+24:20 (f055ee7e) until the gears are swapped.

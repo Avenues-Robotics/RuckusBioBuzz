@@ -1770,3 +1770,24 @@ drive has no translational or heading feedback).
 **Tooling (diagnostic):** lanerun.py --hold (bench heading hold on; it bang-bangs +/-1.0 at speed - do not use) and
 --yline (follower re-centre onto the lane before every run - without it open-loop yaw walks the robot out of the lane in
 1-2 runs). Not run: braking / decel at speed (cut for time).
+
+## 2026-11-16 — Straight driving: the yaw is the drive wheels, not the steering; TeleOp heading hold added (shipped, UNTUNED)
+
+Fresh battery (12.99 V rest), corner start (9.7, 8.56, 90), lane y 26. Open-loop 0.8-power straight runs on the
+shipped build (lanerun straight_base, n=6): heading change -20 to +13 deg per 0.8 s run, 7-44 deg/s at speed, the
+direction varying run to run - and in one run +26 deg/s with all four pods within 4 deg of target. Pod angle errors do
+not predict the yaw (signs and sizes uncorrelated across runs), so the cause is on the drive side (wheel speed /
+traction differences, worst accelerating from rest); the battery was not it. No steering gain can fix that, so the fix
+is closed loop:
+
+**TeleOp heading hold (SystemConstants.TeleOp.HEADING_HOLD, shipped).** Left stick translating + right stick centred ->
+hold the heading captured when the turn stick was released (after HOLD_CAPTURE_S 0.25 s, or once |w| < 30 deg/s, so a
+turn coasts out and is kept). Shooter lock's controller shape (P on heading projected by AIM_BRAKE_*), HOLD_KP 3.0,
+HOLD_MAX_TURN 0.5. Off at rest, under the turn stick and in SHOOTER LOCK; cleared on relocalize. GUESSED gains.
+
+First driver session (TeleOp, ~4.5 min, pose from /field/state at ~13 Hz, current_runs/teleop_hold_drive1.jsonl):
+10 fast segments (> 20 in/s, >= 0.5 s). Heading in them swings +/-8-20 deg at ~2 Hz with small net change (-0.5,
++2.9, -2.0, +3.4, +2.8 deg in five of them) - a fishtail, not a drift. Without stick inputs logged it cannot be
+separated from the driver's own steering; the driver's report was not received before the robot went offline. If it
+is the hold, the next step is HOLD_KP 3.0 -> 1.5 (Dashboard-editable live). The follower shows the same 2-4 Hz
+heading/lateral cycle at heading kP 7.7 (lunch entry above), so heading feedback + pod lag at speed is the suspect.

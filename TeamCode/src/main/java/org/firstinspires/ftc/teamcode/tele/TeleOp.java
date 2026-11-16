@@ -34,7 +34,8 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
  * DRIVER 1 (gamepad1)
  *   left stick          drive - robot-centric, or field-centric with SystemConstants.TeleOp.FIELD_CENTRIC
  *   OPTIONS / START     field-centric: re-zero "forward" to where the robot faces now (point it away from you)
- *   right stick x       turn - in SHOOTER LOCK the robot turns itself to the goal; the stick still overrides
+ *   right stick x       turn - in SHOOTER LOCK the robot turns itself to the goal; the stick still overrides.
+ *                       Centred while driving: the robot HOLDS its heading (SystemConstants.TeleOp.HEADING_HOLD)
  *   right bumper        intake (hold)            left bumper   reject / outtake (hold)
  *   right trigger       shoot now (hold)         in the zone the robot also shoots by itself (not in lock)
  *   left trigger        scoopula (hold)
@@ -69,6 +70,9 @@ public class TeleOp extends OpMode {
     private final AimOffsets offsets = new AimOffsets();
     private boolean lockForward;
     private double aimErrorRad = Double.NaN;
+    /** Heading hold target (rad), NaN while not holding. See SystemConstants.TeleOp.HEADING_HOLD. */
+    private double holdTargetRad = Double.NaN;
+    private final ElapsedTime sinceTurnStick = new ElapsedTime();
     private final ElapsedTime relocalizeHeld = new ElapsedTime();
     private boolean relocalizeHeldPrev;
     private boolean relocalizeDone;
@@ -143,12 +147,15 @@ public class TeleOp extends OpMode {
 
         Swerve.setTranslationPriority(SystemConstants.TeleOp.TRANSLATION_PRIORITY);
         double turn = -gamepad1.right_stick_x;
+        double forward = -gamepad1.left_stick_y;
+        double left = -gamepad1.left_stick_x;
         aimErrorRad = Double.NaN;
         if (lockForward && Math.abs(gamepad1.right_stick_x) < SystemConstants.TeleOp.AIM_STICK_OVERRIDE) {
             turn = aimTurn(pose);
+            holdTargetRad = Double.NaN;
+        } else {
+            turn = headingHoldTurn(pose, forward, left, turn);
         }
-        double forward = -gamepad1.left_stick_y;
-        double left = -gamepad1.left_stick_x;
         boolean d1Options = gamepad1.options || gamepad1.start;
         if (d1Options && !prevD1Options) {
             fieldCentricOffset = AngleUnit.normalizeRadians(pose.heading() - driversHeading(0));
@@ -201,6 +208,9 @@ public class TeleOp extends OpMode {
         out.addData("mode", lockForward
                 ? "SHOOTER LOCK - turret forward, heading aims, no zone (D2 OPTIONS)"
                 : "turret tracking, auto-shoot in zone");
+        out.addData("heading hold", !SystemConstants.TeleOp.HEADING_HOLD ? "OFF"
+                : Double.isNaN(holdTargetRad) ? "idle" : String.format(java.util.Locale.US, "holding %.1f deg",
+                        Math.toDegrees(holdTargetRad)));
         if (lockForward && !Double.isNaN(aimErrorRad)) {
             out.addData("aim error (deg)", Math.round(Math.toDegrees(aimErrorRad) * 10) / 10.0);
         }
@@ -266,6 +276,35 @@ public class TeleOp extends OpMode {
         return Math.max(-max, Math.min(max, SystemConstants.TeleOp.AIM_KP * err));
     }
 
+    /**
+     * Heading hold while driving (SystemConstants.TeleOp.HEADING_HOLD): returns the turn command - the stick's own
+     * when the hold is not active. Robot-frame vs field-frame sticks do not matter: it only looks at magnitude.
+     */
+    private double headingHoldTurn(Pose pose, double forward, double left, double stickTurn) {
+        if (Math.abs(stickTurn) >= SystemConstants.TeleOp.HOLD_STICK_DEADBAND) {
+            sinceTurnStick.reset();
+        }
+        boolean translating = Math.hypot(forward, left) > SystemConstants.TeleOp.HOLD_DRIVE_DEADBAND;
+        if (!SystemConstants.TeleOp.HEADING_HOLD || !translating
+                || Math.abs(stickTurn) >= SystemConstants.TeleOp.HOLD_STICK_DEADBAND) {
+            holdTargetRad = Double.NaN;
+            return stickTurn;
+        }
+        double w = follower.velocity().omega;
+        if (Double.isNaN(holdTargetRad)) {
+            if (sinceTurnStick.seconds() < SystemConstants.TeleOp.HOLD_CAPTURE_S
+                    && Math.abs(w) > Math.toRadians(SystemConstants.TeleOp.HOLD_CAPTURE_RATE_DEG_S)) {
+                return stickTurn;   // still coasting out of a stick turn: let it finish, then hold where it ends
+            }
+            holdTargetRad = pose.heading();
+        }
+        double projected = pose.heading() + w * SystemConstants.TeleOp.AIM_BRAKE_LINEAR
+                + w * Math.abs(w) * SystemConstants.TeleOp.AIM_BRAKE_QUADRATIC;
+        double err = AngleUnit.normalizeRadians(holdTargetRad - projected);
+        double max = SystemConstants.TeleOp.HOLD_MAX_TURN;
+        return Math.max(-max, Math.min(max, SystemConstants.TeleOp.HOLD_KP * err));
+    }
+
     /** Driver 1 holds SHARE / BACK for RELOCALIZE_HOLD_S with the robot at the spot: the pose is set there. */
     private void relocalize(Pose pose) {
         boolean held = gamepad1.share || gamepad1.back;
@@ -277,6 +316,7 @@ public class TeleOp extends OpMode {
             Pose spot = relocalizePose();
             follower.setPose(spot);
             fieldCentricOffset = 0;   // the heading is exact again: the drivers' frame needs no re-zero
+            holdTargetRad = Double.NaN;   // the heading jumped: never hold a target from the old frame
             relocalizeDone = true;
             gamepad1.rumble(400);
             relocalizeNote = String.format(java.util.Locale.US, "set to (%.1f, %.1f, %.0f deg), was (%.1f, %.1f, %.0f deg)",

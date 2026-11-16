@@ -42,6 +42,22 @@ public final class SystemConstants {
         // on the wall, y 8.561), driven/pushed into this corner 3 times, odometry read each time: x 10.71 / 11.10 /
         // 11.11 (10.97 +/- 0.23), y 9.67 / 9.57 / 9.84 (9.69 +/- 0.14). Was 8.561 / 8.561 (square-robot guess).
         // Accuracy ~0.5 in (the start's seam placement); a tape measure of the robot would confirm it.
+        // Heading hold (2026-11-16): with the left stick translating and the right stick centred, the robot holds the
+        // heading it had when the turn stick was let go. Why: on a competition field, open-loop 0.8-power straight
+        // runs yawed 7-44 deg/s on a fresh battery, direction varying run to run, with the pods within 4 deg of target
+        // in some of them - the drive wheels (speed / traction), not the steering, so no pod gain fixes it.
+        // Same controller shape as the shooter lock (P on heading projected by the braking lookahead), gentler gain:
+        // heading corrections swing every pod. Off at rest (no pod jitter standing still), off under the turn stick
+        // (above HOLD_STICK_DEADBAND) and in SHOOTER LOCK. The target is captured HOLD_CAPTURE_S after the stick is
+        // released, or earlier once the robot turns slower than HOLD_CAPTURE_RATE_DEG_S, so it keeps the heading the
+        // driver turned to instead of snapping back. Gains are first guesses - NOT yet measured in TeleOp.
+        public static boolean HEADING_HOLD = true;
+        public static double HOLD_KP = 3.0;
+        public static double HOLD_MAX_TURN = 0.5;
+        public static double HOLD_STICK_DEADBAND = 0.05;
+        public static double HOLD_DRIVE_DEADBAND = 0.05;
+        public static double HOLD_CAPTURE_S = 0.25;
+        public static double HOLD_CAPTURE_RATE_DEG_S = 30.0;
         public static double RELOCALIZE_HOLD_S = 0.5;
         public static double RELOCALIZE_X = 10.97;
         public static double RELOCALIZE_Y = 9.69;

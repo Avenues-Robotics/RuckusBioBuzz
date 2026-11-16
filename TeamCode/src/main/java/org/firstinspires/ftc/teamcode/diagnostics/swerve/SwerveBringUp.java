@@ -1090,6 +1090,8 @@ public class SwerveBringUp extends OpMode {
         CoaxialPod.setDemandRateFeedforward(VENDORED_DEMAND_RATE_KV, VENDORED_DEMAND_RATE_TAU_S,
                 VENDORED_DEMAND_RATE_MAX_RAD_S);
         CoaxialPod.setScheduleRamp(VENDORED_SCHED_RAMP_DRIVE);
+        CoaxialPod.setScheduleHighSpeed(Constants.turnScheduleFloorHigh, Constants.turnScheduleHighStart,
+                Constants.turnScheduleHighFull);
     }
 
     private boolean followerGainsShipped() {
@@ -1116,7 +1118,10 @@ public class SwerveBringUp extends OpMode {
                 && sch[2] == VENDORED_SCHED_ERR_GATE_RAD
                 && CoaxialPod.getDemandRateFeedforward()[0] == VENDORED_DEMAND_RATE_KV
                 && CoaxialPod.getDemandRateFeedforward()[1] == VENDORED_DEMAND_RATE_TAU_S
-                && CoaxialPod.getDemandRateFeedforward()[2] == VENDORED_DEMAND_RATE_MAX_RAD_S;
+                && CoaxialPod.getDemandRateFeedforward()[2] == VENDORED_DEMAND_RATE_MAX_RAD_S
+                && CoaxialPod.getScheduleHighSpeed()[0] == (Constants.turnScheduleFloorHigh <= 0 ? -1.0 : Constants.turnScheduleFloorHigh)
+                && CoaxialPod.getScheduleHighSpeed()[1] == Constants.turnScheduleHighStart
+                && CoaxialPod.getScheduleHighSpeed()[2] == Constants.turnScheduleHighFull;
     }
 
     /** Shared body so the dashboard is fully usable during init, before START is pressed. */
@@ -3781,6 +3786,10 @@ public class SwerveBringUp extends OpMode {
                         Math.toRadians(doubleArg(cmd, "gate", Double.NaN)));
                 com.pedropathing.revhub.drivetrains.CoaxialPod.setScheduleRamp(
                         doubleArg(cmd, "ramp", Double.NaN));
+                // High-speed floor leg (2026-11-16): floorhi (<= 0 off), fhs / fhf drive power where it starts / is full.
+                com.pedropathing.revhub.drivetrains.CoaxialPod.setScheduleHighSpeed(
+                        doubleArg(cmd, "floorhi", Double.NaN), doubleArg(cmd, "fhs", Double.NaN),
+                        doubleArg(cmd, "fhf", Double.NaN));
                 // Demand-rate feed-forward (vendored 2026-11-15, default off): ffkv power per rad/s, fftau s.
                 com.pedropathing.revhub.drivetrains.CoaxialPod.setDemandRateFeedforward(
                         doubleArg(cmd, "ffkv", Double.NaN), doubleArg(cmd, "fftau", Double.NaN),

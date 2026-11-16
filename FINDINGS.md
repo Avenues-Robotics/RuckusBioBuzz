@@ -1719,3 +1719,54 @@ by hand - release them (`pidHold`) for pushes.
 brakes early, peak only 23-30 in/s on 45 in lines), strafe max velocity, the real auto paths through pedrocheck (they
 run into corners the fence will not allow). FORESIGHT_MEASURED stays false. Flywheel 35:21 target (6d190513) held at
 24:20 (f055ee7e) until the gears are swapped.
+
+## 2026-11-16 — Lunch field session: high-speed floor leg (vendored + shipped); heading / translational kP NOT changed
+
+Competition field, FTC tiles, fresh battery (12.97 V rest, 11.6-12.1 V loaded in runs). Fence armed from the
+audience-wall centre seam (70.75, 8.56, 90 deg). Lane: audience band, y 26, heading 0. All runs in
+current_runs/{lanerun,linecheck,turncheck}.jsonl and runs/*lunch_*.
+
+**Open-loop pods at speed: the gain schedule starves them.** At 0.8 drive (lanerun.py, bench DRIVE, heading hold off)
+the robot yawed 25-45 deg per 0.9 s run. The trace shows why: with a fixed 90 deg demand, pods parked 5-19 deg off
+target (p0 +19, p1 -15, p2 -6, p3 -9) commanding **0.02-0.05 power** - inside the 20 deg error gate the schedule scales the
+whole turn effort (kS included) to the 0.30 floor, which lands inside the CR servo's own deadband. Non-parallel wheels ->
+scrub + yaw. So the planned A/B (floor 0.30 vs 0.20 vs 0.12) was the wrong direction and was replaced by 0.30 / 0.60 /
+1.00 (schedule off). Scored on unclamped samples > 20 in/s, per-run steady offset (|mean err| per pod) and oscillation
+(sd err per pod), n=8 runs/arm, randomised blocks:
+
+| floor | steady offset | oscillation sd | pod |err| mean |
+|---|---|---|---|
+| 0.30 (shipped) | 5.5 deg | 7.9 | 8.8 |
+| 0.60 | 2.9 | 9.2 | 7.6 |
+| 1.00 | 4.0 | 14.9 | 12.5 |
+
+Circle guard (circle.py 110 deg/s, 0.25 drive, n=2/arm): a flat 0.60 **doubled the wiggle, 23.3 vs 10.0 reversals/lap**
+(sd 0.5 / 0.15), err 6.4 vs 5.1 deg. So the floor now depends on drive power: **vendored CoaxialPod
+setScheduleHighSpeed (RUCKUS PATCH)** ramps the floor from SCHED_FLOOR to SCHED_FLOOR_HIGH between 0.35 and 0.70 drive
+power; off (upstream-equivalent single floor) while floorHigh <= 0. Bench: setPidf floorhi / fhs / fhf; pedroReset and
+staticsShipped include it. A/B with the new code path, f30 vs fh60 (0.30 -> 0.60), n=6/arm: offset -1.7 deg [-4.7, +1.2]
+p=0.24, yaw -6.7 deg/s p=0.14. Pooled with the flat-0.60 arm (identical floor at 0.8 drive), n=14/arm: **steady offset
+3.0 vs 5.1 deg, -2.1 [-3.5, -0.8], p=0.003** (Mann-Whitney 0.002); oscillation not significantly changed.
+**Shipped:** Constants.turnScheduleFloorHigh 0.60, start 0.35, full 0.70 (applySteeringStatics).
+
+Acceptance on the installed build: circles unchanged by construction (0.25 drive is below the ramp) and measured so -
+110 deg/s err 5.5 deg, 6.6 wiggle/lap; 220 deg/s err 8.3, 6.2/lap (n=2 each). Lane n=6: steady offset **4.7 deg** - did NOT
+reproduce the A/B's 3.0. Weaker evidence (not interleaved, loaded 11.67 V vs ~11.9 in the A/B) but recorded as it is:
+the high-speed benefit is real in interleaved data and unconfirmed on the shipped build.
+
+**Follower heading kP (linecheck.py, +/-45 in lines at power 1.0, n=3/arm):** 7.7 -> 2.5 cut turn rms 0.45 -> 0.15 and line
+duration 3.86 -> 2.52 s (ranges do not overlap), heading deviation unchanged (7.7 / 7.6 deg). But +/-90 deg in-place turns
+(follower hold, n=3-6/arm): settle to +/-2 deg 1.00 s at 7.7 vs **1.46 at 2.5 (+0.46 [+0.21, +0.72], p=0.01)** and 2.5
+parks 1.5 deg short; 4.0 +0.23 s p=0.09; 5.5 +0.05 s p=0.66 but lines only 3.46 -> 3.15 s (n=4). **Kept 7.7**: the plan's
+guard (turns must not get worse) rules out 2.5, and 5.5's line gain is marginal.
+
+**Follower lines: pods at ~35 deg mean error on every arm** - a 2-4 Hz lateral / heading limit cycle (robot lateral
+velocity +/-15 in/s, heading +/-5-8 deg, follower strafe command flipping sign at ~+/-0.8 every few samples) with only
+0.02-1.8 in of cross-track error. Translational kP 0.26 -> 0.13 / 0.08 (hp 2.5): pod err 35.8 -> 31.5 / 29.9, faster
+lines (2.6 -> 2.0 s) but end error 0.33 -> 0.71 in and small overshoots; not the root, **kept 0.26**. Bench FOLLOW loop
+was 30-31 ms (~33 Hz) - phase lag at this frequency is a candidate cause, unmeasured. Open, autos only (TeleOp's manual
+drive has no translational or heading feedback).
+
+**Tooling (diagnostic):** lanerun.py --hold (bench heading hold on; it bang-bangs +/-1.0 at speed - do not use) and
+--yline (follower re-centre onto the lane before every run - without it open-loop yaw walks the robot out of the lane in
+1-2 runs). Not run: braking / decel at speed (cut for time).

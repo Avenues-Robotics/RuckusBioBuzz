@@ -108,6 +108,14 @@ public class Constants {
     // TeleOp and the autos both run them. 2026-11-15, 2x2 tiles, heading hold off (TeleOp has none):
     // stick circle (circle.py) + stick-flick square (square.py), FINDINGS "TeleOp steering".
     public static final double turnScheduleFloor = 0.30;
+    // High-speed leg of the floor (vendored 2026-11-16): ramps turnScheduleFloor -> turnScheduleFloorHigh between
+    // turnScheduleHighStart and turnScheduleHighFull drive power. <= 0 = off (single floor).
+    // 2026-11-16 competition field, open-loop 0.8-power shuttles (lanerun.py), FINDINGS "high-speed floor":
+    // steady pod offset 3.0 vs 5.1 deg at 0.30, -2.1 [-3.5, -0.8] p=0.003, n=14 runs/arm; oscillation n.s.
+    // A flat 0.60 doubled the slow-circle wiggle (23 vs 10/lap), hence the ramp: circles (0.25 drive) keep 0.30.
+    public static final double turnScheduleFloorHigh = 0.60;
+    public static final double turnScheduleHighStart = 0.35;
+    public static final double turnScheduleHighFull = 0.70;
     public static final double turnDemandRateKV = 0.045;
     public static final double turnDemandRateTauS = 0.015;
     public static final double turnDemandRateMaxDegS = 240.0;
@@ -678,6 +686,7 @@ public class Constants {
     public static void applySteeringStatics() {
         Swerve.setDemandSlewDegPerSec(demandSlewDegPerSec);
         CoaxialPod.setScheduleTuning(turnScheduleFloor, Double.NaN, Double.NaN);
+        CoaxialPod.setScheduleHighSpeed(turnScheduleFloorHigh, turnScheduleHighStart, turnScheduleHighFull);
         CoaxialPod.setDemandRateFeedforward(turnDemandRateKV, turnDemandRateTauS,
                 Math.toRadians(turnDemandRateMaxDegS));
     }

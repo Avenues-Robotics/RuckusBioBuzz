@@ -135,6 +135,32 @@ public class CoaxialPod implements SwervePod {
         if (!Double.isNaN(errGateRad)) SCHED_ERR_GATE_RAD = Math.abs(errGateRad);
     }
 
+    /**
+     * RUCKUS PATCH (2026-11-16): high-speed leg of the floor. Between {@code SCHED_HIGH_START} and
+     * {@code SCHED_HIGH_FULL} of drive power the floor ramps from {@code SCHED_FLOOR} up to {@code SCHED_FLOOR_HIGH}.
+     * Off (floor constant) while SCHED_FLOOR_HIGH is not positive - upstream-equivalent to the single floor.
+     *
+     * <p>Why: at 0.8 drive (competition field, open loop, lanerun.py) a floor of 0.30 left a pod 15-19 deg off
+     * target commanding 0.02-0.05 power - inside the CR servo's own deadband - so the four wheels parked
+     * non-parallel and the robot yawed 25-45 deg per 0.9 s run. Floor 0.60 halved the steady offset (2.9 vs 5.2
+     * deg, n=8 runs/arm) at no significant oscillation cost; but on the slow stick circle (0.25 drive) 0.60
+     * doubled the wiggle (23 vs 10 reversals/lap). Hence a floor that depends on drive power.
+     */
+    private static double SCHED_FLOOR_HIGH = -1.0;
+    private static double SCHED_HIGH_START = 0.35;
+    private static double SCHED_HIGH_FULL = 0.70;
+
+    /** RUCKUS PATCH: high-speed floor leg. NaN leaves a value alone; floorHigh <= 0 turns the leg off. */
+    public static void setScheduleHighSpeed(double floorHigh, double startDrive, double fullDrive) {
+        if (!Double.isNaN(floorHigh)) SCHED_FLOOR_HIGH = floorHigh <= 0 ? -1.0 : Utils.clamp(floorHigh, 0.05, 1.0);
+        if (!Double.isNaN(startDrive)) SCHED_HIGH_START = Math.abs(startDrive);
+        if (!Double.isNaN(fullDrive)) SCHED_HIGH_FULL = Math.max(SCHED_HIGH_START + 0.01, Math.abs(fullDrive));
+    }
+
+    public static double[] getScheduleHighSpeed() {
+        return new double[] {SCHED_FLOOR_HIGH, SCHED_HIGH_START, SCHED_HIGH_FULL};
+    }
+
     /** RUCKUS PATCH: drive power at which the schedule reaches the floor. Runtime-tunable. */
     public static void setScheduleRamp(double rampDrive) {
         if (!Double.isNaN(rampDrive)) SCHED_RAMP_DRIVE = Math.max(0.05, Math.abs(rampDrive));
@@ -447,7 +473,13 @@ public class CoaxialPod implements SwervePod {
                     (Math.abs(lastMeasuredVelocityRad) - SCHED_VEL_START_RAD_S)
                             / (SCHED_VEL_FULL_RAD_S - SCHED_VEL_START_RAD_S), 0.0, 1.0);
             double a = Math.max(aDrive, aVel);
-            raw *= 1.0 - a * (1.0 - SCHED_FLOOR);
+            double floor = SCHED_FLOOR;
+            if (SCHED_FLOOR_HIGH > 0) {
+                double h = Utils.clamp((Math.abs(drivePower) - SCHED_HIGH_START)
+                        / (SCHED_HIGH_FULL - SCHED_HIGH_START), 0.0, 1.0);
+                floor += h * (SCHED_FLOOR_HIGH - SCHED_FLOOR);
+            }
+            raw *= 1.0 - a * (1.0 - floor);
         }
 
         // RUCKUS PATCH: demand-rate feed-forward, after the schedule (see demandRateKv). Off while released.

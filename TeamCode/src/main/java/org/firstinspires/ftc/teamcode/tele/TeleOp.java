@@ -32,7 +32,8 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
  * Competition TeleOp. Controls (2026-11-15):
  * <pre>
  * DRIVER 1 (gamepad1)
- *   left stick          drive (robot-centric)
+ *   left stick          drive - robot-centric, or field-centric with SystemConstants.TeleOp.FIELD_CENTRIC
+ *   OPTIONS / START     field-centric: re-zero "forward" to where the robot faces now (point it away from you)
  *   right stick x       turn - in SHOOTER LOCK the robot turns itself to the goal; the stick still overrides
  *   right bumper        intake (hold)            left bumper   reject / outtake (hold)
  *   right trigger       shoot now (hold)         in the zone the robot also shoots by itself (not in lock)
@@ -73,6 +74,9 @@ public class TeleOp extends OpMode {
     private boolean relocalizeDone;
     private String relocalizeNote = "";
     private boolean prevLeft, prevRight, prevUp, prevDown, prevOptions, prevShare;
+    /** Field-centric re-zero (driver 1 OPTIONS): added to the alliance's drivers' heading. Cleared by relocalize. */
+    private double fieldCentricOffset;
+    private boolean prevD1Options;
 
     @Override
     public void init() {
@@ -104,7 +108,8 @@ public class TeleOp extends OpMode {
         }
         out.addData("pinpoint", pinpointGuard.status());
         out.addData("alliance (X blue, B red)", alliance);
-        out.addData("D1", "LT scoopula, RT shoot, hold SHARE = relocalize: robot in its corner, facing its wall");
+        out.addData("D1", "LT scoopula, RT shoot, hold SHARE = relocalize (corner, facing your wall), OPTIONS = "
+                + "field-centric re-zero (" + (SystemConstants.TeleOp.FIELD_CENTRIC ? "field" : "robot") + "-centric now)");
         out.addData("D2", "d-pad aim L/R + speed U/D, OPTIONS shooter lock, SHARE clear");
         out.update();
     }
@@ -142,7 +147,24 @@ public class TeleOp extends OpMode {
         if (lockForward && Math.abs(gamepad1.right_stick_x) < SystemConstants.TeleOp.AIM_STICK_OVERRIDE) {
             turn = aimTurn(pose);
         }
-        follower.manual(-gamepad1.left_stick_y, -gamepad1.left_stick_x, turn);
+        double forward = -gamepad1.left_stick_y;
+        double left = -gamepad1.left_stick_x;
+        boolean d1Options = gamepad1.options || gamepad1.start;
+        if (d1Options && !prevD1Options) {
+            fieldCentricOffset = AngleUnit.normalizeRadians(pose.heading() - driversHeading(0));
+            gamepad1.rumbleBlips(1);
+        }
+        prevD1Options = d1Options;
+        if (SystemConstants.TeleOp.FIELD_CENTRIC) {
+            // The stick is in the drivers' frame; turn it into the robot's: rotate by (drivers' heading - robot's).
+            double a = driversHeading(fieldCentricOffset) - pose.heading();
+            double c = Math.cos(a), s = Math.sin(a);
+            double rf = forward * c - left * s;
+            double rl = forward * s + left * c;
+            forward = rf;
+            left = rl;
+        }
+        follower.manual(forward, left, turn);
         follower.update();
         // Heading not moving by a single bit while turning hard = frozen Pinpoint: rumble once (works with
         // telemetry off) and say so below. Recovery is a restart of TeleOp with the robot still.
@@ -172,6 +194,10 @@ public class TeleOp extends OpMode {
             out.addData("WARNING", "Pinpoint heading FROZEN - aiming and odometry are wrong");
         }
         out.addData("alliance", alliance);
+        out.addData("drive", SystemConstants.TeleOp.FIELD_CENTRIC
+                ? String.format(java.util.Locale.US, "FIELD-centric (re-zero %+.0f deg, D1 OPTIONS)",
+                        Math.toDegrees(fieldCentricOffset))
+                : "robot-centric");
         out.addData("mode", lockForward
                 ? "SHOOTER LOCK - turret forward, heading aims, no zone (D2 OPTIONS)"
                 : "turret tracking, auto-shoot in zone");
@@ -250,12 +276,21 @@ public class TeleOp extends OpMode {
         if (held && !relocalizeDone && relocalizeHeld.seconds() >= SystemConstants.TeleOp.RELOCALIZE_HOLD_S) {
             Pose spot = relocalizePose();
             follower.setPose(spot);
+            fieldCentricOffset = 0;   // the heading is exact again: the drivers' frame needs no re-zero
             relocalizeDone = true;
             gamepad1.rumble(400);
             relocalizeNote = String.format(java.util.Locale.US, "set to (%.1f, %.1f, %.0f deg), was (%.1f, %.1f, %.0f deg)",
                     spot.x(), spot.y(), Math.toDegrees(spot.heading()), pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         }
         relocalizeHeldPrev = held;
+    }
+
+    /**
+     * The field heading that is "stick forward" for this alliance's drivers: away from their wall - red stands at
+     * x = 0 looking toward +x (0 rad), blue at the far x wall looking toward -x (pi) - plus the re-zero offset.
+     */
+    private double driversHeading(double offset) {
+        return (alliance == Alliance.BLUE ? Math.PI : 0) + offset;
     }
 
     /** The relocalize spot: SystemConstants.TeleOp.RELOCALIZE_* in the red frame, rotated 180 deg for blue. */

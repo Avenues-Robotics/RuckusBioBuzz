@@ -11,6 +11,12 @@ public final class SystemConstants {
     @Configurable
     public static class TeleOp {
         public static double TRANSLATION_PRIORITY = 0.75;
+        // Field-oriented drive: the left stick moves the robot in the DRIVERS' frame - stick forward = away from
+        // your own alliance wall (red +x, blue -x), whichever way the robot faces - using the odometry heading.
+        // Right after an auto or a corner relocalize that frame is exact; otherwise point the robot away from the
+        // drivers and press driver 1 OPTIONS to re-zero it (drive frame only - odometry and aim are untouched).
+        // false = robot-centric (stick forward = the robot's front), the behaviour before 2026-11-15.
+        public static boolean FIELD_CENTRIC = false;
         // Driver 2 aim corrections (helpers/AimOffsets): one d-pad left/right press moves the aim point this far
         // sideways (in, coach's perspective, judged from the last shot); one up/down press adds this to the
         // flywheel target (ticks/s, the regression's y-intercept). GUESSES - set them from real shots.

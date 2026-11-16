@@ -21,7 +21,8 @@ public final class SystemConstants {
         // sideways (in, coach's perspective, judged from the last shot); one up/down press adds this to the
         // flywheel target (ticks/s, the regression's y-intercept). GUESSES - set them from real shots.
         public static double AIM_STEP_IN = 1.0;
-        public static double SPEED_STEP = 25;
+        // ticks/s at the MOTOR: 18 at 35:21 is the same wheel-speed step 25 was at 24:20 (25 x 1.2 / 1.667).
+        public static double SPEED_STEP = 18;
         // Shooter lock (driver 2 OPTIONS): turret straight ahead, the robot's heading aims instead. P on a
         // projected heading (heading + w*LIN + w|w|*QUAD), the shape and the values of Foresight's heading
         // controller (Constants.headingKP / headingBrake*, measured 2026-11-15). NOT tested in TeleOp.

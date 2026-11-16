@@ -19,7 +19,11 @@ public class ShootingRegression {
     // STOPGAP 2026-11-15, not a fit: a flat 2400 ticks/s (~90% of the 2650-2675 measured at full power, 12.6 V;
     // operator: the hive needs ~100% power from a normal distance, and 2400 leaves headroom to recover after a
     // shot on a sagging battery). Replace with a Regression-tab fit. Was {0, 1}: ticks/s = inches, ~4% power.
-    public static double[] POLLEN_COEFFS = {2400, 0};
+    // 2026-11-16: pollen flywheel re-geared 24:20 (wheel 1.2x the motor) -> 35:21 (1.667x). The target is MOTOR
+    // encoder ticks/s, so the same wheel speed is 2400 x 1.2 / (35/21) = 1728. Motor then at ~65% of its loaded max
+    // (2650) instead of ~91% - room to recover after a shot and to hold speed on a sagging battery (model estimate,
+    // FINDINGS 2026-11-15). Still a stopgap: re-fit on the Regression tab, and re-check the PIDF, at the new gearing.
+    public static double[] POLLEN_COEFFS = {1728, 0};
     public static double[] NECTAR_COEFFS = {0, 1};
     /** {min, max} distance (inches) the fit was recorded over. */
     public static double[] POLLEN_RANGE = {0, 1000};

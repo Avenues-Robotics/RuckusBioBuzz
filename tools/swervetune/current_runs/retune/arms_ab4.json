@@ -1,0 +1,4 @@
+{"nohold": [["setTele", {"name": "HEADING_HOLD", "value": "false"}]],
+ "k10": [["setTele", {"name": "HOLD_KP", "value": "1.0"}], ["setTele", {"name": "HOLD_MAX_TURN", "value": "0.25"}]],
+ "k10_la15": [["setTele", {"name": "HOLD_KP", "value": "1.0"}], ["setTele", {"name": "HOLD_MAX_TURN", "value": "0.25"}], ["setTele", {"name": "AIM_BRAKE_LINEAR", "value": "0.15"}]],
+ "k06_la15": [["setTele", {"name": "HOLD_KP", "value": "0.6"}], ["setTele", {"name": "HOLD_MAX_TURN", "value": "0.25"}], ["setTele", {"name": "AIM_BRAKE_LINEAR", "value": "0.15"}]]}

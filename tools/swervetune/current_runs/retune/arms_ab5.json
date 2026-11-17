@@ -1,0 +1,2 @@
+{"nohold": [["setTele", {"name": "HEADING_HOLD", "value": "false"}]],
+ "k10": [["setTele", {"name": "HOLD_KP", "value": "1.0"}], ["setTele", {"name": "HOLD_MAX_TURN", "value": "0.25"}]]}

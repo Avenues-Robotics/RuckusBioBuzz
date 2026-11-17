@@ -1,0 +1,3 @@
+{"nohold": [["setTele", {"name": "HEADING_HOLD", "value": "false"}]],
+ "nohold_f070": [["setTele", {"name": "HEADING_HOLD", "value": "false"}], ["sched", {"floor": 0.7, "floorHigh": 0.7}]],
+ "nohold_f100": [["setTele", {"name": "HEADING_HOLD", "value": "false"}], ["sched", {"floor": 1.0, "floorHigh": 1.0}]]}

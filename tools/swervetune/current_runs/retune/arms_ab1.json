@@ -1,0 +1,3 @@
+{"shipped": [],
+ "noxlock": [["mixer", {"xlock": "false"}]],
+ "nohold": [["setTele", {"name": "HEADING_HOLD", "value": "false"}]]}

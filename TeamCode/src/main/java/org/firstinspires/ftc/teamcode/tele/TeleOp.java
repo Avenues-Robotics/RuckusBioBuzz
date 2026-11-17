@@ -10,6 +10,7 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.revhub.drivetrains.Swerve;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import org.firstinspires.ftc.teamcode.systems.Intake;
 
 import java.util.List;
@@ -81,6 +82,8 @@ public class TeleOp extends OpMode {
     /** Field-centric re-zero (driver 1 OPTIONS): added to the alliance's drivers' heading. Cleared by relocalize. */
     private double fieldCentricOffset;
     private boolean prevD1Options;
+    /** The drive command handed to follower.manual this loop (after the hold / lock / field-centric stages). */
+    private double lastForward, lastLeft, lastTurn;
 
     @Override
     public void init() {
@@ -123,8 +126,10 @@ public class TeleOp extends OpMode {
         if (pinpointGuard.finish()) {
             restorePose();
         }
-        shooterSystem = new Shooter(hardwareMap, predictor, alliance);
-        intake = new Intake(hardwareMap, alliance);
+        if (mechanismsEnabled()) {
+            shooterSystem = new Shooter(hardwareMap, predictor, alliance);
+            intake = new Intake(hardwareMap, alliance);
+        }
     }
 
     @Override
@@ -142,15 +147,18 @@ public class TeleOp extends OpMode {
             hub.clearBulkCache();
         }
 
-        driver2();
+        if (mechanismsEnabled()) {
+            driver2();
+        }
         relocalize(pose);
 
         Swerve.setTranslationPriority(SystemConstants.TeleOp.TRANSLATION_PRIORITY);
-        double turn = -gamepad1.right_stick_x;
-        double forward = -gamepad1.left_stick_y;
-        double left = -gamepad1.left_stick_x;
+        Gamepad sticks = driveSticks();
+        double turn = -sticks.right_stick_x;
+        double forward = -sticks.left_stick_y;
+        double left = -sticks.left_stick_x;
         aimErrorRad = Double.NaN;
-        if (lockForward && Math.abs(gamepad1.right_stick_x) < SystemConstants.TeleOp.AIM_STICK_OVERRIDE) {
+        if (lockForward && Math.abs(sticks.right_stick_x) < SystemConstants.TeleOp.AIM_STICK_OVERRIDE) {
             turn = aimTurn(pose);
             holdTargetRad = Double.NaN;
         } else {
@@ -171,6 +179,9 @@ public class TeleOp extends OpMode {
             forward = rf;
             left = rl;
         }
+        lastForward = forward;
+        lastLeft = left;
+        lastTurn = turn;
         follower.manual(forward, left, turn);
         follower.update();
         // Heading not moving by a single bit while turning hard = frozen Pinpoint: rumble once (works with
@@ -180,6 +191,17 @@ public class TeleOp extends OpMode {
             gamepad1.rumble(600);
         }
         frozenWarned = frozen;
+        if (mechanismsEnabled()) {
+            updateMechanisms();
+        }
+
+        if (!Config.telemetryEnabled() || !telemetryCache.due(SystemConstants.Cache.TELEMETRY_INTERVAL_MS)) {
+            return;
+        }
+        addTelemetry(pose, frozen);
+    }
+
+    private void updateMechanisms() {
         shooterSystem.setLockForward(lockForward);
         shooterSystem.setZoneAutoShoot(!lockForward);
         shooterSystem.setAimOffsets(offsets.goalDx(), offsets.goalDy(), offsets.speedOffset());
@@ -193,10 +215,9 @@ public class TeleOp extends OpMode {
             intake.update(gamepad1.left_bumper, gamepad1.right_bumper);
         }
         scoopula.update(gamepad1.left_trigger > 0.5);
+    }
 
-        if (!Config.telemetryEnabled() || !telemetryCache.due(SystemConstants.Cache.TELEMETRY_INTERVAL_MS)) {
-            return;
-        }
+    private void addTelemetry(Pose pose, boolean frozen) {
         if (frozen) {
             out.addData("WARNING", "Pinpoint heading FROZEN - aiming and odometry are wrong");
         }
@@ -223,12 +244,41 @@ public class TeleOp extends OpMode {
         out.addData("x", pose.x());
         out.addData("y", pose.y());
         out.addData("heading (deg)", Math.toDegrees(pose.heading()));
-        out.addData("in zone", shooterSystem.inZone());
-        out.addData("ready", shooterSystem.ready());
-        out.addData("pollen wheel (ticks/s)", Math.round(shooterSystem.pollenVelocity()) + " / " + Math.round(shooterSystem.pollenCommand()));
-        out.addData("F volt scale", Math.round(shooterSystem.flywheelFScale() * 1000) / 1000.0);
+        if (shooterSystem != null) {
+            out.addData("in zone", shooterSystem.inZone());
+            out.addData("ready", shooterSystem.ready());
+            out.addData("pollen wheel (ticks/s)", Math.round(shooterSystem.pollenVelocity()) + " / " + Math.round(shooterSystem.pollenCommand()));
+            out.addData("F volt scale", Math.round(shooterSystem.flywheelFScale() * 1000) / 1000.0);
+        }
         addLoopStats();
         out.update();
+    }
+
+    /**
+     * Where the drive sticks (left x/y, right x) are read from. Driver 1's gamepad here;
+     * diagnostics/swerve/TeleDriveProbe feeds laptop-scripted sticks through the same drive code.
+     */
+    protected Gamepad driveSticks() {
+        return gamepad1;
+    }
+
+    /** False skips the shooter, intake, scoopula and driver 2 (TeleDriveProbe: drivetrain only). */
+    protected boolean mechanismsEnabled() {
+        return true;
+    }
+
+    protected Follower drivetrainFollower() {
+        return follower;
+    }
+
+    /** Heading-hold target (rad), NaN while not holding. */
+    protected double headingHoldTargetRad() {
+        return holdTargetRad;
+    }
+
+    /** {forward, left, turn} handed to follower.manual on the last loop. */
+    protected double[] lastDriveCommand() {
+        return new double[] {lastForward, lastLeft, lastTurn};
     }
 
     /** Driver 2: aim offsets on the d-pad, shooter lock on OPTIONS, clear on SHARE. Rising edges only. */

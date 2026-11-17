@@ -106,6 +106,9 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 │   │                                    the fence; host: tools/swervetune/foresightbox.py; host check ForesightBoxTunerCheck.java
 │   ├── SwerveDirectTeleOp.java  RawMotorTest.java  DashboardDriveTeleOp.java
 │   ├── TeleLoopProbe.java  SwerveConfigWriter.java
+│   ├── TeleDriveProbe.java              "TeleOp Drive Probe": extends tele/TeleOp, sticks from the laptop (driveSticks() hook),
+│   │                                    mechanisms OFF, stop area (arm hx hy), live A/B setters + reset, TeleLoopProbe recorder.
+│   │                                    THE drivetrain acceptance path since 2026-11-17 (host: tools/swervetune/teleprobe.py)
 │   └── README.md
 ├── pipelines/                           PollenDetectionPipeline; tools/ = blobDetection, colorTuner, getMedian
 └── wiring/swervewiring.png
@@ -113,6 +116,7 @@ tools/swervetune/                        HOST-SIDE Python harness
 ├── swervebench.py    Bench client + scorer → trials.jsonl
 ├── drivecapture.py   chunked pod capture while a human drives → runs/
 ├── looprate_ab.py    randomized interleaved A/B driver
+├── teleprobe.py      scripted-stick tests through TeleOp's drive code (TeleDriveProbe): line/strafe/reverse/flick/circle/spin/arc A/B
 ├── robot.py          front door for a Claude session: check/state/cmd/drive/stop/constants/foresight (ROBOT_CONTROL.md)
 ├── pedrocheck.py     VALIDATION through the real Pedro follower: suite / .pp path / report (TUNING_TASK.md)
 └── ftcdash.py        FTC Dashboard WebSocket client (robot.py estop uses its STOP)

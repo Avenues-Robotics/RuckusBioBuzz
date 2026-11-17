@@ -16,6 +16,7 @@ import org.firstinspires.ftc.teamcode.diagnostics.swerve.DashboardDriveTeleOp;
 import org.firstinspires.ftc.teamcode.diagnostics.swerve.RawMotorTest;
 import org.firstinspires.ftc.teamcode.diagnostics.swerve.SwerveBringUp;
 import org.firstinspires.ftc.teamcode.diagnostics.swerve.SwerveDirectTeleOp;
+import org.firstinspires.ftc.teamcode.diagnostics.swerve.TeleDriveProbe;
 import org.firstinspires.ftc.teamcode.diagnostics.tests.colorTuner;
 import org.firstinspires.ftc.teamcode.diagnostics.tests.rangeTest;
 import org.firstinspires.ftc.teamcode.diagnostics.tests.servoRangeTest;
@@ -43,6 +44,7 @@ public final class DevOpModes {
         teleOp(manager, "Raw Motor Test", "Diagnostics", RawMotorTest.class);
         teleOp(manager, "Swerve Bring-Up", "Diagnostics", SwerveBringUp.class);
         teleOp(manager, "Swerve TeleOp", "Diagnostics", SwerveDirectTeleOp.class);
+        teleOp(manager, "TeleOp Drive Probe", "Diagnostics", TeleDriveProbe.class);
         teleOp(manager, "Mechanism Tuner", "Diagnostics", MechanismTuner.class);
         teleOp(manager, "Auto Dry Run RED (on blocks, sim pose)", "Diagnostics", AutoDryRun.class);
         teleOp(manager, "Auto Dry Run BLUE (on blocks, sim pose)", "Diagnostics", AutoDryRunBlue.class);

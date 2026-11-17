@@ -1791,3 +1791,31 @@ First driver session (TeleOp, ~4.5 min, pose from /field/state at ~13 Hz, curren
 separated from the driver's own steering; the driver's report was not received before the robot went offline. If it
 is the hold, the next step is HOLD_KP 3.0 -> 1.5 (Dashboard-editable live). The follower shows the same 2-4 Hz
 heading/lateral cycle at heading kP 7.7 (lunch entry above), so heading feedback + pod lag at speed is the suspect.
+
+## 2026-11-17 — Driver verdict on the 2026-11-16 tune, and a measurement path that is TeleOp itself (diagnostic + shipped hooks)
+
+**Verdict.** The driver drove TeleOp after the 2026-11-16 tune and called it horrible (a loose screw was found and
+fixed afterwards; it does not explain the result away). That result belongs to the tune: it was searched and
+accepted on proxies - Bring-Up open-loop shuttles, follower lines, stick circles - none of which is the driver's
+path (tele/TeleOp: sticks -> heading hold -> follower.manual -> vendored Swerve), and the TeleOp heading hold
+shipped untuned without a driver check. Next session (3x3 tiles, field centre): full retune from scratch,
+measured on the path below, accepted only after the driver drives it.
+
+**New tool (rule 9 - changes what is measured).** `diagnostics/swerve/TeleDriveProbe` ("TeleOp Drive Probe")
+extends `tele/TeleOp` and swaps only the stick source (`driveSticks()`), so the hold, the lock / field-centric
+stages, `follower.manual`, the mixer and the pods are the competition code. Differences from TeleOp: mechanisms and
+driver 2 off (no flywheel in drive tests - so its loop rate is NOT the competition loop rate); a stop area
+(`arm hx hy`, centred on the pose at arm time) that ZEROES outward translation inside 4 in + 0.30 s x speed of an
+edge - a stop, not a taper, and scorers report the zeroed share as `guard_frac`; `TeleLoopProbe`'s recorder and
+`/swerve/state`; live setters (`podGains`, `pulse`, `sched`, `ff`, `mixer`, `setTele`) and `reset` to the build's
+values. Host: `tools/swervetune/teleprobe.py` (line / strafe / diag / reverse / flick / circle / spin / arc stick
+scripts, randomised interleaved arms, Welch 95% CI vs the first arm). Metrics: stick-vs-actual direction error,
+yaw drift with no turn asked, pod error and wheel reversals, top speed and t90, stop time / distance, reversal
+time, spin rate, loop_hz_true. Scorer checked offline on the lunch run `straight_base_shipped_b4_out`
+(yaw rate rms 25.4 deg/s, matching the 7-44 deg/s reported then); NOT yet run on the robot.
+
+**Shipped change, behaviour-neutral.** `tele/TeleOp` gains the hooks the probe needs: `driveSticks()` (returns
+gamepad1), `mechanismsEnabled()` (true), read-only accessors, and the mechanism / telemetry blocks moved into
+private methods unchanged. Competition behaviour is identical; not re-measured.
+
+No number from the old proxies carries over as a baseline: every metric above starts from its first TeleDriveProbe run.

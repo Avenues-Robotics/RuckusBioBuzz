@@ -74,6 +74,33 @@ public class TeleLoopProbe {
     private final double[] power = new double[POD_COUNT];
     private final boolean[] flipped = new boolean[POD_COUNT];
 
+    /** Host commands the OpMode handles itself (TeleDriveProbe: sticks, arm). Return true if handled. */
+    public interface CommandHandler {
+        boolean handle(String action, Map<String, String> cmd);
+    }
+
+    private CommandHandler handler;
+    private String source = "DriveTeleOp";
+    private String extraJson = "";
+
+    public void setCommandHandler(CommandHandler h) {
+        handler = h;
+    }
+
+    /** Name in /state "source". */
+    public void setSource(String s) {
+        source = s;
+    }
+
+    /** Extra top-level JSON members for /state, e.g. {@code ,"box":{...}} - must start with a comma. */
+    public void setExtraJson(String json) {
+        extraJson = json == null ? "" : json;
+    }
+
+    public void setMessage(String m) {
+        message = m == null ? "" : m;
+    }
+
     /** Mode ordinal reported to host tools. Matches SwerveBringUp.Mode.DRIVE so scorers agree. */
     private static final int MODE_DRIVE = 9;
 
@@ -114,6 +141,12 @@ public class TeleLoopProbe {
      */
     public void update(double dt, double loopHz, double headingDeg, double headingTargetDeg,
             double poseX, double poseY, double cmdF, double cmdS, double cmdT) {
+        update(dt, loopHz, headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, null);
+    }
+
+    /** As above, plus the recorder's drive columns (PodRecorder.DRIVE_COLS values, or null). */
+    public void update(double dt, double loopHz, double headingDeg, double headingTargetDeg,
+            double poseX, double poseY, double cmdF, double cmdS, double cmdT, double[] drive) {
         if (!ENABLED) {
             return;
         }
@@ -143,7 +176,7 @@ public class TeleLoopProbe {
             samplePods();
             recorder.add(dt, volts, loopHz, MODE_DRIVE, Double.NaN, Double.NaN,
                     podVolts, wheelDeg, targetDeg, cmdTargetDeg, errDeg, power, flipped,
-                    headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, null, null);
+                    headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, null, drive);
         }
 
         if (publishTimer.seconds() >= PUBLISH_INTERVAL_S) {
@@ -175,7 +208,11 @@ public class TeleLoopProbe {
         }
     }
 
-    private void drainCommands() {
+    /** Drains queued host commands. update() calls it too; call it before the drive code to act this loop. */
+    public void drainCommands() {
+        if (!ENABLED) {
+            return;
+        }
         for (int guard = 0; guard < 8; guard++) {
             Map<String, String> cmd = SwerveBench.INSTANCE.poll();
             if (cmd == null) {
@@ -189,10 +226,12 @@ public class TeleLoopProbe {
             } else if ("recStop".equals(action)) {
                 recorder.stop();
                 message = "Recorded " + recorder.count() + " samples.";
+            } else if (handler != null && handler.handle(action, cmd)) {
+                // handled by the OpMode
             } else {
                 // Everything else belongs to the bring-up tool. Say so rather than swallowing it:
                 // a host script pointed at the wrong OpMode otherwise looks like a dead robot.
-                message = "DriveTeleOp ignores \"" + action + "\" - only recStart/recStop are "
+                message = source + " ignores \"" + action + "\" - only recStart/recStop are "
                         + "handled here. Run Swerve Bring-Up for the rest.";
             }
         }
@@ -243,7 +282,7 @@ public class TeleLoopProbe {
     private void publish(double loopHz, double headingDeg, double headingTargetDeg,
             double poseX, double poseY, double cmdF, double cmdS, double cmdT) {
         StringBuilder sb = new StringBuilder(1024);
-        sb.append("{\"live\":true,\"source\":\"DriveTeleOp\",\"mode\":\"DRIVE\",\"started\":true")
+        sb.append("{\"live\":true,\"source\":\"").append(esc(source)).append("\",\"mode\":\"DRIVE\",\"started\":true")
                 .append(",\"busy\":false,\"selected\":0")
                 .append(",\"loopHz\":").append(f(loopHz))
                 .append(",\"voltage\":").append(f(volts))
@@ -271,6 +310,7 @@ public class TeleLoopProbe {
                 .append(",\"overflowed\":").append(recorder.overflowed())
                 .append(",\"label\":\"").append(esc(recorder.label())).append("\"}");
 
+        sb.append(extraJson);
         sb.append(",\"pods\":[");
         for (int i = 0; i < POD_COUNT; i++) {
             CoaxialPod pod = pods == null ? null : pods[i];

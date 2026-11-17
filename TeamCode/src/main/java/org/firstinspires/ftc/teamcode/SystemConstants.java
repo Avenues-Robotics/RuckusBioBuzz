@@ -50,10 +50,17 @@ public final class SystemConstants {
         // heading corrections swing every pod. Off at rest (no pod jitter standing still), off under the turn stick
         // (above HOLD_STICK_DEADBAND) and in SHOOTER LOCK. The target is captured HOLD_CAPTURE_S after the stick is
         // released, or earlier once the robot turns slower than HOLD_CAPTURE_RATE_DEG_S, so it keeps the heading the
-        // driver turned to instead of snapping back. Gains are first guesses - NOT yet measured in TeleOp.
+        // driver turned to instead of snapping back.
+        // Gains measured 2026-11-17 through TeleOp's own drive code (TeleDriveProbe, 3x3 tiles, 11.6-12.7 V,
+        // randomised interleaved, FINDINGS): the old kP 3.0 / max 0.5 drove a ~3 Hz heading limit cycle - yaw-rate
+        // rms 57 vs 16 deg/s with the hold off, pod error 19.7 vs 4.0 deg (lines, n=4/arm, p<0.001). kP 1.8 and any
+        // longer brake lookahead (AIM_BRAKE_LINEAR 0.15) also oscillate. kP 1.0 / max 0.25 at 0.6 power: heading drift
+        // per 0.8 s run 3.6 vs 7.7 deg with the hold off ([-5.8, -2.4], p<0.001, n=30/31), wobble not different
+        // (+1.6 [-3.1, +6.2] deg/s), wheel reversals +1.6/s (p=0.010). At 0.9 power mixed (reversals -5.4 deg drift,
+        // p=0.038; lines n.s., wobble +14 deg/s p=0.089). Driver decides on/off (HEADING_HOLD is Dashboard-live).
         public static boolean HEADING_HOLD = true;
-        public static double HOLD_KP = 3.0;
-        public static double HOLD_MAX_TURN = 0.5;
+        public static double HOLD_KP = 1.0;
+        public static double HOLD_MAX_TURN = 0.25;
         public static double HOLD_STICK_DEADBAND = 0.05;
         public static double HOLD_DRIVE_DEADBAND = 0.05;
         public static double HOLD_CAPTURE_S = 0.25;

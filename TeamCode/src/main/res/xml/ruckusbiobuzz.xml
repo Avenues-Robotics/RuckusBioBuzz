@@ -19,8 +19,8 @@
       time with the operator naming the corner (tools log: RUN_STATE.md / FINDINGS.md):
         corner  motor          servo          encoder (Constants.podEncoderNames)
         BR      sm0 port 3     ss0 port 3     se0 analog 0
-        FR      sm1 port 0     ss1 port 1     se2 analog 2
-        FL      sm2 port 1     ss2 port 2     se3 analog 3
+        FR      sm1 port 1     ss1 port 1     se2 analog 2
+        FL      sm2 port 0     ss2 port 2     se3 analog 3
         BL      sm3 port 2     ss3 port 4     se1 analog 1
       se0-se3            Axon absolute enc.  analog ports 0-3  (name = analog port number)
       pollenTurretServo  pollen turret       servo port 5      (systems/turret)
@@ -40,8 +40,8 @@
 <Robot type="FirstInspires-FTC">
     <LynxUsbDevice name="Control Hub Portal" serialNumber="(embedded)" parentModuleAddress="173">
         <LynxModule name="Control Hub" port="173">
-            <Motor name="sm1" port="0" />
-            <Motor name="sm2" port="1" />
+            <Motor name="sm2" port="0" />
+            <Motor name="sm1" port="1" />
             <Motor name="sm3" port="2" />
             <Motor name="sm0" port="3" />
             <ContinuousRotationServo name="ss1" port="1" />

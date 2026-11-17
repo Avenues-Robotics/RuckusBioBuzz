@@ -6,6 +6,7 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.pedropathing.revhub.drivetrains.CoaxialPod;
 import com.pedropathing.revhub.drivetrains.Swerve;
+import com.pedropathing.revhub.drivetrains.SwerveConfig;
 import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.teamcode.SystemConstants;
@@ -66,6 +67,7 @@ public class TeleDriveProbe extends TeleOp {
     private double[] schedShipped, schedHighShipped, ffShipped;
     private double slewShipped, rolloutShipped;
     private boolean taperShipped;
+    private SwerveConfig.ZeroPowerBehavior zeroShipped;
     private final Map<String, Object> teleShipped = new java.util.HashMap<>();
 
     @Override
@@ -87,6 +89,7 @@ public class TeleDriveProbe extends TeleOp {
         slewShipped = Swerve.getDemandSlewDegPerSec();
         rolloutShipped = Swerve.getSmallTurnRolloutS();
         taperShipped = Swerve.getEpsilonTaper();
+        zeroShipped = Constants.swerveConfig.zeroPowerBehavior.get();
         for (Field f : SystemConstants.TeleOp.class.getFields()) {
             if (Modifier.isStatic(f.getModifiers()) && !Modifier.isFinal(f.getModifiers())) {
                 try {
@@ -276,6 +279,11 @@ public class TeleDriveProbe extends TeleOp {
                     if (!Double.isNaN(slew)) Swerve.setDemandSlewDegPerSec(slew);
                     if (!Double.isNaN(roll)) Swerve.setSmallTurnRolloutS(roll);
                     if (cmd.containsKey("taper")) Swerve.setEpsilonTaper(Boolean.parseBoolean(cmd.get("taper")));
+                    if (cmd.containsKey("xlock")) {
+                        // Constants.swerveConfig is the live config the Swerve reads every call. Static: reset/stop restore it.
+                        Constants.swerveConfig.zeroPowerBehavior.set(Boolean.parseBoolean(cmd.get("xlock"))
+                                ? SwerveConfig.ZeroPowerBehavior.X_LOCK : SwerveConfig.ZeroPowerBehavior.IGNORE_ANGLE_CHANGES);
+                    }
                     probe.setMessage("mixer set: " + tuneJson());
                     return true;
                 }
@@ -365,6 +373,7 @@ public class TeleDriveProbe extends TeleOp {
             Swerve.setDemandSlewDegPerSec(slewShipped);
             Swerve.setSmallTurnRolloutS(rolloutShipped);
             Swerve.setEpsilonTaper(taperShipped);
+            Constants.swerveConfig.zeroPowerBehavior.set(zeroShipped);
         }
         for (Map.Entry<String, Object> e : teleShipped.entrySet()) {
             try {
@@ -402,6 +411,7 @@ public class TeleDriveProbe extends TeleOp {
                 .append(",\"ffMaxDeg\":").append(r(Math.toDegrees(ff[2])))
                 .append(",\"slew\":").append(r(Swerve.getDemandSlewDegPerSec()))
                 .append(",\"taper\":").append(Swerve.getEpsilonTaper())
+                .append(",\"xlock\":").append(Constants.swerveConfig.zeroPowerBehavior.get() == SwerveConfig.ZeroPowerBehavior.X_LOCK)
                 .append(",\"rollout\":").append(r(Swerve.getSmallTurnRolloutS()))
                 .append(",\"hold\":").append(SystemConstants.TeleOp.HEADING_HOLD)
                 .append(",\"holdKp\":").append(r(SystemConstants.TeleOp.HOLD_KP))

@@ -1819,3 +1819,30 @@ gamepad1), `mechanismsEnabled()` (true), read-only accessors, and the mechanism 
 private methods unchanged. Competition behaviour is identical; not re-measured.
 
 No number from the old proxies carries over as a baseline: every metric above starts from its first TeleDriveProbe run.
+
+## 2026-11-17 — 3x3 retune through TeleOp's drive code: motor swap found, heading hold kP 3.0 -> 1.0 (shipped), schedule floor kept
+
+All numbers from `TeleDriveProbe` (tele/TeleOp's own drive code, mechanisms off), 3x3 tiles in the field centre,
+stop area +/-22 in, randomised interleaved arms, `teleprobe.py` scoring; volts 11.6-12.9 under load (logged per run in
+`tools/swervetune/current_runs/teleprobe.jsonl`, labels base1, fixchk*, ab1-ab5). Loop rates here are the PROBE's
+(no mechanisms) - 48-75 Hz true - and are not the competition loop rate.
+
+1. **Encoder pairing re-checked** (operator: "servo encoders got switched"). Bring-Up wire scan: ss0->se0, ss1->se2,
+   ss2->se3, ss3->se1, all unambiguous, servo directions as shipped - identical to Constants.podEncoderNames, no change.
+2. **FL / FR drive motors were swapped** (operator; config fixed in bd924818). Before: CCW spin 15-17 deg/s with every
+   drive power the same sign, strafes 148-163 deg off the stick with 45-77 deg yaw. After: spins 121-130 deg/s both ways.
+3. **Shipped heading hold (kP 3.0, max 0.5) was the fishtail.** Lines n=4/arm: yaw-rate rms 57.0 vs 16.3 deg/s with the
+   hold off (-40.7 [-52.3, -29.1], p<0.001), pod error 19.7 vs 4.0 deg, top speed 25 vs 33 in/s; strafes the same.
+   A ~3 Hz limit cycle: hold turn +/-0.27-0.50, heading +/-3-5 deg, pods lagging their swung targets by up to 50 deg.
+4. **Hold off, the robot still drifts 3-14 deg per 0.8 s run, sign varying run to run** - pods park 4-8 deg off target at
+   speed (non-parallel wheels). Schedule floor 0.7 / 1.0 did NOT fix it (n.s.) and floor 1.0 added wheel reversals
+   (strafe +8.4/s, p=0.004): floor stays 0.30 / high 0.60.
+5. **Hold kP 1.0, max turn 0.25 (shipped).** Pooled over ab3+ab4 at 0.6 power, n=30 vs 31 runs: drift 3.6 vs 7.7 deg
+   (-4.1 [-5.8, -2.4], p<0.001), wobble 19.2 vs 17.6 deg/s (n.s.), reversals +1.6/s (p=0.010). kP 1.8 oscillates
+   (lines +27 deg/s, p=0.025); a 0.15 s brake lookahead oscillates at kP 0.6 and 1.0 (strafe +24 / +39 deg/s, p<=0.001).
+   At 0.9 power (ab5, n=4-5): reversals drift 4.0 vs 9.4 deg (p=0.038), strafe/line drift n.s., line wobble +14 deg/s
+   (p=0.089) - the hold is weaker evidence at full speed. HEADING_HOLD is Dashboard-live; the driver decides.
+6. **X-lock at rest: no significant effect** on any metric except reversal t90 -0.05 s with it off (p=0.036). Kept.
+
+Not done this session: pod turn gains (kP/kD/kS) - pods held 4-8 deg mean while driving with the hold off, not
+retuned; full-power (1.0) runs do not fit the 3x3 (50+ in/s, 7-10 in stops trip the stop area). Driver check pending.

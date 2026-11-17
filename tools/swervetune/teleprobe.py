@@ -119,6 +119,54 @@ def script(test: str, s: dict, a) -> tuple:
     raise SystemExit(f"unknown test {test}")
 
 
+def goto(x: float, y: float, hdg: float = 0.0, timeout: float = 10.0, tol_in: float = 1.5, tol_deg: float = 5.0) -> bool:
+    """Drives (through the same TeleOp path) to field (x, y, hdg) with a P law on the pose. Returns True when there."""
+    t0 = time.time()
+    try:
+        while time.time() - t0 < timeout:
+            s = probe_state()
+            p, h = s["pose"], s["heading"]["deg"]
+            ex, ey = x - p["x"], y - p["y"]
+            eh = ((hdg - h + 180) % 360) - 180
+            dist = math.hypot(ex, ey)
+            if dist < tol_in and abs(eh) < tol_deg:
+                return True
+            hr = math.radians(h)
+            f = ex * math.cos(hr) + ey * math.sin(hr)
+            l = -ex * math.sin(hr) + ey * math.cos(hr)
+            mag = min(0.45, 0.035 * dist)
+            if dist >= tol_in:
+                mag = max(mag, 0.24)
+            n = math.hypot(f, l)
+            f, l = (f / n * mag, l / n * mag) if n > 1e-6 and dist >= tol_in else (0.0, 0.0)
+            t = 0.0 if abs(eh) < tol_deg else max(-0.30, min(0.30, 0.006 * eh + math.copysign(0.07, eh)))
+            sticks(f, l, t)
+            time.sleep(PERIOD_S)
+        # timed out: close enough still counts (the creep near the target is the slow part)
+        s = probe_state()
+        eh = ((hdg - s["heading"]["deg"] + 180) % 360) - 180
+        return math.hypot(x - s["pose"]["x"], y - s["pose"]["y"]) < 3.0 and abs(eh) < 8.0
+    finally:
+        stop_all()
+        time.sleep(0.5)
+
+
+# Field direction each test drives first, for the start point (heading 0 at start: robot frame == field frame).
+FIRST_DIR = {"line": (1, 0), "reverse": (1, 0), "arc": (1, 0), "strafe": (0, 1),
+             "diag": (math.sqrt(0.5), math.sqrt(0.5)), "flick": (math.sqrt(0.5), math.sqrt(0.5))}
+
+
+def start_point(s: dict, test: str, run_in: float) -> tuple[float, float, float]:
+    """Where to start so the run has room ahead: centre - run_in/2 along the first direction (random sign)."""
+    b = s["box"]
+    cx, cy = (b["minX"] + b["maxX"]) / 2, (b["minY"] + b["maxY"]) / 2
+    if test in ("spin", "circle"):
+        return cx, (cy - 8 if test == "circle" else cy), 1.0
+    sg = 1.0 if random.random() < 0.5 else -1.0
+    ux, uy = FIRST_DIR[test]
+    return cx - sg * ux * run_in / 2, cy - sg * uy * run_in / 2, sg
+
+
 def run_script(fn, dur: float, settle: float) -> tuple[str | None, int]:
     s0 = probe_state()
     stops0 = s0["box"].get("stops", 0)
@@ -273,6 +321,21 @@ def cmd_status(_a) -> int:
     return EXIT_OK
 
 
+def cmd_home(a) -> int:
+    if not a.confirmed_floor:
+        print("REFUSED: --confirmed-floor")
+        return EXIT_REFUSED
+    s = probe_state()
+    if not s["box"].get("valid"):
+        print("REFUSED: stop area not armed")
+        return EXIT_REFUSED
+    b = s["box"]
+    ok = goto((b["minX"] + b["maxX"]) / 2, (b["minY"] + b["maxY"]) / 2, 0.0)
+    s = probe_state()
+    print(("home" if ok else "NOT home") + f": pose ({s['pose']['x']:.1f}, {s['pose']['y']:.1f}) heading {s['heading']['deg']:.1f}")
+    return EXIT_OK if ok else EXIT_REFUSED
+
+
 def cmd_reset(_a) -> int:
     probe_state()
     send("reset")
@@ -304,6 +367,11 @@ def cmd_run(a) -> int:
                 for action, params in arms[name]:
                     send(action, **params)
                     time.sleep(0.15)
+                if a.home:
+                    sx, sy, _ = start_point(probe_state(), test, a.run_in)
+                    if not goto(sx, sy, 0.0):
+                        print(f"[{name} {test} b{block}] could not reach the start point - skipping", flush=True)
+                        continue
                 s = probe_state()
                 fn, dur = script(test, s, a)
                 label = f"{a.label}_{name}_{test}_b{block}"
@@ -345,6 +413,8 @@ def main() -> int:
     p.add_argument("--confirmed-floor", action="store_true")
     sub.add_parser("status")
     sub.add_parser("reset")
+    p = sub.add_parser("home")
+    p.add_argument("--confirmed-floor", action="store_true")
     p = sub.add_parser("run")
     p.add_argument("--label", required=True)
     p.add_argument("--arms", required=True)
@@ -357,9 +427,11 @@ def main() -> int:
     p.add_argument("--settle", type=float, default=1.2)
     p.add_argument("--rest", type=float, default=0.5)
     p.add_argument("--surface", default="tiles")
+    p.add_argument("--no-home", dest="home", action="store_false", help="do not drive to a start point before each run")
+    p.add_argument("--run-in", type=float, default=30.0, help="start this far behind centre along the run (in)")
     p.add_argument("--confirmed-floor", action="store_true")
     a = ap.parse_args()
-    return {"arm": cmd_arm, "status": cmd_status, "reset": cmd_reset, "run": cmd_run}[a.cmd](a)
+    return {"arm": cmd_arm, "status": cmd_status, "reset": cmd_reset, "run": cmd_run, "home": cmd_home}[a.cmd](a)
 
 
 if __name__ == "__main__":

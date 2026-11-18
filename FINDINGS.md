@@ -1947,3 +1947,9 @@ battery swap). First battery 12.05 V rest; second 13.94 V rest.
   lower gain.
 - **Shipped and installed:** Mechanism Tuner init shows (45, 0.1, 0, 12.75). Not measured: exit-velocity
   consistency; the competition TeleOp path (compensated F) on real shots; cadence under ~0.5 s.
+- **Rapid fire, 4 pollen (rapid4-pollen.csv), installed gains with F 12.4 (= 12.75 compensated at ~13 V), intake
+  IN, gate 0.347, 12.0 V under load:** all four shots inside 1.2 s, 0.37 / 0.46 / 0.37 s apart. Dips to 1600 /
+  1580 / 1580 / 1580 (7.4-8.6%). Back inside the 5% band about 220-260 ms after each ball, so every ball after the
+  first left ~6% slow, not at full speed; after the 4th, back in band ~0.23 s and at 1720 ~0.57 s (18.42 s; the
+  burst started 16.65 s). The rapidfire dip detector scored this burst as ONE shot (it re-arms after 300 ms +
+  recovery): read bursts from the trace. Velocity reads in 20 ticks/s steps.

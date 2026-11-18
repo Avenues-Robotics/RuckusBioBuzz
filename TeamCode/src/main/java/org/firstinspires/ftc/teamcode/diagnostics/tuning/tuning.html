@@ -237,6 +237,28 @@
       <span class="hint">The band is <code>flywheel.AT_SPEED_FRACTION</code>: the shooter opens the gate only inside it.</span>
     </div>
   </section>
+  <section>
+    <h2>Feed — intake and gate</h2>
+    <p class="hint" style="margin-top:0">For real-shot tests (shots, A/B, rapid fire): run the intake and lower the
+      gate so pieces reach the flywheel. <b>Feed on</b> does both; <b>Feed off</b> stops the intake and raises the gate.
+      Gate positions default to the shipped <code>Gate.openPos</code> / <code>closePos</code>; edit them here if needed.</p>
+    <div class="row">
+      <button class="primary" onclick="feedOn()">Feed on (intake + gate down)</button>
+      <button class="stop" onclick="feedOff()">Feed off</button>
+      <span class="stat" id="feedInfo"></span>
+    </div>
+    <div class="row">
+      <span>Intake</span>
+      <button class="small" onclick="cmd('intake',{mode:'IN'})">Intake</button>
+      <button class="small" onclick="cmd('intake',{mode:'OUT'})">Reverse</button>
+      <button class="small" onclick="cmd('intake',{mode:'OFF'})">Off</button>
+      <span style="margin-left:16px">Gate</span>
+      <button class="small" onclick="gateTo('feedGateDown')">Lower (open)</button>
+      <button class="small" onclick="gateTo('feedGateUp')">Raise (close)</button>
+      <label class="inline">down <input type="number" id="feedGateDown" value="0.347" step="0.005" min="0" max="1"></label>
+      <label class="inline">up <input type="number" id="feedGateUp" value="0.482" step="0.005" min="0" max="1"></label>
+    </div>
+  </section>
   <div class="grid" id="wheelCards"></div>
   <section>
     <h2>How to tune the flywheels</h2>
@@ -851,6 +873,10 @@ function cmd(action, params) {
     .then(function (j) { lastSeq = j.seq; return j; })
     .catch(function () { $('hdrMsg').textContent = 'Command not delivered (robot offline?)'; });
 }
+// Feed panel (Flywheels tab): intake + gate for real-shot tests.
+function gateTo(id) { return cmd('servoPos', {name: 'gate', pos: num(id)}); }
+function feedOn() { return cmd('intake', {mode: 'IN'}).then(function () { return gateTo('feedGateDown'); }); }
+function feedOff() { return cmd('intake', {mode: 'OFF'}).then(function () { return gateTo('feedGateUp'); }); }
 function say(t) { $('hdrMsg').textContent = t; }
 
 function copy(id, btn) {
@@ -1786,6 +1812,11 @@ function render() {
   $('swerveStatus').innerHTML = S && S.swerveLive
     ? '<span class="badge good">Swerve Bring-Up is running</span> — open <a href="/swerve" target="_blank">/swerve</a>.'
     : '<span class="badge">Swerve Bring-Up is not running</span> — select it on the Driver Station to tune the drivetrain.';
+  if (live && S.intake && S.servos) {
+    var g = S.servos.filter(function (x) { return x.name === 'gate'; })[0];
+    setText('feedInfo', (S.intake.ok ? 'intake ' + S.intake.mode : 'intake unavailable') +
+      ' · gate ' + (g && g.pos != null ? g.pos.toFixed(3) : 'not set'));
+  }
   renderChecks();
   if (!live) {
     $('ovStatus').className = 'msg bad';

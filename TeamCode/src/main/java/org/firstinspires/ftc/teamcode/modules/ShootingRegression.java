@@ -23,8 +23,9 @@ public class ShootingRegression {
     // encoder ticks/s, so the same wheel speed is 2400 x 1.2 / (35/21) = 1728. Motor then at ~65% of its loaded max
     // (2650) instead of ~91% - room to recover after a shot and to hold speed on a sagging battery (model estimate,
     // FINDINGS 2026-11-15). Still a stopgap: re-fit on the Regression tab, and re-check the PIDF, at the new gearing.
-    // HELD AT 24:20 until the 35:21 gears are physically swapped (operator 2026-11-16): 2400. After the swap: 1728.
-    public static double[] POLLEN_COEFFS = {2400, 0};
+    // 35:21 installed 2026-11-16 (operator; no flywheel weight yet): 2400 x 1.2 / (35/21) = 1728 - same wheel speed
+    // as 2400 at 24:20. Re-fit on the Regression tab.
+    public static double[] POLLEN_COEFFS = {1728, 0};
     public static double[] NECTAR_COEFFS = {0, 1};
     /** {min, max} distance (inches) the fit was recorded over. */
     public static double[] POLLEN_RANGE = {0, 1000};

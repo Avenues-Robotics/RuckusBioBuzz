@@ -1920,3 +1920,30 @@ Same strip and tool as the morning entry, after the `podGains` fix (7ad78c28). V
 6. **Post-deploy (kp28post, shipped build, robot reports kp 0.28; n=12 translation + 4 spin, 0 stop-area, 12.46 V
    rest / 11.7 V under load):** cruise oscillation sd 0.59 +/- 0.36 deg, offset 2.86 deg, reversals > 2 deg 1.71
    /pod-s, yaw-rate rms 10.1 deg/s - in line with the kP 0.28 arm (0.54 / 3.12 / 1.04). Driver check pending.
+
+## 2026-11-18 — Pollen flywheel after the inertia add: (10, 0.1, 0, 12.4) -> (45, 0.1, 0, 12.75) (shipped)
+
+Mechanism Tuner, robot on tiles, pollen wheel only (nectar unmounted), 35:21, target T = 1728 ticks/s (the
+uncommitted `ShootingRegression` value). Operator confirmed clear before every spinning block (again after the
+battery swap). First battery 12.05 V rest; second 13.94 V rest.
+
+- **ff needs longer holds now.** 2 s holds gave F_fit 16.0 / 13.6 (17% apart) and +0.5 power read 580 ticks/s:
+  the heavier wheel had not reached speed. 5 s holds: F_full 13.66 / 13.61 (0.3%) at ~11.8 / 11.76 V, top speed
+  ~2400; the 0.5-power point read high (still coasting down from the previous sweep). At the 12.6 V reference
+  `Flywheel.compensateF` uses: F = 12.75 (11-15 at 24:20 was 12.4 at 12.6 V).
+- **Shipped gains cannot hold T.** Steps 864 -> 1728 settled 62-125 ticks/s low (band 86.4), 2/3 never settled,
+  rise 2.2 s. Hold A/B, 11.6 V, n=6 interleaved: in band 0.19 (never armed) vs 1.00 for (45, 0.1, 0, 13.6),
+  +0.81 [+0.62, +1.00], t=10.8, p=0.0001.
+- **P search at F 13.6 (11.5-11.8 V, n=2 steps each):** P 10 ss +67 / -14, P 25 -18 / -30, **P 45 -0.6 / +2.0,
+  overshoot 1.5%**, P 70 -1.4 / -2.5, overshoot 2.5%. Rise 1.0 s at P >= 45: full motor power - inertia, not
+  gains, now sets spin-up.
+- **Kicks no longer search.** 120 ms disable: no dip event; 400 ms: dip ~5.1% (just over the band), recovery
+  5-950 ms with no order across P. Real shots only.
+- **Real shots, first battery: abandoned.** 8 shots fed at 9.7-10.8 V under load (intake + flywheel), recovery
+  13-507 ms tracking the sag. Not used.
+- **Real shots, fresh battery (seed 1119), 12.48-13.11 V, F 12.31 (= 12.75 compensated), intake IN, gate
+  0.347:** P 45 98.7 +/- 42.6 ms (n=10), P 70 85.4 +/- 27.3 ms (n=10), B - A -13.3 [-47.3, +20.8], p=0.42,
+  0 failures each. Recovery rose with the sag in both arms (29 -> 161 ms). P 70 NOT shown better: shipped the
+  lower gain.
+- **Shipped and installed:** Mechanism Tuner init shows (45, 0.1, 0, 12.75). Not measured: exit-velocity
+  consistency; the competition TeleOp path (compensated F) on real shots; cadence under ~0.5 s.

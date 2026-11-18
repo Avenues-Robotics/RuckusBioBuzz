@@ -113,7 +113,16 @@ public final class SystemConstants {
         public static double F_NOMINAL_VOLTS = 12.6;
         public static double F_COMP_TAU_S = 1.0;
         public static double F_COMP_UPDATE_MS = 250;
-        public static PIDFCoefficients POLLEN_PIDF = new PIDFCoefficients(10, 0.1, 0, 12.4);
+        // POLLEN (10, 0.1, 0, 12.4) -> (45, 0.1, 0, 12.75), 2026-11-18, after the operator added flywheel inertia
+        // (35:21 gearing, target 1728 ticks/s). Mechanism Tuner, tiles, volts per result. ff with 5 s holds (2 s
+        // holds no longer reach steady state): F_full 13.66 / 13.61 at ~11.8 / 11.76 V = 12.75 at F_NOMINAL_VOLTS
+        // (the tool sends F raw; this class compensates). Hold A/B at 1728, 11.6 V, n=6 interleaved: shipped in
+        // band 0.19 of the time (never armed), (45, 0.1, 0, 13.6) 1.00 (+0.81 [+0.62, +1.00], p=0.0001). Steps
+        // 864 -> 1728: P 45 rise 1.0 s (motor-saturated: P 70 no faster), overshoot 1.5%, ss error ~0 (P 25: -18
+        // to -30). Real shots, 12.5-13.1 V, F 12.31 (= 12.75 compensated), n=10/arm interleaved, 0 failures each:
+        // P 45 98.7 +/- 42.6 ms, P 70 85.4 +/- 27.3 ms (-13 [-47, +21], p=0.42 - P 70 not shown better).
+        // Synthetic kicks no longer separate gains (400 ms disable dips the heavier wheel only ~5%).
+        public static PIDFCoefficients POLLEN_PIDF = new PIDFCoefficients(45, 0.1, 0, 12.75);
         public static PIDFCoefficients NECTAR_PIDF = new PIDFCoefficients(500, 0, 0, 11.7);
     }
 

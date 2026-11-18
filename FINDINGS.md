@@ -1846,3 +1846,39 @@ stop area +/-22 in, randomised interleaved arms, `teleprobe.py` scoring; volts 1
 
 Not done this session: pod turn gains (kP/kD/kS) - pods held 4-8 deg mean while driving with the hold off, not
 retuned; full-power (1.0) runs do not fit the 3x3 (50+ in/s, 7-10 in stops trip the stop area). Driver check pending.
+
+## 2026-11-18 — Pod steering gains: flat, unchanged. Heading hold kP 1.0 -> 0.6 (shipped)
+
+All from `TeleDriveProbe` (TeleOp's own drive code, mechanisms off) on FTC tiles, a **2x6-tile strip** (stop area
++/-56 x +/-13 in, robot facing along the strip), 0.6 power, 1.0 s runs, randomised interleaved arms, fresh battery
+13.17 V resting at start, 11.9-12.8 V under load across the session (per run in `current_runs/teleprobe.jsonl`,
+labels podsmoke, kp1, kskd1, wob1, k06c, k06post). Tests: line, strafe, diag, spin.
+
+**Tool change (diagnostic, declared per rule 9):** `teleprobe.py` start points in a strip (one side > 1.5x the
+other) turn the robot first so each test's first direction lies along the long axis (strafe at -90 deg, diag at
+-45 deg); in a square area nothing changes (heading 0). Spin runs now score pod error over the whole stick-on
+segment (it was NaN: no translation, so no "moving" samples). Earlier datasets keep their meaning.
+
+1. **Pod kP 0.30 / 0.38 / 0.50 (kp1, n=4 per test per arm): no consistent effect.** kP 0.30 cut spin pod error
+   (-2.9 [-4.3, -1.6] deg, p=0.003) but raised line direction error p95 (+5.9 [+0.7, +11.0], p=0.032); 0.50 better
+   nowhere. Kept 0.38.
+2. **kS 0.05 / 0.11, kD 0 / 0.03 vs shipped (kskd1, n=3-4 per test per arm): flat.** Pooled pod error 6.45-6.72 deg
+   on every arm (shipped 6.51); only kD 0 diag speed -1.9 in/s (p=0.025). Kept kS 0.08, kD 0.015.
+3. **The variation that matters is bimodal and not in the pods.** 40% of line/strafe runs at every pod gain fell
+   into the ~3 Hz heading limit cycle (yaw-rate rms 30-58 vs 3-15 deg/s, pod error 10-16 vs 3-4 deg, hold turn
+   swinging +/-0.15-0.2, pods +/-30 deg); diag runs never did (0/14). Yaw-rate sign / lag checked: Pinpoint omega
+   tracks d(heading)/dt (r = 0.82-0.93, ~2 samples late), so the hold's lookahead is not inverted.
+4. **Mixer demand slew 300 (shipped) vs 550 vs off (wob1): did not fix it** - 4/12 wobbly runs each vs 6/12.
+   Unchanged.
+5. **Heading hold kP 0.6 fixes it (shipped).** wob1 + k06c pooled, line + strafe: wobbly runs 1/31 vs 14/32 at kP
+   1.0 (Fisher p=0.0002); yaw-rate rms 11.2 vs 25.7 deg/s (-14.5 [-21.0, -8.1], p=0.0001); pod error 4.0 vs 7.4 deg
+   (p=0.001); heading drift per run 3.6 vs 4.4 deg (-0.8 [-1.7, +0.1], p=0.07 - not worse); stop distance +0.9 in
+   (p=0.001, the wobbling runs were slower). The confirmation alone (k06c): 0/19 vs 8/20 (p=0.003).
+   Yesterday kP 1.0 wobbled 3/11 at 11.6-12.7 V: the cycle is bistable and likelier on a fresh battery, so a
+   tired-battery A/B under-reports it.
+6. **Post-deploy check (k06post, shipped build, n=5 per test): 0/10 wobbly**, yaw-rate rms 10.0 deg/s mean (max
+   24.5), pod error 4.1 deg, 12.0 V under load.
+
+Open: full power (0.9-1.0) not re-checked at kP 0.6; driver check on the real TeleOp pending; wheel reversals
+still 7-10 per pod-second at 0.5 deg hysteresis while driving straight (pulsed-approach / kS dither - not moved by
+any gain tested).

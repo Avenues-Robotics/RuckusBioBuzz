@@ -65,6 +65,8 @@ public class TeleDriveProbe extends TeleOp {
 
     /** Shipped values captured at init, for {@code reset}. */
     private double[] schedShipped, schedHighShipped, ffShipped;
+    /** Pod turn PIDF integral band (rad), reset threshold (rad), limit (power) at init - Constants builds them stock. */
+    private final double[] iShipped = {Double.POSITIVE_INFINITY, 0.0, 0.25};
     private double slewShipped, rolloutShipped;
     private boolean taperShipped;
     private SwerveConfig.ZeroPowerBehavior zeroShipped;
@@ -83,6 +85,12 @@ public class TeleDriveProbe extends TeleOp {
     @Override
     public void init() {
         super.init();
+        if (Constants.builtPods[0] != null) {
+            PIDFController c0 = Constants.builtPods[0].getTurnPIDF();
+            iShipped[0] = c0.getIntegralBand();
+            iShipped[1] = c0.getIntegralResetThreshold();
+            iShipped[2] = c0.getIntegralLimit();
+        }
         schedShipped = CoaxialPod.getScheduleTuning();
         schedHighShipped = CoaxialPod.getScheduleHighSpeed();
         ffShipped = CoaxialPod.getDemandRateFeedforward();
@@ -331,8 +339,18 @@ public class TeleDriveProbe extends TeleOp {
             }
             PIDFController c = pod.getTurnPIDF();
             PIDFCoefficients k = c.getCoefficients();
-            double kp = num(cmd, "kp", k.P), kd = num(cmd, "kd", k.D);
-            c.setCoefficients(new PIDFCoefficients(kp, 0, kd, 0));
+            // In place: PIDFController.run() re-reads its supplier every loop, and Constants built it with the
+            // PIDFCoefficients object itself as the supplier, so setCoefficients(new ...) is undone one loop later.
+            // (Until 2026-11-18 this used setCoefficients: every kp/kd arm before then ran the shipped gains.)
+            k.P = num(cmd, "kp", k.P);
+            k.D = num(cmd, "kd", k.D);
+            k.I = num(cmd, "ki", k.I);
+            // Integral shaping (PIDFController RUCKUS patches): accumulate only inside iband deg, clear on a sign
+            // change bigger than ireset deg, contribution capped at ilimit power. Shipped: kI 0, so all three idle.
+            if (cmd.containsKey("iband")) c.setIntegralBand(Math.toRadians(num(cmd, "iband", 0)));
+            if (cmd.containsKey("ireset")) c.setIntegralResetThreshold(Math.toRadians(num(cmd, "ireset", 0)));
+            if (cmd.containsKey("ilimit")) c.setIntegralLimit(num(cmd, "ilimit", 0.25));
+            c.reset();
             double ks = num(cmd, "ks", pod.getStaticFrictionPower());
             double band = cmd.containsKey("ksband") ? Math.toRadians(num(cmd, "ksband", 0)) : pod.getStaticFrictionBandRad();
             pod.setStaticFriction(ks, band);
@@ -360,7 +378,15 @@ public class TeleDriveProbe extends TeleOp {
             if (pod == null) {
                 continue;
             }
-            pod.getTurnPIDF().setCoefficients(new PIDFCoefficients(Constants.turnKPPerPod[i], 0, Constants.turnKDPerPod[i], 0));
+            PIDFCoefficients k = pod.getTurnPIDF().getCoefficients();   // in place, see podGains
+            k.P = Constants.turnKPPerPod[i];
+            k.I = 0;
+            k.D = Constants.turnKDPerPod[i];
+            k.F = 0;
+            pod.getTurnPIDF().setIntegralBand(iShipped[0]);
+            pod.getTurnPIDF().setIntegralResetThreshold(iShipped[1]);
+            pod.getTurnPIDF().setIntegralLimit(iShipped[2]);
+            pod.getTurnPIDF().reset();
             pod.setStaticFriction(Constants.turnKSPerPod[i], Math.toRadians(Constants.turnKSBandDegPerPod[i]));
             pod.setPulsedApproach(true, Math.toRadians(Constants.pulseBandDeg), Math.toRadians(Constants.pulseToleranceDeg),
                     Constants.pulsePower, Constants.pulseSeconds, Math.toRadians(Constants.pulseStationaryDegPerSec),
@@ -425,7 +451,9 @@ public class TeleDriveProbe extends TeleOp {
                 continue;
             }
             PIDFCoefficients k = pod.getTurnPIDF().getCoefficients();
-            sb.append("{\"kp\":").append(r(k.P)).append(",\"kd\":").append(r(k.D))
+            sb.append("{\"kp\":").append(r(k.P)).append(",\"kd\":").append(r(k.D)).append(",\"ki\":").append(r(k.I))
+                    .append(",\"iband\":").append(Double.isInfinite(pod.getTurnPIDF().getIntegralBand()) ? "-1"
+                            : r(Math.toDegrees(pod.getTurnPIDF().getIntegralBand())))
                     .append(",\"ks\":").append(r(pod.getStaticFrictionPower()))
                     .append(",\"ksband\":").append(r(Math.toDegrees(pod.getStaticFrictionBandRad()))).append('}');
         }

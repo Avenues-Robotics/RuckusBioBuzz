@@ -1,0 +1,4 @@
+{"shipped": [],
+ "k10": [["setTele", {"name": "HOLD_KP", "value": "1.0"}]],
+ "k04": [["setTele", {"name": "HOLD_KP", "value": "0.4"}]],
+ "nohold": [["setTele", {"name": "HEADING_HOLD", "value": "false"}]]}

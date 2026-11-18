@@ -1847,7 +1847,7 @@ stop area +/-22 in, randomised interleaved arms, `teleprobe.py` scoring; volts 1
 Not done this session: pod turn gains (kP/kD/kS) - pods held 4-8 deg mean while driving with the hold off, not
 retuned; full-power (1.0) runs do not fit the 3x3 (50+ in/s, 7-10 in stops trip the stop area). Driver check pending.
 
-## 2026-11-18 — Pod steering gains: flat, unchanged. Heading hold kP 1.0 -> 0.6 (shipped)
+## 2026-11-18 — Heading hold kP 1.0 -> 0.6 (shipped); pod kS flat. (Pod kP/kD rows VOID - see correction)
 
 All from `TeleDriveProbe` (TeleOp's own drive code, mechanisms off) on FTC tiles, a **2x6-tile strip** (stop area
 +/-56 x +/-13 in, robot facing along the strip), 0.6 power, 1.0 s runs, randomised interleaved arms, fresh battery
@@ -1859,12 +1859,20 @@ other) turn the robot first so each test's first direction lies along the long a
 -45 deg); in a square area nothing changes (heading 0). Spin runs now score pod error over the whole stick-on
 segment (it was NaN: no translation, so no "moving" samples). Earlier datasets keep their meaning.
 
-1. **Pod kP 0.30 / 0.38 / 0.50 (kp1, n=4 per test per arm): no consistent effect.** kP 0.30 cut spin pod error
+> **CORRECTION (same day): items 1 and 2's kP / kD arms never changed the gains.** TeleDriveProbe's `podGains`
+> called `PIDFController.setCoefficients(new ...)`, and `run()` re-reads the supplier every loop (Constants builds
+> the controller with the PIDFCoefficients object as its own supplier; `SwerveBringUp.java:809` already warns), so
+> the new object was discarded one loop later. Every kp/kd/ki arm in kp1, kskd1, ki1, ki2 ran the SHIPPED gains -
+> which is why they were flat. kS arms were real (`setStaticFriction`). Found because kI 15 changed nothing: pod
+> power vs error had the same slope as kI 0. Fixed (set the fields in place), verified on the robot (kpcheck:
+> power-vs-error slope 0.31-0.36 /rad at kP 0.20, 0.98-1.03 at kP 0.80). Re-run as kp2 onward.
+
+1. **[VOID - gains unchanged, see correction] Pod kP 0.30 / 0.38 / 0.50 (kp1, n=4 per test per arm): no consistent effect.** kP 0.30 cut spin pod error
    (-2.9 [-4.3, -1.6] deg, p=0.003) but raised line direction error p95 (+5.9 [+0.7, +11.0], p=0.032); 0.50 better
    nowhere. Kept 0.38.
-2. **kS 0.05 / 0.11, kD 0 / 0.03 vs shipped (kskd1, n=3-4 per test per arm): flat.** Pooled pod error 6.45-6.72 deg
-   on every arm (shipped 6.51); only kD 0 diag speed -1.9 in/s (p=0.025). Kept kS 0.08, kD 0.015.
-3. **The variation that matters is bimodal and not in the pods.** 40% of line/strafe runs at every pod gain fell
+2. **kS 0.05 / 0.11 (real), kD 0 / 0.03 (VOID, unchanged) vs shipped (kskd1, n=3-4 per test per arm): flat.** Pooled pod error 6.45-6.72 deg
+   on every arm (shipped 6.51); "kD 0 diag speed -1.9 in/s (p=0.025)" was shipped-vs-shipped noise. Kept kS 0.08.
+3. **The variation that matters is bimodal.** 40% of line/strafe runs (all arms ran the shipped pod gains) fell
    into the ~3 Hz heading limit cycle (yaw-rate rms 30-58 vs 3-15 deg/s, pod error 10-16 vs 3-4 deg, hold turn
    swinging +/-0.15-0.2, pods +/-30 deg); diag runs never did (0/14). Yaw-rate sign / lag checked: Pinpoint omega
    tracks d(heading)/dt (r = 0.82-0.93, ~2 samples late), so the hold's lookahead is not inverted.

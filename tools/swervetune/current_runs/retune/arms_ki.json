@@ -1,0 +1,3 @@
+{"shipped": [],
+ "ki3": [["podGains", {"ki": 3, "iband": 15, "ireset": 3, "ilimit": 0.10}]],
+ "ki8": [["podGains", {"ki": 8, "iband": 15, "ireset": 3, "ilimit": 0.10}]]}

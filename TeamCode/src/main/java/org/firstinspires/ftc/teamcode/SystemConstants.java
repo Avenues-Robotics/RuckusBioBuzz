@@ -62,7 +62,8 @@ public final class SystemConstants {
         // limit cycle in 14 of 32 line/strafe runs at 0.6 power (yaw-rate rms > 25 deg/s, pods +/-30 deg), kP 0.6 in
         // 1 of 31 (Fisher p=0.0002); wobble 11.2 vs 25.7 deg/s (p=0.0001), pod error 4.0 vs 7.4 deg (p=0.001), heading
         // drift not worse (3.6 vs 4.4 deg, p=0.07). Bistable, and likelier on a fresh battery (3/11 at kP 1.0 on
-        // 11.6-12.7 V yesterday). Mixer slew 550 or off did not fix it (4/12 each). Pod kP/kS/kD: flat, unchanged.
+        // 11.6-12.7 V yesterday). Mixer slew 550 or off did not fix it (4/12 each). Pod kS: flat.
+        // (A same-day "pod kP/kD flat" note here was void: the probe's gain setter never reached the pods.)
         public static boolean HEADING_HOLD = true;
         public static double HOLD_KP = 0.6;
         public static double HOLD_MAX_TURN = 0.25;

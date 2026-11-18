@@ -1890,3 +1890,33 @@ segment (it was NaN: no translation, so no "moving" samples). Earlier datasets k
 Open: full power (0.9-1.0) not re-checked at kP 0.6; driver check on the real TeleOp pending; wheel reversals
 still 7-10 per pod-second at 0.5 deg hysteresis while driving straight (pulsed-approach / kS dither - not moved by
 any gain tested).
+
+## 2026-11-18 (afternoon) — Full power keeps hold kP 0.6; pod turnKP 0.38 -> 0.28 for steering jitter (shipped); kI rejected
+
+Same strip and tool as the morning entry, after the `podGains` fix (7ad78c28). Volts under load 11.4-12.4.
+
+1. **Full power (fs1, power 1.0, 0.8 s, run-in 80 in; valid - hold gains go through setTele).** n=13-15 per arm
+   pooled over line / strafe / reverse, 10 of 57 runs touched the stop area (reported with and without; same
+   verdict): kP 1.0 wobbles more than 0.6 (yaw-rate rms 36.3 vs 23.0 deg/s, +13.3 [+2.9, +23.8], p=0.018; pod error
+   +2.8 deg, p=0.009). kP 0.4 and hold OFF are not different from 0.6 (p >= 0.45). At full power the hold buys no
+   drift (7.5 vs 7.8 deg per run). ~25% of full-power runs wobble on EVERY arm, hold off included: that residue is
+   not the hold.
+2. **Cruise jitter metric** (`/tmp` analysis, to be folded into teleprobe): after speed first reaches 90% of its
+   p90, until stick release - per-pod |err| mean, err sd (oscillation), and wheel reversals > 2 deg per pod-second.
+   The scorer's rev_per_s (0.5 deg hysteresis, whole run) is dominated by the 0.3 s ring after the X-lock -> drive
+   step and by sub-degree dither.
+3. **What the jitter is** (k06post traces): drive-wheel scrub pushes pods off target at cruise, and the scheduled
+   turn effort (x ~0.5 at 0.6 drive power) is near the stiction level: one pod sits 5 deg off on -0.048 power,
+   another saw-tooths 1 -> 9 deg at ~10 Hz.
+4. **kP (kp2 + kp28ki pooled, n=30 vs 32, line/strafe/diag):** kP 0.28 vs 0.38: cruise reversals > 2 deg 1.04 vs
+   2.30 /pod-s (-1.26 [-2.26, -0.26], p=0.015); oscillation sd 0.54 +/- 0.32 vs 1.21 +/- 1.72 deg (p=0.036; median
+   0.45 vs 0.61, Mann-Whitney p=0.11); cost: cruise offset +0.90 deg [+0.38, +1.42] (p=0.001), spin pod error ~+2
+   deg (p~0.1 in each round); whole-run pod error unchanged (+0.07, p=0.83). kP 0.20 parks +1.6 deg (p=0.0004);
+   kP 0.80 oscillates (yaw 47-54 deg/s, pod error 14 deg, kpcheck n=2). **Shipped turnKPPerPod 0.28** (TeleOp
+   path only - NOT re-validated on pedrocheck / the Follower, so autos carry an unmeasured change).
+5. **kI rejected.** kP 0.28 + kI 6 (band 15 deg, reset 3 deg, limit 0.10): offset -0.80 deg (p=0.015) but
+   oscillation median 1.67 vs 0.48 deg (Mann-Whitney p=0.0003), 3 wobbly runs vs 1. The integral fights the scrub
+   with a lag and becomes the oscillator.
+6. **Post-deploy (kp28post, shipped build, robot reports kp 0.28; n=12 translation + 4 spin, 0 stop-area, 12.46 V
+   rest / 11.7 V under load):** cruise oscillation sd 0.59 +/- 0.36 deg, offset 2.86 deg, reversals > 2 deg 1.71
+   /pod-s, yaw-rate rms 10.1 deg/s - in line with the kP 0.28 arm (0.54 / 3.12 / 1.04). Driver check pending.

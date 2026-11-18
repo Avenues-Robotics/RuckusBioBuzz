@@ -85,7 +85,13 @@ public class Constants {
     // Pods, indexed by servo number ss0..ss3 (0=RB, 1=RF, 2=LF, 3=LB)
     // Pods REBUILT 2026-11-14 (~530 deg/s): kD/kS/kS band and the pulse settings are the floor
     // candidate "F", accepted 2026-11-15 (FINDINGS). Gain history further down is the old plant.
-    public static final double[] turnKPPerPod = {0.380, 0.380, 0.380, 0.380};
+    // turnKP 0.38 -> 0.28 (2026-11-18, steering jitter): TeleDriveProbe = tele/TeleOp's drive code, 2x6 strip,
+    // tiles, 0.6 power, 12.0-12.4 V, randomised interleaved, n=30 vs 32 runs pooled (kp2 + kp28ki): cruise steering
+    // reversals > 2 deg 2.30 -> 1.04 per pod-s (p=0.015), pod oscillation sd 1.21 -> 0.54 deg (p=0.036); cost: pods
+    // park 0.9 deg further off target at cruise (p=0.001), spin pod error ~+2 deg (p~0.1); overall driving pod error
+    // unchanged (p=0.83). kP 0.20 parks worse (+1.6 deg); 0.80 oscillates; kI 6 (band 15, reset 3, limit 0.10)
+    // trebles the oscillation (p=0.0003). Not validated on pedrocheck (Follower/autos) - TeleOp path only.
+    public static final double[] turnKPPerPod = {0.280, 0.280, 0.280, 0.280};
     public static final double[] turnKDPerPod = {0.015, 0.015, 0.015, 0.015};
     public static final double[] turnKSPerPod = {0.080, 0.080, 0.080, 0.080};
     public static final double[] turnKSBandDegPerPod = {6.0, 6.0, 6.0, 6.0};

@@ -1,0 +1,5 @@
+{"shipped": [],
+ "ks05": [["podGains", {"ks": 0.05}]],
+ "ks11": [["podGains", {"ks": 0.11}]],
+ "kd0": [["podGains", {"kd": 0.0}]],
+ "kd03": [["podGains", {"kd": 0.03}]]}

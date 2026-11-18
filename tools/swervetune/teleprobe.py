@@ -157,14 +157,24 @@ FIRST_DIR = {"line": (1, 0), "reverse": (1, 0), "arc": (1, 0), "strafe": (0, 1),
 
 
 def start_point(s: dict, test: str, run_in: float) -> tuple[float, float, float]:
-    """Where to start so the run has room ahead: centre - run_in/2 along the first direction (random sign)."""
+    """Where to start so the run has room ahead: centre - run_in/2 along the first direction (random sign), and
+    the start heading. A square area starts every test at heading 0. A strip (one side > 1.5x the other, e.g. a
+    2x6-tile lane) turns the robot first so the test's first direction lies along the long axis: strafe starts at
+    -90 deg, diag/flick at -45 deg (flick's two legs then sit symmetric about the axis and their sideways parts
+    cancel)."""
     b = s["box"]
     cx, cy = (b["minX"] + b["maxX"]) / 2, (b["minY"] + b["maxY"]) / 2
+    wx, wy = b["maxX"] - b["minX"], b["maxY"] - b["minY"]
+    strip = max(wx, wy) > 1.5 * min(wx, wy)
     if test in ("spin", "circle"):
-        return cx, (cy - 8 if test == "circle" else cy), 1.0
+        return cx, (cy - 8 if test == "circle" and not strip else cy), 0.0
     sg = 1.0 if random.random() < 0.5 else -1.0
     ux, uy = FIRST_DIR[test]
-    return cx - sg * ux * run_in / 2, cy - sg * uy * run_in / 2, sg
+    if not strip:
+        return cx - sg * ux * run_in / 2, cy - sg * uy * run_in / 2, 0.0
+    lx, ly = (1.0, 0.0) if wx >= wy else (0.0, 1.0)
+    h0 = math.degrees(math.atan2(ly, lx) - math.atan2(uy, ux))
+    return cx - sg * lx * run_in / 2, cy - sg * ly * run_in / 2, ((h0 + 180) % 360) - 180
 
 
 def run_script(fn, dur: float, settle: float) -> tuple[str | None, int]:
@@ -214,6 +224,8 @@ def score(path: str, test: str) -> dict:
     spd = np.where(spd > 150, np.nan, spd)
     moving = np.zeros_like(on)
     moving[seg] = spd[seg] > 10
+    if test == "spin":   # no translation: the pods are working the whole stick-on segment
+        moving[seg] = True
     out = {"csv": os.path.relpath(path, HERE), "volts": float(np.nanmean(d["volts"][seg])),
            "loop_hz_true": float(1 / np.nanmean(d["dt"][seg])),
            "loop_dt_mean_ms": float(1000 * np.nanmean(d["dt"][seg])),
@@ -368,8 +380,8 @@ def cmd_run(a) -> int:
                     send(action, **params)
                     time.sleep(0.15)
                 if a.home:
-                    sx, sy, _ = start_point(probe_state(), test, a.run_in)
-                    if not goto(sx, sy, 0.0):
+                    sx, sy, sh = start_point(probe_state(), test, a.run_in)
+                    if not goto(sx, sy, sh):
                         print(f"[{name} {test} b{block}] could not reach the start point - skipping", flush=True)
                         continue
                 s = probe_state()

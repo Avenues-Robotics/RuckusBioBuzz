@@ -21,6 +21,11 @@ public class PredictiveAiming {
         return follower.pose().exp(follower.twist(), ms / 1000.0);
     }
 
+    /** Measured turn rate, rad/s (CCW +), from the localizer. */
+    public double headingRate() {
+        return follower.velocity().omega;
+    }
+
     public Pose leadPose() {
         return leadPose(SystemConstants.PredictiveAiming.CENTER);
     }

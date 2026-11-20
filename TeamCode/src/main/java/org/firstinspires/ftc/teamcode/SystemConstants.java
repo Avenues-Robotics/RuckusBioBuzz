@@ -161,6 +161,15 @@ public final class SystemConstants {
         public static double PWM_UPPER_US = 2500;
         public static double UNWIND_HYSTERESIS_DEG = 10;
         public static double UNWIND_SETTLE_S = 1.0;
+        // Aimed = the turret is modelled as arrived: a model position chases the command at SPEED_DEG_S
+        // (turret deg/s) and aimed waits until it is within AIM_TOL_DEG. 360 is NOT measured - it is the
+        // speed UNWIND_SETTLE_S already assumes (a ~360 deg unwind in 1 s). Nothing senses the turret.
+        public static double SPEED_DEG_S = 360;
+        public static double AIM_TOL_DEG = 3;
+        // Live tracking aims from the heading HEADING_LEAD_MS ahead (measured turn rate), for the servo's lag
+        // behind a turning robot: loop + 20 ms PWM frame + the Axon's own response. 50 is ESTIMATED, not
+        // measured; 0 turns it off. At 100 deg/s of turn, each 10 ms here moves the aim 1 deg.
+        public static double HEADING_LEAD_MS = 50;
     }
 
     @Config
@@ -212,6 +221,8 @@ public final class SystemConstants {
         public static double UP_POS = 90;
         public static double DOWN_POS = 52;
         public static double HALF_Y = 71;
+        /** The aimed hive end switches only this far past HALF_Y (in): a lead pose near the line flicked it. */
+        public static double HALF_Y_HYSTERESIS_IN = 4;
     }
 
     @Config

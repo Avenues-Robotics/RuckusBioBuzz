@@ -57,12 +57,16 @@ public class turretTrackTest extends LinearOpMode {
 
     /** The simulated pose that SimAiming hands to turret. */
     private static Pose sim = new Pose(72, 40, 0);
+    /** The simulated pose's turn rate, rad/s (finite difference), so Turret's HEADING_LEAD_MS is exercised too. */
+    private static double simOmega;
 
     /** predictiveAiming that ignores the follower and returns the simulated pose (no lead). */
     private static final class SimAiming extends PredictiveAiming {
         SimAiming() { super(null); }
 
         @Override public Pose leadPose() { return sim; }
+
+        @Override public double headingRate() { return simOmega; }
 
         @Override public Pose leadPose(double[] offset) {
             double c = Math.cos(sim.heading()), s = Math.sin(sim.heading());
@@ -91,6 +95,7 @@ public class turretTrackTest extends LinearOpMode {
 
         long start = System.nanoTime();
         long lastLog = 0;
+        double prevSimS = 0;
         int lastScenario = -1;
         while (!isStopRequested()) {
             if (SCENARIO != lastScenario) {
@@ -99,7 +104,11 @@ public class turretTrackTest extends LinearOpMode {
                 if (imu != null) imu.resetYaw();
             }
             double s = (System.nanoTime() - start) / 1e9;
+            Pose prev = sim;
             sim = simPose(SCENARIO, s);
+            simOmega = s > prevSimS   // a scenario change restarts s: no rate across the jump
+                    ? AngleUnit.normalizeRadians(sim.heading() - prev.heading()) / (s - prevSimS) : 0;
+            prevSimS = s;
             if (RED != tRed) { // alliance is a constructor arg now: rebuild on a live Dashboard edit
                 tRed = RED;
                 t = new Turret(hardwareMap, new SimAiming(), new HivePosition(), tRed ? Alliance.RED : Alliance.BLUE);

@@ -24,27 +24,28 @@ public class PIDF { //assuming the feedforward term is simply a constant.
         this.Kf = KF;
         this.clamp = clampI;
     }
-    public double update(double pos, double target){
+
+    public double update(double pos, double target) {
         double error = target - pos;
-        if(runCount == 0){
+        if (runCount == 0) {
             derivative = 0;
             lastTime = timer.seconds();
             lastPos = pos;
         }
-        double dt = timer.seconds()-lastTime;
-        if(dt != 0){
-            integralSum = Math.max(Math.min(integralSum+(error*dt), clamp),-clamp);
-            derivative = (lastPos-pos)/dt;
+        double dt = timer.seconds() - lastTime;
+        if (dt != 0) {
+            integralSum = Math.max(Math.min(integralSum + (error * dt), clamp), -clamp);
+            derivative = (lastPos - pos) / dt;
         }
 
 
-        if(runCount == 0) {
+        if (runCount == 0) {
             lastDer = derivative;
         }
 
-        double P = error*Kp;
-        double I = integralSum*Ki;
-        double D = (derivative+lastDer)/2*Kd; //avg over 2 instances
+        double P = error * Kp;
+        double I = integralSum * Ki;
+        double D = (derivative + lastDer) / 2 * Kd; //avg over 2 instances
         double F = Kf; //Since I haven't specified a subsystem yet I will leave this as a constant.
 
         lastTime = timer.seconds();
@@ -54,10 +55,12 @@ public class PIDF { //assuming the feedforward term is simply a constant.
 
         return P + I + D + F;
     }
-    public int getRunCount(){
+
+    public int getRunCount() {
         return runCount;
     }
-    public int changeClamp(int newClamp){
+
+    public void changeClamp(int newClamp) {
         this.clamp = newClamp;
     }
 }

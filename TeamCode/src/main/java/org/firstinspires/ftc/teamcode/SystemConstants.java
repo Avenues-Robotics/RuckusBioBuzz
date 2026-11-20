@@ -129,6 +129,9 @@ public final class SystemConstants {
     @Config
     @Configurable
     public static class Turret {
+        // Robot frame {forward, left}, in (PredictiveAiming.leadPose). Pollen is ~6 in BEHIND centre on the
+        // centre line (operator, 2026-11-20) - TeleOp.aimTurn's shooter lock assumes that. {0, -5.91} (right of
+        // centre) was tried 2026-11-18 and is wrong. Nectar not mounted: 3.22 forward is unconfirmed.
         public static double[] nectarTurretOffset = {3.22, 0};
         public static double[] pollenTurretOffset = {-5.91, 0};
         public static double POLLEN_TURRET_CENTER = 0.5;
@@ -216,8 +219,13 @@ public final class SystemConstants {
     @Config
     @Configurable
     public static class HivePosition {
-        public static double xred = 58;
-        public static double xblue = 84;
+        // x = centre of each alliance's HIVE cells, measured 2026-11-20 off the field drawing (Pedro's
+        // biobuzz.webp, 0.13 in/px, the image field/biobuzz_field.json was measured from): red cells span
+        // x 47.8-67.7, blue 73.9-93.8, symmetric about the field centre. 45 / 72 (2026-11-18) were the red
+        // rail and the gap between halves. UP_POS / DOWN_POS are shared by both alliances, but the drawing
+        // is point-symmetric: red's cells span y 51.9-95.4, blue's 46.2-89.6 (see FINDINGS 2026-11-20).
+        public static double xred = 57.8;
+        public static double xblue = 83.9;
         public static double UP_POS = 90;
         public static double DOWN_POS = 52;
         public static double HALF_Y = 71;

@@ -1953,3 +1953,25 @@ battery swap). First battery 12.05 V rest; second 13.94 V rest.
   first left ~6% slow, not at full speed; after the 4th, back in band ~0.23 s and at 1720 ~0.57 s (18.42 s; the
   burst started 16.65 s). The rapidfire dip detector scored this burst as ONE shot (it re-arms after 300 ms +
   recovery): read bursts from the trace. Velocity reads in 20 ticks/s steps.
+
+## 2026-11-20 — Turret aim geometry: pollen offset back to 6 in behind centre; hive x measured off the field drawing (shipped)
+
+Code review (no robot data). **Pollen turret offset:** operator confirms ~6 in behind the robot centre, on the
+centre line, so `{-5.91, 0}` (robot frame {forward, left}) is right and the uncommitted 2026-11-18 `{0, -5.91}`
+(6 in to the right) was wrong. It also contradicted shooter lock (`TeleOp.aimTurn` assumes the centre line).
+At 5 ft that axis swap is ~6-8 deg of aim error.
+
+**Hive coordinates**, measured off `tools/pedro-visualizer/public/fields/biobuzz.webp` (1080 px over 141.5 in,
+0.131 in/px; y = (1080 - px_y) * 0.131) by colour-thresholding the cell outlines. This is Pedro's DRAWING, not
+the game manual's CAD: accuracy is only as good as the drawing.
+
+| | cells x | x centre | cells y (outer cap ... inner, per half) |
+|---|---|---|---|
+| RED | 47.8-67.7 | **57.8** | upper 95.4-88.3 / 85.6-78.5; lower 68.7-61.1 / 59.0-51.9 |
+| BLUE | 73.9-93.8 | **83.9** | upper 89.6-82.5 / 80.3-72.8; lower 63.0-55.9 / 53.1-46.2 |
+
+x is symmetric about the field centre (57.8 + 83.9 = 141.7), and matches the committed 58 / 84; the
+uncommitted 45 / 72 were the red rail (45.6-48.0) and the gap between halves, so they go back to 57.8 / 83.9.
+**Open, not changed:** the drawing is point-symmetric, so blue's cells sit ~5.7 in lower in y than red's, but
+`UP_POS 90` / `DOWN_POS 52` are shared by both alliances. Which feature of a cell is the target (outer cap,
+inner opening, centre of the half) is the operator's call; until then the y values stand.

@@ -72,9 +72,9 @@ public final class SystemConstants {
         public static double HOLD_CAPTURE_S = 0.25;
         public static double HOLD_CAPTURE_RATE_DEG_S = 30.0;
         public static double RELOCALIZE_HOLD_S = 0.5;
-        public static double RELOCALIZE_X = 10.97;
-        public static double RELOCALIZE_Y = 9.69;
-        public static double RELOCALIZE_HEADING_DEG = 180.0;
+        public static double RELOCALIZE_X = 7.8;
+        public static double RELOCALIZE_Y = 10.1;
+        public static double RELOCALIZE_HEADING_DEG = 90;
     }
 
     @Config

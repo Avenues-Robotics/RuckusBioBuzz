@@ -36,6 +36,13 @@
       scoopula           flower intake drop  servo port 0      (systems/scoopula) NOT MOUNTED (2026-11-14) - placeholder
       turretGate         turret gate         servo port 1      (systems/gate)
       nectarTurretServo  nectar turret       servo port 2      (systems/turret) NOT MOUNTED (2026-11-14) - placeholder
+
+    USB:
+      Webcam 1           Logitech webcam     Control Hub USB 3.0 port, serial 941980E0 (operator, 2026-11-23,
+                                             read off TeleOp telemetry)  (pipelines/PollenCamera,
+                                             SystemConstants.Camera.WEBCAM_NAME). A different camera has a
+                                             different serial: TeleOp then falls back to the first attached
+                                             webcam and shows its serial in telemetry.
 -->
 <Robot type="FirstInspires-FTC">
     <LynxUsbDevice name="Control Hub Portal" serialNumber="(embedded)" parentModuleAddress="173">
@@ -67,4 +74,5 @@
             <Servo name="nectarTurretServo" port="2" />
         </LynxModule>
     </LynxUsbDevice>
+    <Webcam name="Webcam 1" serialNumber="941980E0" />
 </Robot>

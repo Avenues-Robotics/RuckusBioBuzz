@@ -326,16 +326,18 @@ public class Constants {
     // DRIVETRAIN CONSTANTS
     // =======================================================================================
 
-    // Pods snap to an X with no input, so the robot resists being pushed. Note this makes any
-    // momentary drop to zero input visible as all four pods yanking to the X - which is correct
-    // behaviour, but during bring-up it hides what the pods are doing. Swap to
-    // IGNORE_ANGLE_CHANGES while diagnosing, then put this back.
+    // No input: IGNORE_ANGLE_CHANGES - each pod keeps the heading it last had (servos released, drive
+    // motors braked by manualBrakeMode), so the first stick input after a stop steers from where the pods
+    // already point. X_LOCK until 2026-11-23 (operator): it swung all four pods to the X 0.35 s after
+    // every stop and back out on the next move - the start-of-move wobble seen in TeleOp. Trade-off,
+    // not measured: the X resisted a push from any direction; braked straight wheels resist a push
+    // along them but less across them.
     //
     // manualBrakeMode is the 2.x useBrakeModeInTeleOp(true). Voltage compensation stays off, as
     // it was (and in 2.x it was a silent no-op even when on).
     public static SwerveConfig swerveConfig = new SwerveConfig(c -> {
         c.voltageCompensation.set(false);
-        c.zeroPowerBehavior.set(SwerveConfig.ZeroPowerBehavior.X_LOCK);
+        c.zeroPowerBehavior.set(SwerveConfig.ZeroPowerBehavior.IGNORE_ANGLE_CHANGES);
         c.manualBrakeMode.set(true);
     });
 

@@ -87,7 +87,8 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 ├── helpers/                             HivePosition, Alliance, PoseStorage (autos clear at init + save in stop(), TeleOp init take()s it once),
 │                                        AimOffsets (driver 2's coach-perspective aim shift + flywheel offset; host check AimOffsetsCheck.java)
 ├── field/biobuzz_field.json             BIOBUZZ obstacles - ONE source: the visualizer imports it, the bring-up field fence loads it
-├── fieldview/                           http://192.168.43.1:8080/field - live field, robot, predicted pose, zone (TeleOp publishes at 20 Hz)
+├── fieldview/                           http://192.168.43.1:8080/field - live field, robot, predicted pose, zone (TeleOp publishes at 20 Hz);
+│                                        Camera tab = CameraFeed JPEG of the webcam after PollenDetectionPipeline (/field/camera.jpg)
 ├── diagnostics/                         PreMatchSystemCheck (drive response, then every mechanism), motorbreakin
 ├── diagnostics/tests/                   blobDetectionTest, colorTunerTest, rangeTest, spinUpTest
 ├── diagnostics/autosim/                 DIAGNOSTIC ONLY - Auto Dry Run RED/BLUE: the real auto on blocks, SimLocalizer pose (follower's
@@ -110,7 +111,9 @@ TeamCode/src/main/java/org/firstinspires/ftc/teamcode/
 │   │                                    mechanisms OFF, stop area (arm hx hy), live A/B setters + reset, TeleLoopProbe recorder.
 │   │                                    THE drivetrain acceptance path since 2026-11-17 (host: tools/swervetune/teleprobe.py)
 │   └── README.md
-├── pipelines/                           PollenDetectionPipeline; tools/ = blobDetection, colorTuner, getMedian
+├── pipelines/                           PollenDetectionPipeline (restored from 369cf64c^ 2026-11-23), PollenCamera (TeleOp opens the
+│                                        webcam - "Webcam 1" or the first attached - when SystemConstants.Camera.ENABLED);
+│                                        tools/ = blobDetection, colorTuner, getMedian
 └── wiring/swervewiring.png
 tools/swervetune/                        HOST-SIDE Python harness
 ├── swervebench.py    Bench client + scorer → trials.jsonl

@@ -28,6 +28,8 @@ import org.firstinspires.ftc.teamcode.modules.PredictiveAiming;
 import org.firstinspires.ftc.teamcode.systems.Scoopula;
 import org.firstinspires.ftc.teamcode.systems.Shooter;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.teamcode.pipelines.PollenCamera;
+import org.firstinspires.ftc.teamcode.pipelines.PollenDetectionPipeline;
 
 /**
  * Competition TeleOp. Controls (2026-11-15):
@@ -56,6 +58,8 @@ public class TeleOp extends OpMode {
 
     private Follower follower;
     private PredictiveAiming predictor;
+    /** Webcam + pollen pipeline (SystemConstants.Camera.ENABLED); the field page's Camera tab shows its feed. */
+    private PollenCamera camera;
     private Shooter shooterSystem;
     private List<LynxModule> hubs;
     private Alliance alliance = Alliance.RED;
@@ -106,6 +110,9 @@ public class TeleOp extends OpMode {
         pinpointGuard.begin();
         predictor = new PredictiveAiming(follower);
         scoopula = new Scoopula(hardwareMap);
+        if (SystemConstants.Camera.ENABLED) {
+            camera = PollenCamera.open(hardwareMap, Config.telemetryEnabled());
+        }
         // Shooter and Intake are alliance-dependent: built in start(), after init_loop's X/B pick.
     }
 
@@ -252,6 +259,12 @@ public class TeleOp extends OpMode {
             out.addData("ready", shooterSystem.ready());
             out.addData("pollen wheel (ticks/s)", Math.round(shooterSystem.pollenVelocity()) + " / " + Math.round(shooterSystem.pollenCommand()));
             out.addData("F volt scale", Math.round(shooterSystem.flywheelFScale() * 1000) / 1000.0);
+        }
+        if (camera != null) {
+            PollenDetectionPipeline p = camera.pipeline();
+            PollenDetectionPipeline.Clump best = p != null ? p.getBestClump() : null;
+            out.addData("camera", camera.status());
+            out.addData("pollen", best != null ? best.toString() : "none seen");
         }
         addLoopStats();
         out.update();
@@ -442,6 +455,9 @@ public class TeleOp extends OpMode {
 
     @Override
     public void stop() {
+        if (camera != null) {
+            camera.close();
+        }
         follower.stop();
         follower.update();
         Swerve.setTranslationPriority(0);

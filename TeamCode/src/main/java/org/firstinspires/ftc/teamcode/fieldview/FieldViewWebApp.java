@@ -52,6 +52,24 @@ public class FieldViewWebApp {
             manager.register("/field/", pageHandler);
             manager.register("/field/state", stateHandler);
             manager.register("/field/field.webp", imageHandler);
+            manager.register("/field/camera.jpg", new WebHandler() {
+                @Override
+                public NanoHTTPD.Response getResponse(NanoHTTPD.IHTTPSession session) {
+                    byte[] frame = CameraFeed.latestJpeg();
+                    if (frame == null) {
+                        return noCache(NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND,
+                            "text/plain", "No camera frame - run TeleOp with SystemConstants.Camera.ENABLED"));
+                    }
+                    return bytes("image/jpeg", frame);
+                }
+            });
+            manager.register("/field/camera", new WebHandler() {
+                @Override
+                public NanoHTTPD.Response getResponse(NanoHTTPD.IHTTPSession session) {
+                    return noCache(NanoHTTPD.newFixedLengthResponse(
+                        NanoHTTPD.Response.Status.OK, "application/json", CameraFeed.statsState()));
+                }
+            });
             RobotLog.ii(TAG, "Field view registered at /field");
         } catch (RuntimeException e) {
             RobotLog.ee(TAG, e, "Failed to register field view");

@@ -81,6 +81,19 @@
   .zone-state.in { color: var(--zone); }
   .zone-state.out { color: var(--bad); }
   .hint { color: var(--muted); font-size: 13px; }
+  .tabs { display: flex; gap: 4px; }
+  .tabs button {
+    background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 6px;
+    padding: 4px 12px; font: inherit; font-size: 14px; cursor: pointer;
+  }
+  .tabs button.on { background: var(--panel); color: var(--text); border-color: var(--muted); }
+  main[hidden] { display: none; }
+  .cam-wrap {
+    position: relative; width: 100%; aspect-ratio: 4 / 3; background: #000; border-radius: 6px;
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+  }
+  .cam-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .cam-wrap .empty { position: absolute; color: var(--muted); padding: 16px; text-align: center; }
   @media (max-width: 760px) {
     main { grid-template-columns: minmax(0, 1fr); padding: 12px; }
     .field-wrap { max-width: 100%; }
@@ -90,9 +103,13 @@
 <body>
 <header>
   <h1>Field View</h1>
+  <nav class="tabs">
+    <button data-view="field" class="on">Field</button>
+    <button data-view="camera">Camera</button>
+  </nav>
   <span id="status" class="status">Connecting…</span>
 </header>
-<main>
+<main id="viewField">
   <div class="field-wrap"><canvas id="field"></canvas></div>
   <aside>
     <div class="card">
@@ -116,6 +133,33 @@
       Run the <b>TeleOp</b> OpMode to see the robot. Green cells are the pollen shooting zone exactly as the
       shooter reads it (<code>SystemConstants.Zone.mapPollen</code>, red frame, turned 180° for blue); the
       outlined cell is where the predicted pose is.
+    </div>
+  </aside>
+</main>
+<main id="viewCamera" hidden>
+  <div class="cam-wrap">
+    <img id="cam" alt="">
+    <div class="empty" id="camEmpty">No camera frame yet. Run <b>TeleOp</b> with
+      <code>SystemConstants.Camera.ENABLED</code> and the webcam plugged in.</div>
+  </div>
+  <aside>
+    <div class="card">
+      <h2>Pollen</h2>
+      <div id="camBest" class="zone-state out">–</div>
+      <div class="hint" id="camBestDetail"></div>
+    </div>
+    <div class="card">
+      <h2>Pipeline</h2>
+      <div class="row"><span>clumps</span><span id="camClumps">–</span></div>
+      <div class="row"><span>balls (est.)</span><span id="camBalls">–</span></div>
+      <div class="row"><span>camera fps</span><span id="camFps">–</span></div>
+      <div class="row"><span>frame</span><span id="camSize">–</span></div>
+      <div class="row"><span>feed age</span><span id="camAge">–</span></div>
+    </div>
+    <div class="card hint">
+      PollenDetectionPipeline's view: the green box is the best clump (most balls), amber boxes the rest, the
+      white line the frame centre. Steer = best clump's offset from centre, -1 left to +1 right. The feed is
+      downscaled (SystemConstants.Camera.STREAM_*); detection runs on the full frame.
     </div>
   </aside>
 </main>
@@ -261,8 +305,59 @@
     setTimeout(poll, 50);
   }
 
+  // ---- tabs + camera feed. The feed loads one JPEG at a time and only while the Camera tab is open.
+  let view = "field";
+  let camTimer = 0, statTimer = 0, camBusy = false;
+  const cam = $("cam");
+  function showView(v) {
+    view = v === "camera" ? "camera" : "field";
+    document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
+    $("viewField").hidden = view !== "field";
+    $("viewCamera").hidden = view !== "camera";
+    try { localStorage.setItem("fieldview.tab", view); } catch (e) {}
+    if (view === "camera") { nextFrame(); pollCam(); } else { resize(); }
+  }
+  document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
+  function nextFrame() {
+    if (view !== "camera" || camBusy) return;
+    camBusy = true;
+    cam.src = "/field/camera.jpg?t=" + Date.now();
+  }
+  cam.onload = () => {
+    camBusy = false; $("camEmpty").hidden = true; cam.hidden = false;
+    clearTimeout(camTimer); camTimer = setTimeout(nextFrame, 80);
+  };
+  cam.onerror = () => {
+    camBusy = false; cam.hidden = true; $("camEmpty").hidden = false;
+    clearTimeout(camTimer); camTimer = setTimeout(nextFrame, 1000);
+  };
+  async function pollCam() {
+    clearTimeout(statTimer);
+    if (view !== "camera") return;
+    try {
+      const s = await (await fetch("/field/camera", { cache: "no-store" })).json();
+      const best = s.best;
+      $("camBest").textContent = !s.live ? "NO CAMERA" : best ? "~" + best.balls + " BALL" + (best.balls === 1 ? "" : "S") : "NONE SEEN";
+      $("camBest").className = "zone-state " + (s.live && best ? "in" : "out");
+      $("camBestDetail").textContent = best
+        ? "steer " + best.steer + " · centre " + best.cx + ", " + best.cy + " px · " + best.area + " px²" : "";
+      $("camClumps").textContent = s.clumps ?? "–";
+      $("camBalls").textContent = s.balls ?? "–";
+      $("camFps").textContent = s.fps ?? "–";
+      $("camSize").textContent = s.width ? s.width + " × " + s.height : "–";
+      $("camAge").textContent = s.ageMs !== undefined ? s.ageMs + " ms" + (s.stale ? " (stale)" : "") : "–";
+    } catch (e) {
+      $("camBest").textContent = "NO CAMERA";
+      $("camBest").className = "zone-state out";
+    }
+    statTimer = setTimeout(pollCam, 500);
+  }
+
   resize();
   poll();
+  let startView = location.hash === "#camera" ? "camera" : "field";
+  try { if (!location.hash) startView = localStorage.getItem("fieldview.tab") || "field"; } catch (e) {}
+  showView(startView);
 </script>
 </body>
 </html>

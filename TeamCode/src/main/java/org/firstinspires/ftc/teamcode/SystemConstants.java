@@ -219,6 +219,22 @@ public final class SystemConstants {
 
     @Config
     @Configurable
+    public static class Camera {
+        /** TeleOp opens the webcam + pollen pipeline at init. Off = no camera thread at all. */
+        public static boolean ENABLED = true;
+        /** Looked up in the active robot config first; else the first webcam attached to the hub is used. */
+        public static String WEBCAM_NAME = "Webcam 1";
+        /** Capture size. PollenDetectionPipeline's area filters (minArea, singleBallAreaPx) assume 640 x 480. */
+        public static int WIDTH = 640;
+        public static int HEIGHT = 480;
+        /** Field page feed (/field, Camera tab): frames encoded per second, width, JPEG quality. Not in branch 2. */
+        public static double STREAM_FPS = 10;
+        public static double STREAM_WIDTH = 320;
+        public static double JPEG_QUALITY = 60;
+    }
+
+    @Config
+    @Configurable
     public static class PredictiveAiming {
         public static double PREDICT_MS = 150;
         public static double[] CENTER = {0, 0};

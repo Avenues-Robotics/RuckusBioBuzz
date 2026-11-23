@@ -38,5 +38,10 @@ public final class AutoConstants {
         // heading, away from the turret wrap). Done within the tolerance, or after the timeout regardless.
         public static double TURN_TOLERANCE_DEG = 4.0;
         public static double TURN_TIMEOUT_MS = 1200;
+        // The turn point is moved off any wall until the robot's half-diagonal + margin clears it (TurnInPlace):
+        // 18 x 15 in (operator 2026-11-23) sweeps 11.7 in, and the camera pick leaves the centre 9 in off the wall.
+        public static double ROBOT_LENGTH_IN = 18;
+        public static double ROBOT_WIDTH_IN = 15;
+        public static double TURN_WALL_MARGIN_IN = 0.75;
     }
 }

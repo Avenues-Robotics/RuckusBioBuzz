@@ -1062,7 +1062,8 @@ import org.firstinspires.ftc.teamcode.auto.modules.CameraPick;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;`
     : "";
   const autoConstantsImport = hasTurn ? `
-import org.firstinspires.ftc.teamcode.AutoConstants;` : "";
+import org.firstinspires.ftc.teamcode.AutoConstants;
+import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "";
   const cameraPickDeclarations = pick
     ? `
     // Camera pick on ${pick.line.name?.trim() || "a path"} (visualizer: the path's "Camera pick"; auto/modules/CameraPick).
@@ -1133,13 +1134,14 @@ import org.firstinspires.ftc.teamcode.AutoConstants;` : "";
       : "",
     hasTurn
       ? `/**
-     * Turn in place to {@code headingDeg} (the next path's end heading) before driving it. Done within
+     * Turn in place to {@code headingDeg} (the next path's end heading) before driving it, first backing off any
+     * wall far enough for the corners to clear it (TurnInPlace). Done within
      * TURN_TOLERANCE_DEG, or after TURN_TIMEOUT_MS whatever the heading.
      */
     private void runTurnStep(double headingDeg) {
         if (!stepStarted) {
-            Pose here = follower.pose();
-            follower.hold(new Pose(here.x(), here.y(), Math.toRadians(headingDeg)));
+            // Off any wall first: the corners sweep the half-diagonal while turning (auto/modules/TurnInPlace).
+            follower.hold(TurnInPlace.clearOfWalls(follower.pose(), Math.toRadians(headingDeg)));
             stepStartTime = System.currentTimeMillis();
             stepStarted = true;
         }

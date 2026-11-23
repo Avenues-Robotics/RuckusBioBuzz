@@ -454,3 +454,4 @@ Run locally:
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
+- Turn first turns about a point moved off any field wall until the robot's half-diagonal (18 x 15 in: 11.7 in) plus `TURN_WALL_MARGIN_IN` clears it (TeamCode `auto/modules/TurnInPlace`, called by the generated `runTurnStep`): pressed on a wall after a camera pick the centre is only 9 in off it, so a turn there would scrape the corners. The preview turns at the path start and does not draw that few-inch back-off.

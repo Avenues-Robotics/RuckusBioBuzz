@@ -116,12 +116,32 @@
         "y": 131.081,
         "heading": "linear",
         "startDeg": 90,
-        "endDeg": 0,
-        "headingCurve": 4.0
+        "endDeg": 90,
+        "headingCurve": 1.0
       },
       "controlPoints": [],
       "speed": 1,
-      "eventMarkers": []
+      "eventMarkers": [
+        {
+          "id": "ev-intake-on",
+          "name": "Intake On",
+          "triggerType": "parametric",
+          "position": 0,
+          "triggerMs": 0,
+          "durationMs": 0
+        }
+      ],
+      "cameraPick": {
+        "enabled": true,
+        "alliance": "BLUE",
+        "pickY": 82.5,
+        "wallY": 132.5,
+        "xMin": 60.5,
+        "xMax": 133,
+        "previewX": 83.557,
+        "hfovDeg": 43,
+        "cameraForward": 9
+      }
     },
     {
       "id": "l6",
@@ -130,9 +150,9 @@
         "x": 126.05799999999999,
         "y": 94.285,
         "heading": "linear",
-        "startDeg": 0,
+        "startDeg": 90,
         "endDeg": 0,
-        "headingCurve": 0.6
+        "headingCurve": 1.0
       },
       "controlPoints": [
         {
@@ -151,7 +171,8 @@
           "triggerMs": 0,
           "durationMs": 300
         }
-      ]
+      ],
+      "turnFirst": true
     },
     {
       "id": "l7",

@@ -27,6 +27,7 @@ import {
   getLineStartHeading,
 } from "./math";
 import { buildRoute } from "./sequence";
+import { expandRouteEdits } from "./cameraPick";
 import {
   calculateCurveLength,
   calculatePathTime,
@@ -151,8 +152,6 @@ export function reviewProject(
 ): PathReview {
   const {
     startPoint,
-    lines,
-    sequence,
     variables,
     shapes,
     settings,
@@ -170,6 +169,11 @@ export function reviewProject(
       ? undefined
       : options.midline ?? midlineRuleFromSettings(settings);
 
+  // Reviewed as driven: Camera pick (at its preview clump) and Turn first applied,
+  // so the MCP review times and checks what the editor shows.
+  const edited = expandRouteEdits(startPoint, project.lines, project.sequence);
+  const lines = edited.lines;
+  const sequence = edited.sequence;
   const prediction = calculatePathTime(startPoint, lines, settings, sequence, variables);
   const route = buildRoute(startPoint, lines, sequence, variables);
   const footprint = footprintFromSettings(settings);

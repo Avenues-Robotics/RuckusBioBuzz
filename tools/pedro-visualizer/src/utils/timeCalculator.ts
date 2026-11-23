@@ -1,3 +1,4 @@
+import { TURN_SETTLE_SECONDS, TURN_TIMEOUT_SECONDS } from "./cameraPick";
 import type {
   Point,
   BasePoint,
@@ -7,6 +8,7 @@ import type {
   TimePrediction,
   TimelineEvent,
   SequenceItem,
+  SequenceWaitItem,
   Variable,
 } from "../types";
 import {
@@ -552,6 +554,40 @@ export function calculatePathTime(
       if (!step.item.returnToStart) {
         currentHeading = plan.intakeEndPose.heading;
       }
+      stepIndex++;
+      continue;
+    }
+
+    // Turn first: the robot turns in place to the next path's end heading
+    // (TeamCode runTurnStep), timed from the angular velocity, plus a short
+    // settle for the hold to converge; capped by the Java step's timeout.
+    const turnToDeg = step.kind === "wait" ? (step.item as SequenceWaitItem).turnToDeg : undefined;
+    if (step.kind === "wait" && turnToDeg !== undefined && Number.isFinite(Number(turnToDeg))) {
+      const target = Number(turnToDeg);
+      const sweep = Math.abs(getAngularDifference(currentHeading, target));
+      const turnSeconds =
+        sweep <= 0.5
+          ? 0
+          : Math.min(
+              TURN_TIMEOUT_SECONDS,
+              (angularVelocity > 0 ? (sweep * Math.PI) / 180 / angularVelocity : 0) +
+                TURN_SETTLE_SECONDS,
+            );
+      if (turnSeconds > 0) {
+        timeline.push({
+          type: "wait",
+          name: step.item.name || "Turn",
+          itemId: step.item.id,
+          duration: turnSeconds,
+          startTime: currentTime,
+          endTime: currentTime + turnSeconds,
+          startHeading: currentHeading,
+          targetHeading: target,
+          atPoint: lastPoint,
+        });
+        currentTime += turnSeconds;
+      }
+      currentHeading = target;
       stepIndex++;
       continue;
     }

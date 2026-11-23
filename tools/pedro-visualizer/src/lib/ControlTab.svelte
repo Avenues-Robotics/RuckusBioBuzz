@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { expandRouteEdits } from "../utils/cameraPick";
   import type {
     Point,
     Line,
@@ -822,7 +823,9 @@
   }
 
   // Compute timeline markers for the UI (start of each travel segment)
-  $: timePrediction = calculatePathTime(startPoint, lines, settings, sequence, variables);
+  // The route as driven (Camera pick and Turn first applied), as the field and the header time it.
+  $: routeEdits = expandRouteEdits(startPoint, lines, sequence);
+  $: timePrediction = calculatePathTime(startPoint, routeEdits.lines, settings, routeEdits.sequence, variables);
   $: markers = (() => {
     const _markers: {
       percent?: number;

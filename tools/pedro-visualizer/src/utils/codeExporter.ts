@@ -41,7 +41,8 @@ import {
   type ChainRun,
   type RoutePathStep,
 } from "./sequence";
-import { getCurvePoint, getLineStartHeading } from "./math";
+import { getCurvePoint, getLineEndHeading, getLineStartHeading } from "./math";
+import { activeCameraPick, holdEndHeading } from "./cameraPick";
 
 // Lazy-load Prettier's Java plugin; fall back gracefully if unavailable
 let cachedJavaPlugin: any | null = null;
@@ -754,7 +755,12 @@ export async function generateTeamCodeAutoCode(
    * stops exactly where the editor says it will.
    */
   const chainFields: string[] = [];
-  const chainAssignmentBlocks: string[] = [];
+  /** Renders a chain's `new AutoPath(...)`; `startOverride` replaces its first path's start (camera pick). */
+  const chainRenderers = new Map<string, (startOverride?: string) => string>();
+  /** The original start expression of each chain's first path. */
+  const chainStartExpressions = new Map<string, string>();
+  /** Extra callbacks appended to a chain (the camera pick's pose callback). */
+  const chainExtraCallbacks = new Map<string, string>();
 
   /** The chains one run of paths compiles to, with the run behind each. */
   type DeclaredChain = { field: string; run: ChainRun };
@@ -782,41 +788,55 @@ export async function generateTeamCodeAutoCode(
       const field = `chain${chainFields.length + 1}`;
       chainFields.push(field);
 
-      const segments = run.steps.map((member, memberIndex) => {
-        // The first path of a chain starts where the route puts it; the rest
-        // continue from the previous path's endpoint.
-        const previous = run.steps[memberIndex - 1];
-        const resolvedStart = previous
-          ? (previous.line.endPoint as Point)
-          : (member.startPoint as Point);
-        const startExpression = pointStepExpression(
-          resolvedStart,
-          previous
-            ? `POINT_${previous.lineIndex + 1}`
-            : stepNameForPoint(resolvedStart),
-        );
-        const endExpression = pointStepExpression(
-          member.line.endPoint,
-          `POINT_${member.lineIndex + 1}`,
-        );
+      const firstStart = run.steps[0].startPoint as Point;
+      chainStartExpressions.set(
+        field,
+        pointStepExpression(firstStart, stepNameForPoint(firstStart)),
+      );
+      const renderSegments = (startOverride?: string) =>
+        run.steps.map((member, memberIndex) => {
+          // The first path of a chain starts where the route puts it; the rest
+          // continue from the previous path's endpoint.
+          const previous = run.steps[memberIndex - 1];
+          const resolvedStart = previous
+            ? (previous.line.endPoint as Point)
+            : (member.startPoint as Point);
+          const startExpression =
+            !previous && startOverride
+              ? startOverride
+              : pointStepExpression(
+                  resolvedStart,
+                  previous
+                    ? `POINT_${previous.lineIndex + 1}`
+                    : stepNameForPoint(resolvedStart),
+                );
+          const endExpression = pointStepExpression(
+            member.line.endPoint,
+            `POINT_${member.lineIndex + 1}`,
+          );
 
-        return buildTeamCodePathSegmentCode(
-          member.line,
-          startExpression,
-          endExpression,
-          numberExpression,
-          booleanExpression,
-        );
-      });
+          // Turn first: the robot has already turned to the end heading in place
+          // (runTurnStep), so the path holds it.
+          const segmentLine = member.line.turnFirst ? holdEndHeading(member.line) : member.line;
+          return buildTeamCodePathSegmentCode(
+            segmentLine,
+            startExpression,
+            endExpression,
+            numberExpression,
+            booleanExpression,
+          );
+        });
 
       // A one-path chain is just that path; Paths.path(...) over one child
       // would add a CompoundPath for nothing.
-      const pathExpression =
-        segments.length === 1
+      const pathExpressionFor = (startOverride?: string) => {
+        const segments = renderSegments(startOverride);
+        return segments.length === 1
           ? segments[0]
           : `Paths.path(
               ${segments.join(",\n              ")}
             )`;
+      };
 
       // Each marker is keyed by its path's index in this chain, as Pedro 2
       // attached a callback to the path it was added after.
@@ -827,9 +847,12 @@ export async function generateTeamCodeAutoCode(
         ),
       );
 
-      chainAssignmentBlocks.push(`${field} = new AutoPath(
-            ${pathExpression}
-          )${callbacks.join("")};`);
+      chainRenderers.set(
+        field,
+        (startOverride?: string) => `new AutoPath(
+            ${pathExpressionFor(startOverride)}
+          )${callbacks.join("")}${chainExtraCallbacks.get(field) ?? ""}`,
+      );
 
       return { field, run };
     });
@@ -842,7 +865,10 @@ export async function generateTeamCodeAutoCode(
         field: string;
         speedExpression: string;
         enabledExpression?: string;
+        /** Camera pick on this chain: followed with followPickStep. */
+        pick?: boolean;
       }
+    | { kind: "turn"; degrees: string }
     | { kind: "wait"; item: SequenceWaitItem }
     | { kind: "event"; item: SequenceEventItem }
     | { kind: "pollen"; item: SequencePollenItem; field: string }
@@ -858,6 +884,18 @@ export async function generateTeamCodeAutoCode(
   /** Event names used only inside a group, registered with the rest below. */
   const groupEventNames: string[] = [];
 
+  /** The route's camera pick: the chain it is on and the chain after it (rebuilt from the picked spot). */
+  type CameraPickChain = {
+    field: string;
+    line: Line;
+    segmentIndex: number;
+    endXExpression: string;
+    alliance: "RED" | "BLUE";
+    nextField: string | null;
+  };
+  // A holder object: assigned inside the chain callbacks, which TypeScript's
+  // narrowing of a plain `let` cannot see.
+  const pickState: { chain: CameraPickChain | null } = { chain: null };
   let pendingTopLevelLineIds: string[] = [];
   let pollenStepCount = 0;
   const flushTopLevelPaths = () => {
@@ -871,11 +909,39 @@ export async function generateTeamCodeAutoCode(
       const enabledExpression =
         run.steps.length === 1 ? run.steps[0].line.enabledExpression : undefined;
 
+      // Turn first: turn in place to the path's end heading, as its own step.
+      const first = run.steps[0];
+      if (first.line.turnFirst) {
+        exportSteps.push({
+          kind: "turn",
+          degrees: getLineEndHeading(first.line, first.startPoint as Point).toFixed(3),
+        });
+      }
+
+      // Camera pick: only the first one in the route (CameraPick holds one set of constants).
+      const pickIndex = pickState.chain
+        ? -1
+        : run.steps.findIndex((member) => activeCameraPick(member.line));
+      if (pickIndex >= 0) {
+        const member = run.steps[pickIndex];
+        pickState.chain = {
+          field,
+          line: member.line,
+          segmentIndex: pickIndex,
+          endXExpression: `${pointStepName(member.line.endPoint, `POINT_${member.lineIndex + 1}`)}.x`,
+          alliance: activeCameraPick(member.line)!.alliance,
+          nextField: null,
+        };
+      } else if (pickState.chain && pickState.chain.nextField === null) {
+        pickState.chain.nextField = field;
+      }
+
       exportSteps.push({
         kind: "chain",
         field,
         speedExpression: pathSpeedExpression(run.steps[0].line),
         enabledExpression,
+        pick: pickIndex >= 0,
       });
     });
   };
@@ -967,10 +1033,126 @@ export async function generateTeamCodeAutoCode(
   });
   flushTopLevelPaths();
 
+  const pick: CameraPickChain | null = pickState.chain;
+  const pickCap = pick ? pick.field.charAt(0).toUpperCase() + pick.field.slice(1) : "";
+  if (pick) {
+    chainExtraCallbacks.set(
+      pick.field,
+      `.addPoseCallback(${pick.segmentIndex}, new Pose(${pick.endXExpression}, cameraPick.pickY()), this::decide${pickCap}Pick, 0.5)`,
+    );
+  }
+  const rebuiltField = pick?.nextField ?? null;
+  const rebuiltCap = rebuiltField ? rebuiltField.charAt(0).toUpperCase() + rebuiltField.slice(1) : "";
+  const chainAssignmentBlocks = chainFields.map((field) =>
+    field === rebuiltField
+      ? `${field} = build${rebuiltCap}(${chainStartExpressions.get(field)});`
+      : `${field} = ${chainRenderers.get(field)!()};`,
+  );
+  const hasTurn = exportSteps.some((step) => step.kind === "turn");
+
   const chainFieldDeclarations = chainFields
     .map((field) => `private AutoPath ${field};`)
     .join("\n    ");
   const chainAssignments = chainAssignmentBlocks.join("\n\n      ");
+
+  // Camera pick + Turn first runtime (TeamCode auto/modules/CameraPick, AutoConstants.Autonomous).
+  const cameraPickImports = pick
+    ? `
+import org.firstinspires.ftc.teamcode.auto.modules.CameraPick;
+import org.firstinspires.ftc.teamcode.helpers.Alliance;`
+    : "";
+  const autoConstantsImport = hasTurn ? `
+import org.firstinspires.ftc.teamcode.AutoConstants;` : "";
+  const cameraPickDeclarations = pick
+    ? `
+    // Camera pick on ${pick.line.name?.trim() || "a path"} (visualizer: the path's "Camera pick"; auto/modules/CameraPick).
+    private CameraPick cameraPick;
+    private AutoPath ${pick.field}Pick;
+    private boolean ${pick.field}Switched;
+`
+    : "";
+  const cameraPickInit = pick
+    ? `
+        cameraPick = new CameraPick(hardwareMap, Alliance.${pick.alliance});`
+    : "";
+  const cameraPickStart = pick
+    ? `
+        ${pick.field}Pick = null;
+        ${pick.field}Switched = false;${rebuiltField ? `
+        ${rebuiltField} = build${rebuiltCap}(${chainStartExpressions.get(rebuiltField)});` : ""}`
+    : "";
+  const cameraPickStop = pick
+    ? `        if (cameraPick != null) {
+            cameraPick.close();
+        }
+`
+    : "";
+  const cameraPickTelemetry = pick
+    ? `
+        if (cameraPick != null) {
+            telemetry.addData("Camera pick", cameraPick.note() + " · " + cameraPick.status());
+        }`
+    : "";
+  const cameraPickMethods = [
+    rebuiltField
+      ? `/**
+     * ${rebuiltField}, from wherever the camera-pick path ended (its planned end, or the wall spot the
+     * camera picked); its control points stay where they were planned.
+     */
+    private AutoPath build${rebuiltCap}(Pose start) {
+        return ${chainRenderers.get(rebuiltField)!("start")};
+    }`
+      : "",
+    pick
+      ? `/** The camera pick: when ${pick.field} passes CameraPick.pickY(). Builds the drive into the clump, if any. */
+    private void decide${pickCap}Pick() {
+        Pose end = cameraPick.decide(follower.pose());
+        if (end == null) {
+            return;
+        }
+        ${pick.field}Pick = new AutoPath(CameraPick.slamPath(follower.pose(), end));${rebuiltField ? `
+        ${rebuiltField} = build${rebuiltCap}(end);` : ""}
+    }
+
+    /** ${pick.field}, switched mid-path to the camera-picked drive once decide${pickCap}Pick() has built it. */
+    private void followPickStep(AutoPath path, AutoPath pick, double pathSpeed) {
+        if (!stepStarted) {
+            ${pick.field}Switched = false;
+            startPath(path, pathSpeed);
+            stepStarted = true;
+        }
+        if (pick != null && !${pick.field}Switched) {
+            startPath(pick, pathSpeed);
+            ${pick.field}Switched = true;
+        }
+        if (!follower.isBusy()) {
+            startEvent("Intake Off");
+            advanceSequence();
+        }
+    }`
+      : "",
+    hasTurn
+      ? `/**
+     * Turn in place to {@code headingDeg} (the next path's end heading) before driving it. Done within
+     * TURN_TOLERANCE_DEG, or after TURN_TIMEOUT_MS whatever the heading.
+     */
+    private void runTurnStep(double headingDeg) {
+        if (!stepStarted) {
+            Pose here = follower.pose();
+            follower.hold(new Pose(here.x(), here.y(), Math.toRadians(headingDeg)));
+            stepStartTime = System.currentTimeMillis();
+            stepStarted = true;
+        }
+        double error = Math.abs(normalizeRadians(Math.toRadians(headingDeg) - follower.pose().heading()));
+        if (error <= Math.toRadians(AutoConstants.Autonomous.TURN_TOLERANCE_DEG)
+                || System.currentTimeMillis() - stepStartTime >= AutoConstants.Autonomous.TURN_TIMEOUT_MS) {
+            advanceSequence();
+        }
+    }`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n    ");
 
   const repeatFieldDeclarations = groupChainFields
     .map(
@@ -1069,9 +1251,15 @@ export async function generateTeamCodeAutoCode(
       if (step.kind === "chain") {
         return guardedCase(
           idx,
-          `followPathStep(${step.field}, ${step.speedExpression});`,
+          step.pick
+            ? `followPickStep(${step.field}, ${step.field}Pick, ${step.speedExpression});`
+            : `followPathStep(${step.field}, ${step.speedExpression});`,
           step.enabledExpression,
         );
+      }
+
+      if (step.kind === "turn") {
+        return guardedCase(idx, `runTurnStep(${step.degrees});`, undefined);
       }
 
       if (step.kind === "wait") {
@@ -1603,7 +1791,8 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import java.util.ArrayList;
 import java.util.List;
 ${pollenImports}
-
+${autoConstantsImport}${cameraPickImports}
+import org.firstinspires.ftc.teamcode.auto.modules.PathStep;
 import org.firstinspires.ftc.teamcode.helpers.PoseStorage;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -1628,7 +1817,7 @@ public class ${autoClassName} extends OpMode {
     private final String[] activeParallelEventNames = new String[PARALLEL_EVENT_CAPACITY];
     private final long[] activeParallelEventStartTimes = new long[PARALLEL_EVENT_CAPACITY];
     private final long[] activeParallelEventDurations = new long[PARALLEL_EVENT_CAPACITY];
-${pollenDeclarations}
+${pollenDeclarations}${cameraPickDeclarations}
     @Override
     public void init() {
         // Pedro 3 follows paths with Foresight, whose braking model and gains must be measured
@@ -1636,7 +1825,7 @@ ${pollenDeclarations}
         Constants.requireForesightMeasured();
 
         follower = Constants.createFollower(hardwareMap);
-        follower.setPose(${pointStepExpression(startPoint, "START_STEP")});
+        follower.setPose(${pointStepExpression(startPoint, "START_STEP")});${cameraPickInit}
 
         buildPaths();${pollenInit}
         updateTelemetry("Initialized");
@@ -1659,7 +1848,7 @@ ${pollenDeclarations}
         resetRepeatLoops();
         resetParallelEvents();
 
-        follower.setPose(${pointStepExpression(startPoint, "START_STEP")});
+        follower.setPose(${pointStepExpression(startPoint, "START_STEP")});${cameraPickStart}
     }
 
     @Override
@@ -1678,7 +1867,7 @@ ${pollenDeclarations}
 
     @Override
     public void stop() {
-        finishAllParallelEvents();
+${cameraPickStop}        finishAllParallelEvents();
 ${pollenStop}
         if (follower == null) {
             return;
@@ -1694,6 +1883,8 @@ ${pollenStop}
 
       ${repeatAssignments}
     }
+
+    ${cameraPickMethods}
 
     private void runSequence() {
         if (pathFinished) {
@@ -1983,7 +2174,7 @@ ${pollenStop}
         telemetry.addData("Sequence", sequenceIndex);
         telemetry.addData("X", "%.2f", pose.x());
         telemetry.addData("Y", "%.2f", pose.y());
-        telemetry.addData("Heading", "%.2f", Math.toDegrees(pose.heading()));
+        telemetry.addData("Heading", "%.2f", Math.toDegrees(pose.heading()));${cameraPickTelemetry}
         telemetry.update();
     }
 

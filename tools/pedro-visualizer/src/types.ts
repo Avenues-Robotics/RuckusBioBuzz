@@ -175,6 +175,37 @@ export interface Line {
   waitBeforeName?: string;
   waitAfterName?: string;
   eventMarkers?: EventMarker[];
+  /**
+   * Camera pick (TeamCode auto/modules/CameraPick): partway down this path the
+   * robot reads one camera frame and is re-routed into the biggest pollen clump
+   * against the end wall. The editor previews it with a draggable clump.
+   */
+  cameraPick?: CameraPickConfig;
+  /**
+   * Turn in place at this path's start to its end heading before driving it,
+   * then hold that heading (TeamCode runTurnStep).
+   */
+  turnFirst?: boolean;
+}
+
+/** Field inches, in this file's own frame (a BLUE file stores the mirrored numbers). */
+export interface CameraPickConfig {
+  enabled: boolean;
+  /** Which way CameraPick.java mirrors its RED-frame constants. */
+  alliance: "RED" | "BLUE";
+  /** The frame is read where the path passes (path end x, pickY). */
+  pickY: number;
+  /** Robot centre against the wall (AutoConstants WALL_Y, mirrored for BLUE). */
+  wallY: number;
+  /** Allowed drive-to x along the wall. */
+  xMin: number;
+  xMax: number;
+  /** Editor only: where the dragged clump sits along the wall. */
+  previewX: number;
+  /** Horizontal field of view of the upright frame, degrees (SystemConstants.Camera.HFOV_DEG). */
+  hfovDeg: number;
+  /** Lens ahead of the robot centre, inches (SystemConstants.Camera.CAMERA_OFFSET[0]). */
+  cameraForward: number;
 }
 
 export type SequencePathItem = {
@@ -187,6 +218,11 @@ export type SequenceWaitItem = {
   id: string;
   name: string;
   durationMs: number;
+  /**
+   * Internal (never saved): a Turn first rotation - the robot turns in place to
+   * this heading, timed from the angular velocity instead of durationMs.
+   */
+  turnToDeg?: number;
   durationExpression?: string;
   /** @deprecated Migrated to `durationExpression` on load. */
   durationVariableId?: string;

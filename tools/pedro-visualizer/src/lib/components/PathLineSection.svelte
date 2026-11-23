@@ -21,6 +21,8 @@
   } from "../../utils";
   import ControlPointsSection from "./ControlPointsSection.svelte";
   import ExpressionInput from "./ExpressionInput.svelte";
+  import { normalizeCameraPick } from "../../utils/cameraPick";
+  import { FIELD_SIZE } from "../../config/defaults";
   import HeadingControls from "./HeadingControls.svelte";
   import HeadingCurveEditor from "./HeadingCurveEditor.svelte";
   import { scrubbable } from "../../utils/scrub";
@@ -123,6 +125,48 @@
         )}in of the ${clearanceTarget}, ${worstClearanceSpan.startDistance.toFixed(
           1,
         )}in into this path. Checked against the robot's footprint at the heading it actually holds.`;
+
+  function commitLine() {
+    lines = lines.map((item) => (item.id === line.id ? line : item));
+    recordChange?.();
+  }
+
+  function handleTurnFirstToggle(event: Event) {
+    line.turnFirst = (event.currentTarget as HTMLInputElement).checked || undefined;
+    commitLine();
+  }
+
+  /** Camera pick: on with the defaults for whichever half of the field this path ends on. */
+  function handleCameraPickToggle(event: Event) {
+    const on = (event.currentTarget as HTMLInputElement).checked;
+    if (on) {
+      const blue = Number(line.endPoint?.y) > FIELD_SIZE / 2;
+      line.cameraPick = normalizeCameraPick(
+        { ...(line.cameraPick || {}), enabled: true, ...(line.cameraPick ? {} : { alliance: blue ? "BLUE" : "RED" }) },
+        line.endPoint,
+      );
+    } else if (line.cameraPick) {
+      line.cameraPick = { ...line.cameraPick, enabled: false };
+    }
+    commitLine();
+  }
+
+  function setCameraPickNumber(key: "pickY" | "wallY" | "xMin" | "xMax" | "previewX" | "hfovDeg" | "cameraForward", raw: string) {
+    const value = Number(raw);
+    if (!line.cameraPick || !Number.isFinite(value)) return;
+    line.cameraPick = normalizeCameraPick({ ...line.cameraPick, [key]: value }, line.endPoint);
+    commitLine();
+  }
+
+  const cameraPickFields: { key: "pickY" | "wallY" | "xMin" | "xMax" | "previewX" | "hfovDeg" | "cameraForward"; label: string; title: string }[] = [
+    { key: "previewX", label: "Clump x", title: "Editor only: where the clump sits along the wall. Drag the yellow clump on the field." },
+    { key: "pickY", label: "Pick y", title: "The frame is read where this path passes (path end x, Pick y) - AutoConstants PICK_Y (mirrored for BLUE)." },
+    { key: "wallY", label: "Wall y", title: "Robot centre against the wall - AutoConstants WALL_Y (mirrored for BLUE)." },
+    { key: "xMin", label: "x min", title: "Allowed drive-to x along the wall - AutoConstants PICK_X_MIN (mirrored for BLUE)." },
+    { key: "xMax", label: "x max", title: "Allowed drive-to x along the wall - AutoConstants PICK_X_MAX (mirrored for BLUE)." },
+    { key: "hfovDeg", label: "FOV°", title: "Horizontal field of view of the upright frame - SystemConstants.Camera.HFOV_DEG (estimated)." },
+    { key: "cameraForward", label: "Lens fwd", title: "Lens ahead of the robot centre, inches - SystemConstants.Camera.CAMERA_OFFSET[0] (estimated)." },
+  ];
 
   function handleStopAtEndToggle(event: Event) {
     line.stopAtEnd = (event.currentTarget as HTMLInputElement).checked;
@@ -825,6 +869,59 @@
           </span>
         {/if}
       </label>
+
+      <label
+        class="flex flex-row items-center gap-2 mb-2 cursor-pointer select-none"
+        title="Before driving this path the robot turns in place at its start to the path's end heading, then holds it (TeamCode runTurnStep; done within 4 deg or after 1.2 s)."
+      >
+        <input
+          type="checkbox"
+          checked={Boolean(line.turnFirst)}
+          disabled={line.locked}
+          on:change={handleTurnFirstToggle}
+        />
+        <span class="font-light">Turn first</span>
+        {#if line.turnFirst}
+          <span class="text-xs text-neutral-500 dark:text-neutral-400">
+            — turns in place to {Math.round(Number(line.endPoint.heading === "linear" ? line.endPoint.endDeg : line.endPoint.heading === "constant" ? line.endPoint.degrees : 0))}°, then drives
+          </span>
+        {/if}
+      </label>
+
+      <label
+        class="flex flex-row items-center gap-2 mb-1 cursor-pointer select-none"
+        title="Partway down this path the robot reads one camera frame, picks the biggest pollen clump against the end wall and is re-routed into it (TeamCode auto/modules/CameraPick). Drag the clump on the field to see the route change."
+      >
+        <input
+          type="checkbox"
+          checked={Boolean(line.cameraPick?.enabled)}
+          disabled={line.locked}
+          on:change={handleCameraPickToggle}
+        />
+        <span class="font-light">Camera pick</span>
+        {#if line.cameraPick?.enabled}
+          <span class="text-xs text-neutral-500 dark:text-neutral-400">
+            — {line.cameraPick.alliance}: drives into the clump at x {Math.max(line.cameraPick.xMin, Math.min(line.cameraPick.xMax, line.cameraPick.previewX)).toFixed(1)}{line.cameraPick.previewX < line.cameraPick.xMin || line.cameraPick.previewX > line.cameraPick.xMax ? " (clamped)" : ""}
+          </span>
+        {/if}
+      </label>
+      {#if line.cameraPick?.enabled}
+        <div class="flex flex-row flex-wrap items-center gap-x-3 gap-y-1 mb-2 ml-6 text-xs">
+          {#each cameraPickFields as field}
+            <label class="flex flex-row items-center gap-1" title={field.title}>
+              <span class="font-light">{field.label}</span>
+              <input
+                type="number"
+                step="0.5"
+                class="w-16 px-1 py-0.5 rounded border border-neutral-300 dark:border-neutral-600 bg-neutral-100 dark:bg-neutral-900"
+                disabled={line.locked}
+                value={line.cameraPick[field.key]}
+                on:change={(event) => setCameraPickNumber(field.key, event.currentTarget.value)}
+              />
+            </label>
+          {/each}
+        </div>
+      {/if}
 
       <div class="flex flex-row justify-start items-center gap-2 mb-2 w-full max-w-md">
         <div class="font-light shrink-0">Enabled if:</div>

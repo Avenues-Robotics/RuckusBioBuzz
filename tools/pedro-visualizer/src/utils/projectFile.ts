@@ -7,6 +7,7 @@
  * which is the point - a review of a path outside the editor has to be the
  * same path the editor would draw, or its numbers are worth nothing.
  */
+import { normalizeCameraPick } from "./cameraPick";
 import type {
   EventTriggerType,
   Line,
@@ -100,6 +101,8 @@ export function normalizeLines(input: Line[]): Line[] {
     waitBeforeName: line.waitBeforeName ?? line.waitBefore?.name ?? "",
     waitAfterName: line.waitAfterName ?? line.waitAfter?.name ?? "",
     eventMarkers: normalizeEventMarkers(line.eventMarkers),
+    cameraPick: line.cameraPick ? normalizeCameraPick(line.cameraPick, line.endPoint) : undefined,
+    turnFirst: line.turnFirst ? true : undefined,
   }));
 }
 

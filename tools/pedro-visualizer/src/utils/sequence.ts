@@ -548,7 +548,8 @@ export type ChainBreakReason =
   | "branch"
   | "stopAtEnd"
   | "speed"
-  | "condition";
+  | "condition"
+  | "turn";
 
 export const CHAIN_BREAK_LABELS: Record<ChainBreakReason, string> = {
   end: "end of the route",
@@ -558,6 +559,7 @@ export const CHAIN_BREAK_LABELS: Record<ChainBreakReason, string> = {
   stopAtEnd: "Stop at end is on",
   speed: "the next path uses a different speed",
   condition: "a path here can be switched off at runtime",
+  turn: "the next path turns in place first",
 };
 
 /**
@@ -636,6 +638,12 @@ export function buildChainRuns(steps: RouteStep[] = []): ChainRun[] {
 
     if (step.line.stopAtEnd) {
       flush("stopAtEnd");
+      return;
+    }
+
+    // Turn first: the robot stops and turns in place before the next path.
+    if (next.line.turnFirst) {
+      flush("turn");
       return;
     }
 

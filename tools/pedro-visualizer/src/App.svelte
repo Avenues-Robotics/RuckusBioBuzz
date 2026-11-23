@@ -59,6 +59,7 @@
   } from "./utils";
   import type { ManeuverLeg, StationaryPose } from "./utils/clearance";
   import { planPollenSteps, pollenLegsOf } from "./utils/pollenVision";
+  import { expandRouteEdits } from "./utils/cameraPick";
   import { buildEventTimingWindows } from "./utils/timeCalculator";
   import {
     NECTAR_DIAMETER_INCHES,
@@ -1363,7 +1364,7 @@
   // Animation controller
   let loopAnimation = true;
   let animationController: ReturnType<typeof createAnimationController>;
-  $: timePrediction = calculatePathTime(startPoint, lines, settings, sequence, variables);
+  $: timePrediction = calculatePathTime(startPoint, routeLines, settings, routeSequence, variables);
   $: animationDuration = getAnimationDuration(timePrediction.totalTime / 1000);
   
   // Second path timeline (for dual path mode)
@@ -1735,7 +1736,14 @@
   $: inactiveLineIds = skippedLineIds(lines, variables);
 
   // Start points follow the sequence, so branches of an if share a start.
-  $: mainRoute = buildRoute(startPoint, lines, sequence, variables);
+  // Camera pick and Turn first, applied: what the robot drives. Editors keep `lines`;
+  // everything that times, draws, animates or checks the route reads these.
+  $: routeEdits = expandRouteEdits(startPoint, lines, sequence);
+  $: routeLines = routeEdits.lines;
+  $: routeSequence = routeEdits.sequence;
+  $: cameraPicks = routeEdits.previews;
+
+  $: mainRoute = buildRoute(startPoint, routeLines, routeSequence, variables);
   $: lineStartPoints = mainRoute.startPoints;
 
   /**
@@ -1786,9 +1794,9 @@
     return transitions;
   };
 
-  $: travelStates = travelStatesFrom(timePrediction, lines);
+  $: travelStates = travelStatesFrom(timePrediction, routeLines);
   $: secondTravelStates = travelStatesFrom(secondTimePrediction, secondLines);
-  $: headingTransitions = headingTransitionsFrom(timePrediction, lines);
+  $: headingTransitions = headingTransitionsFrom(timePrediction, routeLines);
 
   /**
    * The shape that actually has to fit through the gaps. A path is a curve
@@ -1807,7 +1815,7 @@
   $: onionLayersEnabled =
     $activePaths.length === 0 && settings.showOnionLayers && lines.length > 0;
   $: allOnionLayers = onionLayersEnabled
-    ? buildOnionLayers(startPoint, lines, settings, lineStartPoints, headingTransitions)
+    ? buildOnionLayers(startPoint, routeLines, settings, lineStartPoints, headingTransitions)
     : [];
   $: onionSelectedLineIndex = selectedOnionLineIndex(timePrediction, settings, percent);
   $: visibleOnionLayers = filterOnionLayers(allOnionLayers, onionSelectedLineIndex);
@@ -1882,7 +1890,7 @@
    */
   $: stateWindows = stateWindowsOf(
     timePrediction?.timeline || [],
-    buildEventTimingWindows(startPoint, lines, timePrediction, settings, sequence, variables),
+    buildEventTimingWindows(startPoint, routeLines, timePrediction, settings, routeSequence, variables),
   );
   $: playbackSeconds = ((timePrediction?.totalTime || 0) * percent) / 100;
   $: activeVfx = vfxAt(stateWindows, playbackSeconds, settings.stateVfx);
@@ -1936,7 +1944,7 @@
   $: clearanceReport = checkClearance(
     {
       startPoint,
-      lines,
+      lines: routeLines,
       footprint: robotFootprint,
       obstacles: shapes,
       lineStartPoints,
@@ -2023,7 +2031,7 @@
     
     let _path: CanvasPathElement[] = [];
 
-    lines.forEach((line, idx) => {
+    routeLines.forEach((line, idx) => {
       if (!line || !line.endPoint) return; // Skip invalid lines or lines without endPoint
       // No start point means the route does not reach this path, so it is not
       // drawn — the field always matches the step list.
@@ -2187,10 +2195,10 @@
     const annotations = buildPathAnnotations(
       "main",
       startPoint,
-      lines,
+      routeLines,
       timePrediction,
       settings,
-      sequence,
+      routeSequence,
       variables,
     );
 
@@ -2239,10 +2247,10 @@
     const pins = buildEventPins(
       "main",
       startPoint,
-      lines,
+      routeLines,
       timePrediction,
       settings,
-      sequence,
+      routeSequence,
       variables,
     );
 
@@ -2295,10 +2303,10 @@
     const overlays = buildEventTimelineOverlays(
       "main",
       startPoint,
-      lines,
+      routeLines,
       timePrediction,
       settings,
-      sequence,
+      routeSequence,
       variables,
     );
 
@@ -2376,7 +2384,7 @@
         getSwerveWheelAnglesCss(
           percent,
           startPoint,
-          lines,
+          routeLines,
           timePrediction,
           settings,
           robotHeading,
@@ -2419,7 +2427,7 @@
         ...buildOnionSwerveModules(
           "main",
           startPoint,
-          lines,
+          routeLines,
           mainLayers,
           0.72,
           settings.onionColor || "#dc2626",
@@ -2519,7 +2527,7 @@
     if ($activePaths.length === 0 && settings.showGhostPaths && lines.length > 0) {
       const ghostPoints = generateGhostPathPoints(
         startPoint,
-        lines,
+        routeLines,
         settings.rWidth,
         settings.rHeight,
         50,
@@ -2954,6 +2962,99 @@
     });
 
     return [...views, ...zones, ...legs, ...markers];
+  })();
+
+  /**
+   * Camera pick previews (a path's "Camera pick"): the camera's view from where
+   * the frame is read, the stretch of wall the robot may drive to, the planned
+   * path past the pick (dashed - what runs when nothing is seen) and the clump,
+   * a marker dragged along the wall. The re-routed drive itself is an ordinary
+   * path in `routeLines`, so it is drawn, timed and checked like any other.
+   */
+  $: cameraPickViews = (() => {
+    const views: any[] = [];
+    if ($activePaths.length > 0 || !x || !y) return views;
+    const px = (inches: number) => x(inches) - x(0);
+    cameraPicks.forEach((preview) => {
+      const g = preview.geometry;
+      const lineY = g.pick.wallY > FIELD_SIZE / 2 ? FIELD_SIZE - 1.4 : 1.4;
+      if (g.camera.leftX !== null && g.camera.rightX !== null) {
+        const anchors = [
+          [g.camera.x, g.camera.y],
+          [g.camera.leftX, lineY],
+          [g.camera.rightX, lineY],
+        ].map(([ax, ay], i) => {
+          const anchor = new Two.Anchor(x(ax), y(ay), 0, 0, 0, 0, i === 0 ? Two.Commands.move : Two.Commands.line);
+          anchor.relative = false;
+          return anchor;
+        });
+        const close = new Two.Anchor(x(g.camera.x), y(g.camera.y), 0, 0, 0, 0, Two.Commands.close);
+        close.relative = false;
+        anchors.push(close);
+        const wedge = new Two.Path(anchors);
+        wedge.id = `campick-view-${preview.lineIndex}`;
+        wedge.fill = g.clumpInView ? "rgba(34, 211, 238, 0.10)" : "rgba(248, 113, 113, 0.10)";
+        wedge.stroke = g.clumpInView ? "rgba(34, 211, 238, 0.7)" : "rgba(248, 113, 113, 0.8)";
+        wedge.linewidth = px(0.25);
+        wedge.dashes = [px(1.2), px(1)];
+        views.push(wedge);
+      }
+      const stretch = new Two.Line(x(g.pick.xMin), y(lineY), x(g.pick.xMax), y(lineY));
+      stretch.id = `campick-stretch-${preview.lineIndex}`;
+      stretch.stroke = "rgba(34, 197, 94, 0.75)";
+      stretch.linewidth = px(1.1);
+      views.push(stretch);
+      if (preview.plannedRest.length > 1) {
+        const rest = new Two.Path(
+          preview.plannedRest.map((point, i) => {
+            const anchor = new Two.Anchor(x(point.x), y(point.y), 0, 0, 0, 0, i === 0 ? Two.Commands.move : Two.Commands.line);
+            anchor.relative = false;
+            return anchor;
+          }),
+          false,
+          false,
+        );
+        rest.id = `campick-rest-${preview.lineIndex}`;
+        rest.noFill();
+        rest.stroke = "rgba(255, 255, 255, 0.45)";
+        rest.linewidth = px(0.45);
+        rest.dashes = [px(1.5), px(1.2)];
+        views.push(rest);
+      }
+      const pickDot = new Two.Circle(x(g.pickPose.x), y(g.pickPose.y), px(1.1));
+      pickDot.id = `campick-at-${preview.lineIndex}`;
+      pickDot.fill = "#22d3ee";
+      pickDot.stroke = "#0f172a";
+      pickDot.linewidth = px(0.3);
+      views.push(pickDot);
+    });
+    return views;
+  })();
+
+  $: cameraPickMarkers = (() => {
+    const markers: any[] = [];
+    if ($activePaths.length > 0 || !x || !y) return markers;
+    const px = (inches: number) => x(inches) - x(0);
+    cameraPicks.forEach((preview) => {
+      const g = preview.geometry;
+      const lineY = g.pick.wallY > FIELD_SIZE / 2 ? FIELD_SIZE - 1.4 : 1.4;
+      const locked = Boolean(lines[preview.lineIndex]?.locked);
+      const handle = new Two.Circle(x(g.clumpX), y(lineY), px(3.4));
+      handle.id = `campick-${preview.lineIndex}`;
+      handle.fill = "rgba(250, 204, 21, 0.25)";
+      handle.stroke = locked ? "rgba(120, 120, 120, 0.9)" : g.clumpInView ? "#111827" : "#dc2626";
+      handle.linewidth = px(g.clumpInView ? 0.25 : 0.6);
+      markers.push(handle);
+      [-1.6, 0, 1.6].forEach((dx, i) => {
+        const ball = new Two.Circle(x(g.clumpX + dx), y(lineY), px(1.4));
+        ball.id = `campick-${preview.lineIndex}-ball${i}`;
+        ball.fill = "#facc15";
+        ball.stroke = "#111827";
+        ball.linewidth = px(0.3);
+        markers.push(ball);
+      });
+    });
+    return markers;
   })();
 
   $: clearanceElements = (() => {
@@ -3417,7 +3518,7 @@
       const state = calculateRobotState(
         percent,
         timePrediction.timeline,
-        lines,
+        routeLines,
         startPoint,
         settings,
         x,
@@ -3561,6 +3662,9 @@
     if (pollenElements.length > 0) {
       two.add(...pollenElements);
     }
+    if (cameraPickViews.length > 0) {
+      two.add(...cameraPickViews);
+    }
     if (clearanceElements.length > 0) {
       two.add(...clearanceElements);
     }
@@ -3578,6 +3682,9 @@
     }
     if (eventTimelineElements.length > 0) {
       two.add(...eventTimelineElements);
+    }
+    if (cameraPickMarkers.length > 0) {
+      two.add(...cameraPickMarkers);
     }
     two.add(...points);
 
@@ -3788,7 +3895,21 @@
         }
 
         // Handle path point dragging
-        if (currentElem.startsWith("pollen-target-")) {
+        if (currentElem.startsWith("campick-")) {
+          // The clump slides along its wall only: the camera pick reads its x.
+          const lineIndex = Number(currentElem.split("-")[1]);
+          const line = lines[lineIndex];
+          if (!line?.cameraPick || line.locked) return;
+          const next = [...lines];
+          next[lineIndex] = {
+            ...line,
+            cameraPick: {
+              ...line.cameraPick,
+              previewX: Math.round(Math.max(0, Math.min(FIELD_SIZE, inchX)) * 100) / 100,
+            },
+          };
+          lines = next;
+        } else if (currentElem.startsWith("pollen-target-")) {
           const sequenceIndex = Number(currentElem.split("-")[2]);
           const item = sequence[sequenceIndex];
           if (!item || item.kind !== "pollen" || item.locked) return;
@@ -3895,11 +4016,12 @@
           elem?.id.startsWith("second-point") ||
           elem?.id.startsWith("additional-path-") ||
           elem?.id.startsWith("obstacle") ||
-          elem?.id.startsWith("pollen-target-")
+          elem?.id.startsWith("pollen-target-") ||
+          /^campick-\d+(-ball\d)?$/.test(elem?.id || "")
         ) {
-          two.renderer.domElement.style.cursor = "pointer";
+          two.renderer.domElement.style.cursor = elem!.id.startsWith("campick-") ? "ew-resize" : "pointer";
           // The ball sits on top of its handle; both drag the same step.
-          currentElem = elem.id.replace(/-ball$/, "");
+          currentElem = elem!.id.replace(/-ball\d*$/, "");
         } else {
           two.renderer.domElement.style.cursor = "auto";
           currentElem = null;
@@ -3923,7 +4045,13 @@
         let objectX = 0;
         let objectY = 0;
 
-        if (currentElem.startsWith("pollen-target-")) {
+        if (currentElem.startsWith("campick-")) {
+          const line = lines[Number(currentElem.split("-")[1])];
+          if (line?.cameraPick) {
+            objectX = line.cameraPick.previewX;
+            objectY = mouseY;
+          }
+        } else if (currentElem.startsWith("pollen-target-")) {
           const item = sequence[Number(currentElem.split("-")[2])];
           if (item && item.kind === "pollen") {
             objectX = item.targetX;
@@ -4019,6 +4147,7 @@
         (elem.id.startsWith("point") ||
           elem.id.startsWith("obstacle") ||
           elem.id.startsWith("pollen-") ||
+          elem.id.startsWith("campick-") ||
           elem.id.startsWith("line"))
       ) {
         return;

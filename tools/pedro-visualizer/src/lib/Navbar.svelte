@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { expandRouteEdits } from "../utils/cameraPick";
   import type {
     Point,
     Line,
@@ -101,7 +102,9 @@
     exportMenuOpen = false;
   }
 
-  $: timePrediction = calculatePathTime(startPoint, lines, settings, sequence, variables);
+  // The route as driven: Camera pick and Turn first applied, like the field and the animation.
+  $: routeEdits = expandRouteEdits(startPoint, lines, sequence);
+  $: timePrediction = calculatePathTime(startPoint, routeEdits.lines, settings, routeEdits.sequence, variables);
   $: elapsedSeconds = (percent / 100) * (timePrediction?.totalTime || 0);
 
   onMount(() => {

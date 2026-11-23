@@ -19,6 +19,7 @@ import java.util.List;
 import org.firstinspires.ftc.teamcode.AutoConstants;
 import org.firstinspires.ftc.teamcode.auto.modules.AutoMechanisms;
 import org.firstinspires.ftc.teamcode.auto.modules.PathStep;
+import org.firstinspires.ftc.teamcode.auto.modules.CameraPick;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
 import org.firstinspires.ftc.teamcode.helpers.PinpointGuard;
 import org.firstinspires.ftc.teamcode.helpers.PoseStorage;
@@ -33,7 +34,7 @@ public class BlueSoloAuto extends OpMode {
     public static PathStep POINT_2 = new PathStep(131.278, 131.201, 90.000);
     public static PathStep POINT_3 = new PathStep(95.020, 15.643, 180.000);
     public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);
-    public static PathStep POINT_5 = new PathStep(83.557, 131.081, 0.000);
+    public static PathStep POINT_5 = new PathStep(83.557, 131.081, 90.000);
     public static PathStep POINT_6 = new PathStep(126.058, 94.285, 0.000);
     public static PathStep POINT_7 = new PathStep(96.192, 129.783, 0.000);
     public static PathStep POINT_8 = new PathStep(131.034, 40.343, 0.000);
@@ -51,6 +52,11 @@ public class BlueSoloAuto extends OpMode {
     private AutoPath chain7;
     private AutoPath chain8;
     
+    // Camera pick on path 5 (visualizer: the path's "Camera pick"; auto/modules/CameraPick).
+    private CameraPick cameraPick;
+    private AutoPath chain5Pick;
+    private boolean chain5Switched;
+
     private AutoPath activePath;
     private int sequenceIndex;
     private long stepStartTime;
@@ -81,6 +87,7 @@ public class BlueSoloAuto extends OpMode {
         pinpointGuard = new PinpointGuard(hardwareMap);
         pinpointGuard.begin();
         mechanisms = new AutoMechanisms(hardwareMap, follower, Alliance.BLUE);
+        cameraPick = new CameraPick(hardwareMap, Alliance.BLUE);
 
         shootTimeMs = Math.round(AutoConstants.Autonomous.SHOOT_TIME);
         scoopulaTransitionMs = Math.round(AutoConstants.Autonomous.SCOOPULA_TRANSITION_TIME);
@@ -112,6 +119,9 @@ public class BlueSoloAuto extends OpMode {
 
         pinpointGuard.finish();
         follower.setPose(START_STEP.toPose());
+        chain5Pick = null;
+        chain5Switched = false;
+        chain6 = buildChain6(POINT_5.toPose());
     }
 
     @Override
@@ -132,6 +142,9 @@ public class BlueSoloAuto extends OpMode {
 
     @Override
     public void stop() {
+        if (cameraPick != null) {
+            cameraPick.close();
+        }
         finishAllParallelEvents();
         if (mechanisms != null) {
             mechanisms.stop();
@@ -212,27 +225,23 @@ public class BlueSoloAuto extends OpMode {
             startParallelEvent("Scoopula Up", scoopulaTransitionMs)
         );
 
+        // Path 5 "Up the field": heading 90 the whole way (operator 2026-11-23, was 90 -> 0) so the intake faces
+        // the stray balls on the way; intake on from the start. Camera pick: at CameraPick.pickY() the latest frame
+        // picks the biggest clump against the far wall and the rest of the path is replaced by a drive into it
+        // (followPickStep). Nothing picked: the path ends at POINT_5 as planned.
         chain5 = new AutoPath(
             Paths.line(POINT_4.toPose(), POINT_5.toPose()).heading(
                 headingInterpolator(
                     Math.toRadians(90.000),
-                    Math.toRadians(0.000),
-                    4.000
+                    Math.toRadians(90.000),
+                    1.000
                 )
             )
-        );
+        ).addParametricCallback(0, 0.000, () ->
+            startParallelEvent("Intake On", 0)
+        ).addPoseCallback(0, new Pose(POINT_5.x, cameraPick.pickY()), this::decideChain5Pick, 0.5);
 
-        chain6 = new AutoPath(
-            Paths.curve(
-                POINT_5.toPose(),
-                new Pose(91.731, 99.203),
-                POINT_6.toPose()
-            ).heading(
-                headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 0.600)
-            )
-        ).addParametricCallback(0, 0.280, () ->
-            startParallelEvent("Scoopula Down", scoopulaTransitionMs)
-        );
+        chain6 = buildChain6(POINT_5.toPose());
 
         chain7 = new AutoPath(
             Paths.line(POINT_6.toPose(), POINT_7.toPose()).heading(
@@ -251,6 +260,74 @@ public class BlueSoloAuto extends OpMode {
                 headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 1.000)
             )
         );
+    }
+
+    /**
+     * Path 6 "To the flower", from wherever path 5 ended (POINT_5, or the wall spot the camera picked); its control
+     * point stays where it was planned. The robot has already turned to 0 in place (runTurnStep), so the
+     * heading holds 180 (operator 2026-11-23: turn right after the shot, away from the turret wrap).
+     */
+    private AutoPath buildChain6(Pose start) {
+        return new AutoPath(
+            Paths.curve(
+                start,
+                new Pose(91.731, 99.203),
+                POINT_6.toPose()
+            ).heading(
+                headingInterpolator(
+                    Math.toRadians(0.000),
+                    Math.toRadians(0.000),
+                    1.000
+                )
+            )
+        ).addParametricCallback(0, 0.280, () ->
+            startParallelEvent("Scoopula Down", scoopulaTransitionMs)
+        );
+    }
+
+    /** Path 5's camera pick: when the path passes CameraPick.pickY(). Builds the drive into the clump, if any. */
+    private void decideChain5Pick() {
+        Pose end = cameraPick.decide(follower.pose());
+        if (end == null) {
+            return;
+        }
+        chain5Pick = new AutoPath(CameraPick.slamPath(follower.pose(), end));
+        chain6 = buildChain6(end);
+    }
+
+    /** Path 5, switched mid-path to the camera-picked drive once decideChain5Pick() has built it. */
+    private void followPickStep(AutoPath path, AutoPath pick, double pathSpeed) {
+        if (!stepStarted) {
+            chain5Switched = false;
+            startPath(path, pathSpeed);
+            stepStarted = true;
+        }
+        if (pick != null && !chain5Switched) {
+            startPath(pick, pathSpeed);
+            chain5Switched = true;
+        }
+        if (!follower.isBusy()) {
+            startEvent("Intake Off");
+            advanceSequence();
+        }
+    }
+
+    /**
+     * Turn in place to {@code headingDeg} (the next path's end heading) before driving it. Done within
+     * TURN_TOLERANCE_DEG, or after TURN_TIMEOUT_MS whatever the heading.
+     */
+    private void runTurnStep(double headingDeg) {
+        if (!stepStarted) {
+            Pose here = follower.pose();
+            follower.hold(new Pose(here.x(), here.y(), Math.toRadians(headingDeg)));
+            stepStartTime = System.currentTimeMillis();
+            stepStarted = true;
+        }
+        double error = Math.abs(normalizeRadians(Math.toRadians(headingDeg) - follower.pose().heading()));
+        if (error <= Math.toRadians(AutoConstants.Autonomous.TURN_TOLERANCE_DEG)
+                || System.currentTimeMillis() - stepStartTime >= AutoConstants.Autonomous.TURN_TIMEOUT_MS) {
+            advanceSequence();
+        }
     }
 
     private void runSequence() {
@@ -284,21 +361,24 @@ public class BlueSoloAuto extends OpMode {
         runWaitStep(2000L);
         break;
       case 8:
-        followPathStep(chain5, 1.000);
+        followPickStep(chain5, chain5Pick, 1.000);
         break;
       case 9:
         runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 10:
-        followPathStep(chain6, 1.000);
+        runTurnStep(0.000);
         break;
       case 11:
-        followPathStep(chain7, 1.000);
+        followPathStep(chain6, 1.000);
         break;
       case 12:
-        runTimedEventStep("Shoot", shootTimeMs);
+        followPathStep(chain7, 1.000);
         break;
       case 13:
+        runTimedEventStep("Shoot", shootTimeMs);
+        break;
+      case 14:
         followPathStep(chain8, 1.000);
         break;
             default:
@@ -605,6 +685,9 @@ public class BlueSoloAuto extends OpMode {
         telemetry.addData("X", "%.2f", pose.x());
         telemetry.addData("Y", "%.2f", pose.y());
         telemetry.addData("Heading", "%.2f", Math.toDegrees(pose.heading()));
+        if (cameraPick != null) {
+            telemetry.addData("Camera pick", cameraPick.note() + " · " + cameraPick.status());
+        }
         if (mechanisms != null) {
             mechanisms.addTelemetry(telemetry);
         }

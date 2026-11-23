@@ -21,7 +21,7 @@ public final class AutoConstants {
         // auto (ideal following): 5 -> 3 unwinds. AutoMechanisms.update.
         public static boolean PRE_AIM = true;
         public static double SCOOPULA_TRANSITION_TIME = 300; //ms
-        // RED auto path 5 camera pick (RedSoloAuto.decideSlam, operator 2026-11-23). RED frame, inches.
+        // Camera pick on path 5 (auto/modules/CameraPick, operator 2026-11-23). RED frame, inches; blue mirrors.
         // At PICK_Y on the way down, one frame's clumps are projected onto the audience wall and the robot is
         // re-routed into the biggest, ending pressed against the wall at (pick x, WALL_Y) heading 270, then shoots.
         public static boolean CAMERA_PICK = true;
@@ -34,5 +34,9 @@ public final class AutoConstants {
         /** Allowed drive-to x along the wall: red wall + half the 15 in width + 1; audience flower (x 90.7) - 9.7. */
         public static double PICK_X_MIN = 8.5;
         public static double PICK_X_MAX = 81.0;
+        // Turn in place before a path marked "turn first" (after the camera-pick shot: to the next path's end
+        // heading, away from the turret wrap). Done within the tolerance, or after the timeout regardless.
+        public static double TURN_TOLERANCE_DEG = 4.0;
+        public static double TURN_TIMEOUT_MS = 1200;
     }
 }

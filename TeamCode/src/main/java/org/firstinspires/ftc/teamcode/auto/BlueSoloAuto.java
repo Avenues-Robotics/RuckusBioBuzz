@@ -33,7 +33,7 @@ public class BlueSoloAuto extends OpMode {
     public static PathStep START_STEP = new PathStep(85.500, 132.304, 0.000);
     public static PathStep POINT_1 = new PathStep(131.383, 131.960, 0.000);
     public static PathStep POINT_2 = new PathStep(131.278, 131.201, 90.000);
-    public static PathStep POINT_3 = new PathStep(95.020, 15.643, 270.000);
+    public static PathStep POINT_3 = new PathStep(95.020, 15.643, 270.100);
     public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);
     public static PathStep POINT_5 = new PathStep(83.557, 131.081, 90.000);
     public static PathStep POINT_6 = new PathStep(126.058, 94.285, 0.000);
@@ -211,7 +211,7 @@ public class BlueSoloAuto extends OpMode {
             ).heading(
                 headingInterpolator(
                     Math.toRadians(90.000),
-                    Math.toRadians(270.000),   // face the audience-wall flower: the scoopula is on the front (was 180, 2026-11-15, for the turret wrap)
+                    Math.toRadians(270.100),   // 270.1, not 270: a half turn 90 -> 270 goes counter-clockwise past the blue-wall flower broadside (1.0 in); 270.1 turns clockwise, the mirror of red. Faces the audience-wall flower: the scoopula is on the front (was 180, 2026-11-15, for the turret wrap)
                     1.000
                 )
             )
@@ -224,7 +224,7 @@ public class BlueSoloAuto extends OpMode {
         chain4 = new AutoPath(
             Paths.line(POINT_3.toPose(), POINT_4.toPose()).heading(
                 headingInterpolator(
-                    Math.toRadians(270.000),
+                    Math.toRadians(270.100),
                     Math.toRadians(90.000),
                     1.350
                 )

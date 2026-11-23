@@ -230,7 +230,7 @@ public class RedSoloAuto extends OpMode {
                 headingInterpolator(
                     Math.toRadians(90.000),
                     Math.toRadians(270.000),
-                    1.000
+                    2.000   // turn late: leave the far-wall flower before swinging (a corner passed 1.0 in from it at 1.0)
                 )
             )
         ).addParametricCallback(0, 0.500, () ->

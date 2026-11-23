@@ -99,7 +99,7 @@
         "heading": "linear",
         "startDeg": 90,
         "endDeg": 270,
-        "headingCurve": 1.0
+        "headingCurve": 2.0
       },
       "controlPoints": [],
       "speed": 1,

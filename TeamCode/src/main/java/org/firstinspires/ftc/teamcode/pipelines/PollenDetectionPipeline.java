@@ -13,90 +13,23 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * PollenDetectionPipeline
- * ═══════════════════════════════════════════════════════════════════════
- * Detects clumps of BIOBUZZ Pollen — yellow plastic balls ~2.8" diameter
- * — on the FTC foam field surface.
+ * PollenDetectionPipeline - finds clumps of BIOBUZZ Pollen (yellow plastic balls, ~2.8 in) in a webcam frame.
  *
- * Drop into:  TeamCode/src/main/java/…/teamcode
+ * <p>Per frame: optional rotation (Config.rotateDeg, for a camera mounted on its side) -> HSV threshold, two
+ * overlapping yellow ranges OR-ed -> morphological open (specks out) -> morphological close (gaps between touching
+ * balls filled) -> connected components with stats -> area / aspect filter -> components whose boxes are within
+ * clumpMergeGap merged into Clumps -> sorted by estimated ball count. Boxes are drawn onto the frame.
  *
- * ── Why this architecture ────────────────────────────────────────────
+ * <p>2026-11-23: steps 2-5 used to be a hand-rolled run-length (RLE) open / close / labelling. Its close merged
+ * every run within closeVRadius (12) rows INTO the previous row's run, so a ball kept one run every 13 rows; the
+ * labelling joins only runs on adjacent rows, so every ball fell apart into single-row strips of one ball-width of
+ * area (60-170 px at 640 x 480), all under minArea 350, and nothing was ever detected (first camera test, balls in
+ * plain view, 0 clumps). Replaced by OpenCV's native morphologyEx + connectedComponentsWithStats; the tunables
+ * mean the same thing. Cost on the Control Hub is not measured.
  *
- * The naive approach (HSV threshold → morphologyEx → findContours) works
- * but is slow on Android because:
- *
- *   1. morphologyEx with a 15px kernel slides over all 307,200 pixels
- *      twice — the single biggest cost in the pipeline (~8–12ms).
- *   2. findContours() allocates a MatOfPoint object per contour,
- *      generating GC pressure that causes jitter in the vision thread.
- *   3. Computing moments/bounding boxes requires a second pass over each
- *      contour's pixel list.
- *
- * This pipeline replaces steps 2 and 3 with Run-Length Encoding (RLE):
- *
- *   • After the HSV threshold, the binary mask is compressed into "runs"
- *     (horizontal spans of foreground pixels). A 640×480 scene with a few
- *     pollen balls typically produces 300–2000 runs — vs 307,200 pixels.
- *
- *   • Morphological open and close operate on runs, not pixels. Erosion
- *     is shrinking run endpoints; dilation is expanding them and merging
- *     overlapping runs. Cost is O(R) where R = run count, independent of
- *     kernel size. A 15px close costs the same as a 3px close.
- *     (Ref: Ehrensperger et al., "Fast algorithms for morphological
- *     operations using RLE binary images", arXiv:1504.01052)
- *
- *   • Connected-component labeling uses a single-pass union-find over
- *     runs rather than pixels. Adjacent-row runs that overlap horizontally
- *     are unioned. Blob statistics (centroid, area, bounding box) are
- *     accumulated during this single pass — no second scan, no contour
- *     tracing, no heap allocation per blob.
- *     (Ref: Wang et al., "New algorithm for binary CCL based on RLE and
- *     union-find sets", Beijing Inst. of Technology, 2010)
- *
- * ── Total frame cost (640×480, REV Control Hub estimate) ────────────
- *
- *   HSV threshold (cvtColor + 2× inRange + bitwise_or) : ~2.5 ms
- *   RLE compression of binary mask                      : ~0.4 ms
- *   RLE open (noise removal)                            : ~0.3 ms
- *   RLE close (gap filling between touching balls)      : ~0.3 ms
- *   RLE CCL + accumulation (union-find, single pass)    : ~0.3 ms
- *   Clump merging + annotation                          : ~0.5 ms
- *   ─────────────────────────────────────────────────────────────────
- *   TOTAL                                               : ~4–5 ms
- *   vs naive pixel-grid pipeline                        : ~15–25 ms
- *   Camera frame budget at 30fps                        : 33 ms
- *
- * ── Usage ────────────────────────────────────────────────────────────
- *
- *   PollenDetectionPipeline pipeline = new PollenDetectionPipeline(telemetry);
- *
- *   visionPortal = new VisionPortal.Builder()
- *       .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
- *       .addProcessor(pipeline)
- *       .build();
- *
- *   // In OpMode loop:
- *   Clump target = pipeline.getBestClump();
- *   if (target != null) {
- *       double correction = KP * pipeline.getSteeringError();
- *       // feed into your drive
- *   }
- *
- * ── Tuning ───────────────────────────────────────────────────────────
- *
- *   SINGLE_BALL_AREA_PX  — most important. Point camera at one ball at
- *                          intake distance, read getBestClump().areaPx
- *                          from telemetry, plug that value in here.
- *
- *   HSV ranges           — defaults cover warm fluorescent + LED venues.
- *                          Tighten S_MIN if yellow field seams give false
- *                          positives. Loosen H range if pollen looks
- *                          orange-ish under your lights.
- *
- *   OPEN_RADIUS          — increase to kill larger noise speckles.
- *   CLOSE_GAP            — increase if touching balls aren't merging.
- *   CLUMP_MERGE_GAP      — increase if separate clumps are merging wrong.
- * ═══════════════════════════════════════════════════════════════════════
+ * <p>Usage: {@code pipeline = new PollenDetectionPipeline(null, config)}, add it to a VisionPortal
+ * (pipelines/PollenCamera), read {@link #getBestClump()} / {@link #getSteeringError()} from the OpMode loop.
+ * Calibrate singleBallAreaPx: one ball at intake distance, read getBestClump().areaPx.
  */
 public class PollenDetectionPipeline implements VisionProcessor {
 
@@ -120,16 +53,15 @@ public class PollenDetectionPipeline implements VisionProcessor {
         public double[] hsvLowB  = {12,  60,  45}; // wider net for dim venues
         public double[] hsvHighB = {42, 255, 255};
 
-        // RLE morphological open: removes noise runs shorter than this many pixels.
+        // Morphological open (noise removal), kernel radius in px: specks smaller than ~2r+1 vanish.
         // A single pollen ball at 3ft spans ~22px wide; noise is typically 1–4px.
         public int openRadius = 3;
 
-        // RLE morphological close: fills horizontal gaps between touching balls.
+        // Morphological close (gap filling), kernel half-width in px: fills horizontal gaps between touching balls.
         // Two adjacent balls at 3ft may have a 5–15px dark gap between them.
         public int closeHGap = 16;
 
-        // Vertical radius for the close operation: how many rows apart two runs
-        // can be and still be merged into one blob region.
+        // Close kernel half-height in px.
         public int closeVRadius = 12;
 
         // Component area filter — pixels²
@@ -147,6 +79,10 @@ public class PollenDetectionPipeline implements VisionProcessor {
         // ⚠ CALIBRATE THIS: place one ball at your intake, call getBestClump()
         //   .areaPx, then paste that number here.
         public double singleBallAreaPx = 1_600.0;
+
+        // Camera mounted rotated: the frame is turned this many degrees CLOCKWISE (0, 90, 180, 270) before
+        // anything else, so detection, steering error and the annotated feed are all upright.
+        public int rotateDeg = 0;
     }
 
     private final Scalar HSV_LO_A;
@@ -161,54 +97,29 @@ public class PollenDetectionPipeline implements VisionProcessor {
     private final double MAX_ASPECT;
     private final int    CLUMP_MERGE_GAP;
     private final double SINGLE_BALL_AREA_PX;
+    private final int    ROTATE_CODE;   // Core.ROTATE_*, or -1 for none
 
-    // Maximum runs array size. 32k handles even the noisiest frames.
-    private static final int MAX_RUNS = 32_000;
+    // OpenCV Mats - allocated once, reused each frame
+    private final Mat hsvMat    = new Mat();
+    private final Mat maskA     = new Mat();
+    private final Mat maskB     = new Mat();
+    private final Mat mask      = new Mat();
+    private final Mat rotated   = new Mat();
+    private final Mat labels    = new Mat();
+    private final Mat stats     = new Mat();
+    private final Mat centroids = new Mat();
+    private final Mat openKernel;
+    private final Mat closeKernel;
+    private int[]    statBuf = new int[0];
+    private double[] centBuf = new double[0];
+    private Mat display;
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // OpenCV Mats — allocated once, reused each frame to avoid GC churn
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private final Mat hsvMat   = new Mat();
-    private final Mat maskA    = new Mat();
-    private final Mat maskB    = new Mat();
-    private final Mat mask     = new Mat();
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // RLE parallel arrays — runs stored as (row, colStart, colEnd[inclusive])
-    // Using parallel primitives avoids per-run object allocation (no GC).
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private final int[] rRow   = new int[MAX_RUNS];
-    private final int[] rStart = new int[MAX_RUNS];
-    private final int[] rEnd   = new int[MAX_RUNS];
-    private int         rCount = 0;
-
-    // Union-find arrays for CCL
-    private final int[] ufParent = new int[MAX_RUNS];
-    private final int[] ufRank   = new int[MAX_RUNS];
-
-    // Per-component accumulators (indexed by canonical label = run index)
-    private final long[] cSumX  = new long[MAX_RUNS];
-    private final long[] cSumY  = new long[MAX_RUNS];
-    private final long[] cArea  = new long[MAX_RUNS];
-    private final int[]  cMinX  = new int[MAX_RUNS];
-    private final int[]  cMinY  = new int[MAX_RUNS];
-    private final int[]  cMaxX  = new int[MAX_RUNS];
-    private final int[]  cMaxY  = new int[MAX_RUNS];
-
-    // Raw byte array for fast mask readout (avoid Mat.get() in inner loops)
-    private byte[] maskBytes = new byte[0];
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Shared state — written by vision thread, read by robot thread
-    // ─────────────────────────────────────────────────────────────────────────
-
+    // Shared state - written by vision thread, read by robot thread
     private final Object     lock     = new Object();
     private final List<Clump> results  = new ArrayList<>();
     private Clump   best          = null;
     private double  steeringError = 0.0;
-    private int     fw = 640, fh = 480;  // frame dimensions
+    private int     fw = 640, fh = 480;  // frame dimensions after rotation
 
     private final Telemetry telemetry;
 
@@ -274,66 +185,57 @@ public class PollenDetectionPipeline implements VisionProcessor {
         MAX_ASPECT          = c.maxAspect;
         CLUMP_MERGE_GAP     = c.clumpMergeGap;
         SINGLE_BALL_AREA_PX = c.singleBallAreaPx;
+        int rot = ((c.rotateDeg % 360) + 360) % 360;
+        ROTATE_CODE = rot == 90 ? Core.ROTATE_90_CLOCKWISE : rot == 180 ? Core.ROTATE_180
+                : rot == 270 ? Core.ROTATE_90_COUNTERCLOCKWISE : -1;
+        openKernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
+                new Size(2 * Math.max(0, OPEN_RADIUS) + 1, 2 * Math.max(0, OPEN_RADIUS) + 1));
+        closeKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT,
+                new Size(2 * Math.max(0, CLOSE_H_GAP) + 1, 2 * Math.max(0, CLOSE_V_RADIUS) + 1));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // VisionProcessor — init
+    // VisionProcessor
     // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public void init(int width, int height, CameraCalibration calibration) {
-        synchronized (lock) { fw = width; fh = height; }
-        int needed = width * height;
-        if (maskBytes.length < needed) maskBytes = new byte[needed];
+        boolean quarter = ROTATE_CODE == Core.ROTATE_90_CLOCKWISE || ROTATE_CODE == Core.ROTATE_90_COUNTERCLOCKWISE;
+        synchronized (lock) { fw = quarter ? height : width; fh = quarter ? width : height; }
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // VisionProcessor — processFrame  (runs on the vision thread)
-    // ─────────────────────────────────────────────────────────────────────────
 
     @Override
     public Object processFrame(Mat input, long captureTimeNanos) {
-        int W, H;
-        synchronized (lock) { W = fw; H = fh; }
+        Mat frame = input;
+        if (ROTATE_CODE >= 0) {
+            Core.rotate(input, rotated, ROTATE_CODE);
+            frame = rotated;
+        }
+        int W = frame.cols(), H = frame.rows();
 
-        // ── 1. HSV threshold ─────────────────────────────────────────────────
-        // HSV separates hue from brightness, giving stability across venue
-        // lighting. Two merged ranges catch both warm and cool light sources.
-        Imgproc.cvtColor(input, hsvMat, Imgproc.COLOR_RGB2HSV);
+        // 1. HSV threshold: two merged yellow ranges (warm and cool venue lighting).
+        Imgproc.cvtColor(frame, hsvMat, Imgproc.COLOR_RGB2HSV);
         Core.inRange(hsvMat, HSV_LO_A, HSV_HI_A, maskA);
         Core.inRange(hsvMat, HSV_LO_B, HSV_HI_B, maskB);
         Core.bitwise_or(maskA, maskB, mask);
 
-        // ── 2. RLE compression ───────────────────────────────────────────────
-        // Read entire mask as a flat byte array once (avoids JNI overhead of
-        // calling Mat.get() inside any kind of loop).
-        mask.get(0, 0, maskBytes);
-        rCount = buildRle(maskBytes, W, H);
+        // 2. Open (specks out), close (gaps between touching balls filled).
+        if (OPEN_RADIUS > 0) Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_OPEN, openKernel);
+        if (CLOSE_H_GAP > 0 || CLOSE_V_RADIUS > 0) Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_CLOSE, closeKernel);
 
-        // ── 3. RLE morphological open (noise removal) ────────────────────────
-        // Erosion: drop runs shorter than 2*OPEN_RADIUS, shrink the rest.
-        // Dilation: restore surviving runs to original size.
-        // Net effect: isolated specks vanish, real ball blobs survive.
-        rCount = rleOpen(W);
+        // 3. Connected components with stats (label 0 is the background).
+        int n = Imgproc.connectedComponentsWithStats(mask, labels, stats, centroids, 8, CvType.CV_32S);
 
-        // ── 4. RLE morphological close (gap filling) ─────────────────────────
-        // Dilation: expand runs by CLOSE_H_GAP and merge vertical neighbors.
-        // Erosion: shrink back to original size.
-        // Net effect: small gaps between touching balls in a clump are filled.
-        rCount = rleClose(W);
-
-        // ── 5. Single-pass RLE connected-component labeling ──────────────────
-        // Sorts runs by (row, start) then sweeps adjacency with a two-pointer,
-        // union-find merging. Blob statistics are accumulated in the same pass.
-        int numBlobs = rleLabel();
-
-        // ── 6. Filter blobs, build Clumps ────────────────────────────────────
-        List<Clump> clumps = buildClumps(numBlobs, W);
+        // 4. Filter, merge into Clumps, sort.
+        List<Clump> clumps = buildClumps(n, W);
         Collections.sort(clumps, CLUMP_ORDER);
 
-        // ── 7. Annotate + publish ─────────────────────────────────────────────
-        drawAnnotations(input, clumps, W, H);
+        // 5. Annotate + publish.
+        drawAnnotations(frame, clumps, W, H);
+        display = frame;
         synchronized (lock) {
+            fw = W;
+            fh = H;
             results.clear();
             results.addAll(clumps);
             best          = clumps.isEmpty() ? null : clumps.get(0);
@@ -351,220 +253,28 @@ public class PollenDetectionPipeline implements VisionProcessor {
                             float bmpScale, float canvasScale, Object ctx) { }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Step 2: Build RLE from binary mask
+    // Filter components and merge spatially close ones into Clumps
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Single linear scan of the flat mask byte array.
-     * Encodes each horizontal run of nonzero pixels as (row, start, end).
-     * O(W × H) — exactly one read per pixel, no branching per-column beyond
-     * the foreground/background transition check.
-     */
-    private int buildRle(byte[] m, int W, int H) {
-        int count = 0;
-        for (int y = 0; y < H && count < MAX_RUNS - 1; y++) {
-            int base  = y * W;
-            boolean in = false;
-            int     s  = 0;
-            for (int x = 0; x < W; x++) {
-                boolean fg = m[base + x] != 0;
-                if (fg && !in)          { s = x; in = true; }
-                else if (!fg && in)     { writeRun(count++, y, s, x - 1); in = false; }
+    private List<Clump> buildClumps(int numLabels, int W) {
+        List<double[]> comps = new ArrayList<>();
+        if (numLabels > 1) {
+            if (statBuf.length < numLabels * 5) statBuf = new int[numLabels * 5];
+            if (centBuf.length < numLabels * 2) centBuf = new double[numLabels * 2];
+            stats.get(0, 0, statBuf);        // rows of LEFT, TOP, WIDTH, HEIGHT, AREA
+            centroids.get(0, 0, centBuf);    // rows of cx, cy
+            for (int i = 1; i < numLabels; i++) {
+                int x = statBuf[i * 5 + Imgproc.CC_STAT_LEFT];
+                int y = statBuf[i * 5 + Imgproc.CC_STAT_TOP];
+                int bw = statBuf[i * 5 + Imgproc.CC_STAT_WIDTH];
+                int bh = statBuf[i * 5 + Imgproc.CC_STAT_HEIGHT];
+                double area = statBuf[i * 5 + Imgproc.CC_STAT_AREA];
+                if (area < MIN_AREA || area > MAX_AREA || bh == 0) continue;
+                double asp = (double) bw / bh;
+                if (asp > MAX_ASPECT || asp < 1.0 / MAX_ASPECT) continue;
+                // [cx, cy, area, x1, y1, x2, y2]
+                comps.add(new double[]{centBuf[i * 2], centBuf[i * 2 + 1], area, x, y, x + bw - 1, y + bh - 1});
             }
-            if (in) writeRun(count++, y, s, W - 1);
-        }
-        return count;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 3: RLE morphological open
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Erosion + dilation in run-space.
-     *
-     * Erosion: shrink each run inward by OPEN_RADIUS on each side.
-     *   - Runs shorter than 2*OPEN_RADIUS vanish entirely (noise removal).
-     *   - Runs that have no vertically adjacent neighbour within OPEN_RADIUS
-     *     rows are also dropped (isolated horizontal streaks).
-     *
-     * Dilation: re-expand surviving runs by OPEN_RADIUS on each side.
-     *   Completes the open: noise is gone, ball blobs return to original size.
-     *
-     * Critical insight (Ehrensperger 2015): for RLE morphology, kernel size
-     * does NOT increase cost — a 15px erosion is the same number of array
-     * operations as a 3px erosion, because we work on run endpoints, not pixels.
-     */
-    private int rleOpen(int W) {
-        if (rCount == 0) return 0;
-        sortRuns(rCount); // sort needed for the neighbour check below
-
-        int out = 0;
-        for (int i = 0; i < rCount; i++) {
-            int ns = rStart[i] + OPEN_RADIUS;
-            int ne = rEnd[i]   - OPEN_RADIUS;
-            if (ns > ne) continue; // run too short — drop
-
-            // Vertical neighbour check: require at least one run on an
-            // adjacent row that overlaps the shrunken span.
-            boolean hasNeighbour = false;
-            for (int j = 0; j < rCount && !hasNeighbour; j++) {
-                int dy = rRow[j] - rRow[i];
-                if (dy == 0 || dy < -OPEN_RADIUS) continue;
-                if (dy > OPEN_RADIUS) break; // sorted by row → can early-exit
-                if (rStart[j] <= ne && rEnd[j] >= ns) hasNeighbour = true;
-            }
-            if (!hasNeighbour) continue;
-
-            writeRun(out++, rRow[i], ns, ne);
-        }
-
-        // Re-dilate: restore eroded runs to original size
-        for (int i = 0; i < out; i++) {
-            rStart[i] = Math.max(0,   rStart[i] - OPEN_RADIUS);
-            rEnd[i]   = Math.min(W-1, rEnd[i]   + OPEN_RADIUS);
-        }
-        return out;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 4: RLE morphological close
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Dilation + erosion in run-space.
-     *
-     * Dilation: expand every run by CLOSE_H_GAP horizontally, then merge all
-     *   runs that now overlap — including runs on adjacent rows within
-     *   CLOSE_V_RADIUS. Small gaps between touching balls collapse into one run.
-     *
-     * Erosion: shrink surviving (merged) runs back by CLOSE_H_GAP.
-     *   Restores original boundaries; the "bridge" pixels that filled the
-     *   gap are removed, but the two blobs now share adjacency for CCL.
-     */
-    private int rleClose(int W) {
-        if (rCount == 0) return 0;
-
-        // Dilate horizontally
-        for (int i = 0; i < rCount; i++) {
-            rStart[i] = Math.max(0,   rStart[i] - CLOSE_H_GAP);
-            rEnd[i]   = Math.min(W-1, rEnd[i]   + CLOSE_H_GAP);
-        }
-
-        // Sort by (row ASC, start ASC) then merge overlapping/adjacent runs
-        sortRuns(rCount);
-        int out = 0;
-        for (int i = 0; i < rCount; i++) {
-            if (out == 0) { copyRun(i, out++); continue; }
-            int p  = out - 1;
-            int dy = rRow[i] - rRow[p];
-            if (dy <= CLOSE_V_RADIUS && rStart[i] <= rEnd[p] + 1) {
-                // Merge into previous run
-                if (rEnd[i] > rEnd[p]) rEnd[p] = rEnd[i];
-            } else {
-                copyRun(i, out++);
-            }
-        }
-
-        // Erode back
-        int final_ = 0;
-        for (int i = 0; i < out; i++) {
-            int ns = rStart[i] + CLOSE_H_GAP;
-            int ne = rEnd[i]   - CLOSE_H_GAP;
-            if (ns > ne) continue;
-            writeRun(final_++, rRow[i], ns, ne);
-        }
-        return final_;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 5: RLE connected-component labeling
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Single-pass union-find CCL over the run-length representation.
-     *
-     * Algorithm (Wang et al. 2010, adapted):
-     *
-     *   Phase A — Merge:
-     *     Iterate runs in sorted order. For each run on row R, scan all runs
-     *     on row R-1 (maintained via a sliding window pointer). Any run on
-     *     R-1 that overlaps horizontally is unioned with the current run.
-     *     Union-find with path-halving + union-by-rank gives amortized O(α(N))
-     *     per operation — effectively O(1) for realistic run counts.
-     *
-     *   Phase B — Accumulate:
-     *     Second pass over runs. For each run, resolve its canonical label
-     *     via find(), then add the run's contribution to that label's
-     *     centroid sum, area, and bounding box. No pixel-level second scan.
-     *
-     * Returns the number of distinct components found.
-     */
-    private int rleLabel() {
-        if (rCount == 0) return 0;
-        sortRuns(rCount);
-
-        // Initialise union-find
-        for (int i = 0; i < rCount; i++) { ufParent[i] = i; ufRank[i] = 0; }
-
-        // Phase A: merge adjacent-row overlapping runs
-        int prevStart = 0; // sliding window into runs on (curRow - 1)
-        for (int i = 0; i < rCount; i++) {
-            int curRow = rRow[i];
-            // Advance window past rows older than curRow-1
-            while (prevStart < i && rRow[prevStart] < curRow - 1) prevStart++;
-            // Scan window for horizontal overlap
-            for (int j = prevStart; j < i; j++) {
-                if (rRow[j] != curRow - 1) continue;
-                if (rStart[j] > rEnd[i] || rEnd[j] < rStart[i]) continue;
-                ufUnion(i, j);
-            }
-        }
-
-        // Phase B: accumulate per-component statistics
-        for (int i = 0; i < rCount; i++) {
-            cSumX[i] = cSumY[i] = cArea[i] = 0;
-            cMinX[i] = cMinY[i] = Integer.MAX_VALUE;
-            cMaxX[i] = cMaxY[i] = Integer.MIN_VALUE;
-        }
-        for (int i = 0; i < rCount; i++) {
-            int    root = ufFind(i);
-            int    len  = rEnd[i] - rStart[i] + 1;
-            long   midX = rStart[i] + len / 2L;
-            cArea[root] += len;
-            cSumX[root] += midX * len;
-            cSumY[root] += (long) rRow[i] * len;
-            if (rStart[i] < cMinX[root]) cMinX[root] = rStart[i];
-            if (rRow[i]   < cMinY[root]) cMinY[root] = rRow[i];
-            if (rEnd[i]   > cMaxX[root]) cMaxX[root] = rEnd[i];
-            if (rRow[i]   > cMaxY[root]) cMaxY[root] = rRow[i];
-        }
-
-        int n = 0;
-        for (int i = 0; i < rCount; i++) if (ufFind(i) == i && cArea[i] > 0) n++;
-        return n;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Step 6: Filter components and merge spatially close ones into Clumps
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private List<Clump> buildClumps(int numBlobs, int W) {
-        // Collect valid components
-        List<double[]> comps = new ArrayList<>(numBlobs);
-        for (int i = 0; i < rCount; i++) {
-            if (ufFind(i) != i || cArea[i] == 0) continue;
-            double area = cArea[i];
-            if (area < MIN_AREA || area > MAX_AREA) continue;
-            int bw = cMaxX[i] - cMinX[i] + 1;
-            int bh = cMaxY[i] - cMinY[i] + 1;
-            if (bh == 0) continue;
-            double asp = (double) bw / bh;
-            if (asp > MAX_ASPECT || asp < 1.0 / MAX_ASPECT) continue;
-            double cx = (double) cSumX[i] / area;
-            double cy = (double) cSumY[i] / area;
-            // [cx, cy, area, x1, y1, x2, y2]
-            comps.add(new double[]{cx, cy, area, cMinX[i], cMinY[i], cMaxX[i], cMaxY[i]});
         }
 
         // Spatial merge: union components whose bounding boxes are within CLUMP_MERGE_GAP
@@ -666,29 +376,6 @@ public class PollenDetectionPipeline implements VisionProcessor {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Union-find — path-halving + union by rank (near-O(1) amortized)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private int ufFind(int x) {
-        // Path halving: point every other node directly at its grandparent.
-        // Equivalent to path compression in practice, no recursion needed.
-        while (ufParent[x] != x) {
-            ufParent[x] = ufParent[ufParent[x]];
-            x           = ufParent[x];
-        }
-        return x;
-    }
-
-    private void ufUnion(int a, int b) {
-        int ra = ufFind(a), rb = ufFind(b);
-        if (ra == rb) return;
-        // Union by rank: attach smaller tree under larger
-        if      (ufRank[ra] < ufRank[rb]) ufParent[ra] = rb;
-        else if (ufRank[ra] > ufRank[rb]) ufParent[rb] = ra;
-        else { ufParent[rb] = ra; ufRank[ra]++; }
-    }
-
     // Simple union-find for the small clump-merge step (no rank needed)
     private int smallFind(int[] p, int i) {
         while (p[i] != i) { p[i] = p[p[i]]; i = p[i]; } return i;
@@ -697,43 +384,6 @@ public class PollenDetectionPipeline implements VisionProcessor {
         a = smallFind(p, a); b = smallFind(p, b); if (a != b) p[b] = a;
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Run array helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void writeRun(int i, int row, int start, int end) {
-        rRow[i] = row; rStart[i] = start; rEnd[i] = end;
-    }
-
-    private void copyRun(int from, int to) {
-        rRow[to] = rRow[from]; rStart[to] = rStart[from]; rEnd[to] = rEnd[from];
-    }
-
-    /**
-     * In-place insertion sort of the run arrays by (row ASC, start ASC).
-     *
-     * Insertion sort chosen deliberately:
-     *   • Runs are nearly sorted between consecutive frames (the scene changes
-     *     little in 33ms), making insertion sort O(N + k) where k = inversions.
-     *   • For noisy frames with ~2000 runs, worst-case is still fast enough
-     *     (~0.3ms) because the constant factor is tiny (3 array reads/writes).
-     *   • Zero heap allocation — no Comparator, no Integer boxing.
-     */
-    private void sortRuns(int count) {
-        for (int i = 1; i < count; i++) {
-            int kr = rRow[i], ks = rStart[i], ke = rEnd[i];
-            int j  = i - 1;
-            while (j >= 0 && (rRow[j] > kr || (rRow[j] == kr && rStart[j] > ks))) {
-                rRow[j+1]   = rRow[j];
-                rStart[j+1] = rStart[j];
-                rEnd[j+1]   = rEnd[j];
-                j--;
-            }
-            rRow[j+1]   = kr;
-            rStart[j+1] = ks;
-            rEnd[j+1]   = ke;
-        }
-    }
 
     private static final Comparator<Clump> CLUMP_ORDER =
             new Comparator<Clump>() {
@@ -800,5 +450,19 @@ public class PollenDetectionPipeline implements VisionProcessor {
         maskA.release();
         maskB.release();
         mask.release();
+        rotated.release();
+        labels.release();
+        stats.release();
+        centroids.release();
+        openKernel.release();
+        closeKernel.release();
+    }
+
+    /**
+     * The frame this pipeline last processed, upright (rotateDeg applied) and annotated. Vision thread only:
+     * for a processor added after this one in the same VisionPortal (fieldview.CameraFeed). Null before the first frame.
+     */
+    public Mat displayFrame() {
+        return display;
     }
 }

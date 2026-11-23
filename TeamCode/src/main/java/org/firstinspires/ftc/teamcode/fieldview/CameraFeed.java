@@ -71,6 +71,11 @@ public final class CameraFeed implements VisionProcessor {
         double fps = Math.max(1, SystemConstants.Camera.STREAM_FPS);
         if (now - lastEncodeNs < 1e9 / fps) return null;
         lastEncodeNs = now;
+        // The pipeline's own frame: rotated upright (Camera.ROTATE_DEG) with its boxes drawn on it.
+        Mat shown = pipeline != null ? pipeline.displayFrame() : null;
+        if (shown != null && !shown.empty()) frame = shown;
+        width = frame.cols();
+        height = frame.rows();
 
         int w = (int) Math.max(80, Math.min(frame.cols(), SystemConstants.Camera.STREAM_WIDTH));
         int h = Math.max(1, Math.round(w * (float) frame.rows() / frame.cols()));

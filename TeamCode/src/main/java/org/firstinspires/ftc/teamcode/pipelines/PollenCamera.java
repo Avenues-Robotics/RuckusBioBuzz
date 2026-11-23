@@ -51,7 +51,9 @@ public final class PollenCamera {
                 cam = all.get(0);
                 how = "first attached webcam, NOT in the config (serial " + cam.getSerialNumber() + ")";
             }
-            PollenDetectionPipeline pipeline = new PollenDetectionPipeline(null);
+            PollenDetectionPipeline.Config config = new PollenDetectionPipeline.Config();
+            config.rotateDeg = SystemConstants.Camera.ROTATE_DEG;
+            PollenDetectionPipeline pipeline = new PollenDetectionPipeline(null, config);
             VisionPortal portal = new VisionPortal.Builder()
                     .setCamera(cam)
                     .setCameraResolution(new android.util.Size(SystemConstants.Camera.WIDTH, SystemConstants.Camera.HEIGHT))

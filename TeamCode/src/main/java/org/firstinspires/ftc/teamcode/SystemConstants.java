@@ -227,6 +227,9 @@ public final class SystemConstants {
         /** Capture size. PollenDetectionPipeline's area filters (minArea, singleBallAreaPx) assume 640 x 480. */
         public static int WIDTH = 640;
         public static int HEIGHT = 480;
+        /** The webcam is mounted on its side: frames are turned this far CLOCKWISE (0/90/180/270) before detection,
+         *  so the feed and the steering error are upright. 90 from the first feed 2026-11-23 (text read bottom-up). */
+        public static int ROTATE_DEG = 90;
         /** Field page feed (/field, Camera tab): frames encoded per second, width, JPEG quality. Not in branch 2. */
         public static double STREAM_FPS = 10;
         public static double STREAM_WIDTH = 320;

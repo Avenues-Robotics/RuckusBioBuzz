@@ -55,7 +55,7 @@
         "y": 15.643,
         "heading": "linear",
         "startDeg": 90,
-        "endDeg": 180,
+        "endDeg": 270,
         "headingCurve": 1.0
       },
       "controlPoints": [
@@ -99,7 +99,7 @@
         "x": 82.688,
         "y": 25.933999999999997,
         "heading": "linear",
-        "startDeg": 180,
+        "startDeg": 270,
         "endDeg": 90,
         "headingCurve": 1.35
       },

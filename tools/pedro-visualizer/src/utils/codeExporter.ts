@@ -267,11 +267,26 @@ const HEADING_HELPER_JAVA = `/**
         double curve
     ) {
         double clampedCurve = Math.max(0.25, Math.min(4.0, curve));
-        double deltaHeading = normalizeRadians(endHeading - startHeading);
+        double deltaHeading = headingDelta(startHeading, endHeading);
         return (pathCurve, t) ->
             normalizeRadians(
                 startHeading + deltaHeading * Math.pow(Math.max(0.0, Math.min(1.0, t)), clampedCurve)
             );
+    }
+
+    /**
+     * The turn from start to end, the way the visualizer draws it (math.ts getAngularDifference): the shorter way,
+     * and an exact half turn goes clockwise when the end's 0-360 angle is below the start's (270 -> 90 turns
+     * through 180), counter-clockwise otherwise. normalizeRadians alone sent every half turn counter-clockwise,
+     * so 270 -> 90 drove through 0 while the editor showed it through 180 (fixed 2026-11-23).
+     */
+    private static double headingDelta(double startHeading, double endHeading) {
+        double s = ((Math.toDegrees(startHeading) % 360.0) + 360.0) % 360.0;
+        double e = ((Math.toDegrees(endHeading) % 360.0) + 360.0) % 360.0;
+        double diff = Math.round((e - s) * 1e6) / 1e6;   // 270.0000000001 vs 90 must still read as -180
+        if (diff > 180.0) diff -= 360.0;
+        else if (diff < -180.0) diff += 360.0;
+        return Math.toRadians(diff);
     }
 
     private static double normalizeRadians(double angle) {

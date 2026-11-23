@@ -33,7 +33,7 @@ public class RedSoloAuto extends OpMode {
     public static PathStep START_STEP = new PathStep(56.000, 9.196, 180.000);
     public static PathStep POINT_1 = new PathStep(10.117, 9.540, 180.000);
     public static PathStep POINT_2 = new PathStep(10.222, 10.299, 270.000);
-    public static PathStep POINT_3 = new PathStep(46.480, 125.857, 0.000);
+    public static PathStep POINT_3 = new PathStep(46.480, 125.857, 90.000);
     public static PathStep POINT_4 = new PathStep(58.812, 115.566, 270.000);
     public static PathStep POINT_5 = new PathStep(57.943, 10.419, 270.000);
     public static PathStep POINT_6 = new PathStep(15.442, 47.215, 180.000);
@@ -215,7 +215,7 @@ public class RedSoloAuto extends OpMode {
             ).heading(
                 headingInterpolator(
                     Math.toRadians(270.000),
-                    Math.toRadians(0.000),
+                    Math.toRadians(90.000),   // face the far-wall flower: the scoopula is on the front (was 0, 2026-11-15, for the turret wrap)
                     0.700
                 )
             )
@@ -228,7 +228,7 @@ public class RedSoloAuto extends OpMode {
         chain4 = new AutoPath(
             Paths.line(POINT_3.toPose(), POINT_4.toPose()).heading(
                 headingInterpolator(
-                    Math.toRadians(0.000),
+                    Math.toRadians(90.000),
                     Math.toRadians(270.000),
                     1.000
                 )
@@ -451,11 +451,26 @@ public class RedSoloAuto extends OpMode {
         double curve
     ) {
         double clampedCurve = Math.max(0.25, Math.min(4.0, curve));
-        double deltaHeading = normalizeRadians(endHeading - startHeading);
+        double deltaHeading = headingDelta(startHeading, endHeading);
         return (pathCurve, t) ->
             normalizeRadians(
                 startHeading + deltaHeading * Math.pow(Math.max(0.0, Math.min(1.0, t)), clampedCurve)
             );
+    }
+
+    /**
+     * The turn from start to end, the way the visualizer draws it (math.ts getAngularDifference): the shorter way,
+     * and an exact half turn goes clockwise when the end's 0-360 angle is below the start's (270 -> 90 turns
+     * through 180), counter-clockwise otherwise. normalizeRadians alone sent every half turn counter-clockwise,
+     * so 270 -> 90 drove through 0 while the editor showed it through 180 (fixed 2026-11-23).
+     */
+    private static double headingDelta(double startHeading, double endHeading) {
+        double s = ((Math.toDegrees(startHeading) % 360.0) + 360.0) % 360.0;
+        double e = ((Math.toDegrees(endHeading) % 360.0) + 360.0) % 360.0;
+        double diff = Math.round((e - s) * 1e6) / 1e6;   // 270.0000000001 vs 90 must still read as -180
+        if (diff > 180.0) diff -= 360.0;
+        else if (diff < -180.0) diff += 360.0;
+        return Math.toRadians(diff);
     }
 
     private static double normalizeRadians(double angle) {

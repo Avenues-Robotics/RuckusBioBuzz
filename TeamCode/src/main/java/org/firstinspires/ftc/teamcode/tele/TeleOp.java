@@ -75,6 +75,7 @@ public class TeleOp extends OpMode {
     private double holdTargetRad = Double.NaN;
     private final ElapsedTime sinceTurnStick = new ElapsedTime();
     private final ElapsedTime relocalizeHeld = new ElapsedTime();
+    private final ElapsedTime resetTimer = new ElapsedTime();
     private boolean relocalizeHeldPrev;
     private boolean relocalizeDone;
     private String relocalizeNote = "";
@@ -357,12 +358,16 @@ public class TeleOp extends OpMode {
 
     /** Driver 1 holds SHARE / BACK for RELOCALIZE_HOLD_S with the robot at the spot: the pose is set there. */
     private void relocalize(Pose pose) {
-        boolean held = gamepad1.share || gamepad1.back;
+        boolean held = gamepad1.back;
+        boolean released = !held && relocalizeHeldPrev;
         if (held && !relocalizeHeldPrev) {
             relocalizeHeld.reset();
-            relocalizeDone = false;
+            relocalizeDone = false; //Ensures that there is no accidental reset
         }
-        if (held && !relocalizeDone && relocalizeHeld.seconds() >= SystemConstants.TeleOp.RELOCALIZE_HOLD_S) {
+
+        if (released && !relocalizeDone && relocalizeHeld.seconds() >= SystemConstants.TeleOp.RELOCALIZE_HOLD_S) {
+            shooterSystem.resetTurretPos();
+            resetTimer.reset();
             Pose spot = relocalizePose();
             follower.setPose(spot);
             fieldCentricOffset = 0;   // the heading is exact again: the drivers' frame needs no re-zero
@@ -371,6 +376,9 @@ public class TeleOp extends OpMode {
             gamepad1.rumble(400);
             relocalizeNote = String.format(java.util.Locale.US, "set to (%.1f, %.1f, %.0f deg), was (%.1f, %.1f, %.0f deg)",
                     spot.x(), spot.y(), Math.toDegrees(spot.heading()), pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        }
+        if(resetTimer.seconds() >= SystemConstants.TeleOp.RESET_TIMER_SEC){
+            shooterSystem.resumeTurret();
         }
         relocalizeHeldPrev = held;
     }

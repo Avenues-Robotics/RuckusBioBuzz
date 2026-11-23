@@ -54,6 +54,7 @@ public class Shooter {
         forceZone = force;
     }
 
+
     /**
      * While true the gate is open (state SHOOT, so TeleOp feeds the intake) and the flywheel runs at its
      * full target, bypassing the zone, aim and at-speed checks - except while the turret is unwinding.
@@ -184,6 +185,13 @@ public class Shooter {
     /** RESET (unwinding, gate shut), TRACK (aiming, gate shut) or SHOOT (gate open) - for telemetry. */
     public String stateName() {
         return state.name();
+    }
+
+    public void resumeTurret(){
+        aiming.turretResetPos();
+    }
+    public void resetTurretPos(){
+        aiming.resumeTurretPos();
     }
 
     public boolean inZone() { return zone.inZone(predictiveAiming.predictPose()); }

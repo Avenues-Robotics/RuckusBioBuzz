@@ -136,6 +136,18 @@ public class Turret {
     public boolean pollenAimed() { return pollenAimed; }
     public boolean nectarAimed() { return nectarAimed; }
 
+    /** Reset both turrets to their start position (used when re-enabling after a reset). */
+    public void turretResetPos() {
+        pollenTurret.turretResetPos();
+        nectarTurret.turretResetPos();
+    }
+
+    /** Resume normal tracking after a reset. */
+    public void resumeTurretPos() {
+        pollenTurret.resumeTurretPos();
+        nectarTurret.resumeTurretPos();
+    }
+
     private aimer aimFrom(Pose turret) {
         Pose target = goal(aimPose != null ? aimPose : predictor.leadPose());
         double dx = target.x() - turret.x();
@@ -155,6 +167,7 @@ public class Turret {
         /** Modelled servo position (servo units): moves toward the command at SPEED_DEG_S. Nothing senses the turret. */
         private double estimate;
         private long lastTrackNanos;
+        boolean reset = false;
 
         TurretServo(Servo servo, double start) {
             this.servo = servo;
@@ -201,12 +214,22 @@ public class Turret {
                     position = limit(follow, min, max);
                 }
             }
+            if(reset){
+                position = SystemConstants.Turret.RESET_POSE;
+            }
             write(position);
             // Aimed = the turret should be THERE, not just commanded there. Before 2026-11-20 any jump
             // (the hive end switching, a pose reset) reported aimed on the loop it was written, so the
             // gate could open with the turret still swinging; only an unwind waited.
             boolean arrived = Math.abs(position - estimate) * range <= SystemConstants.Turret.AIM_TOL_DEG;
             return aimed && arrived && System.nanoTime() >= settleUntilNanos;
+        }
+
+        public void turretResetPos(){
+            reset = true;
+        }
+        public void resumeTurretPos(){
+            reset = false;
         }
 
         /** Move the modelled position toward {@code target} (the last command) for the time since the last call. */

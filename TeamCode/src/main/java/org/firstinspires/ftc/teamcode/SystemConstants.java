@@ -75,6 +75,7 @@ public final class SystemConstants {
         public static double RELOCALIZE_X = 7.8;
         public static double RELOCALIZE_Y = 10.1;
         public static double RELOCALIZE_HEADING_DEG = 90;
+        public static double RESET_TIMER_SEC = 2;
     }
 
     @Config
@@ -136,6 +137,8 @@ public final class SystemConstants {
         public static double[] pollenTurretOffset = {-5.91, 0};
         public static double POLLEN_TURRET_CENTER = 0.5;
         public static double NECTAR_TURRET_CENTER = 0.5;
+        public static double RESET_POSE = 0.5;
+
         // Limits, servo units; every turret command (tracking, unwind, start) is clamped to them.
         // POLLEN, 2026-11-14 (operator): with the servo at 0.5 the turret faces straight, and the
         // mechanism's own limits ARE the servo's travel ends. The Axon MAX+ travels ~359 deg of

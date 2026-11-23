@@ -103,7 +103,7 @@
   }
 
   // The route as driven: Camera pick and Turn first applied, like the field and the animation.
-  $: routeEdits = expandRouteEdits(startPoint, lines, sequence);
+  $: routeEdits = expandRouteEdits(startPoint, lines, sequence, settings);
   $: timePrediction = calculatePathTime(startPoint, routeEdits.lines, settings, routeEdits.sequence, variables);
   $: elapsedSeconds = (percent / 100) * (timePrediction?.totalTime || 0);
 

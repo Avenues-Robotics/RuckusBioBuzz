@@ -824,7 +824,7 @@
 
   // Compute timeline markers for the UI (start of each travel segment)
   // The route as driven (Camera pick and Turn first applied), as the field and the header time it.
-  $: routeEdits = expandRouteEdits(startPoint, lines, sequence);
+  $: routeEdits = expandRouteEdits(startPoint, lines, sequence, settings);
   $: timePrediction = calculatePathTime(startPoint, routeEdits.lines, settings, routeEdits.sequence, variables);
   $: markers = (() => {
     const _markers: {

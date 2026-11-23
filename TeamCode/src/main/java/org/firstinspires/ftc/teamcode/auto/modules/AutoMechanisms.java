@@ -94,6 +94,9 @@ public final class AutoMechanisms {
             case "Shoot":
                 shooting = false;
                 shooter.setForceZone(false);
+                // The balls collected since the last shot are gone: the intake stops until the next collect
+                // ("Intake On" with each corner loop, Scoopula Down and the camera-pick path).
+                intaking = false;
                 break;
             case "Intake":
                 intaking = false;

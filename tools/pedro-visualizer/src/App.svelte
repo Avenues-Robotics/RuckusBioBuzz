@@ -1738,7 +1738,7 @@
   // Start points follow the sequence, so branches of an if share a start.
   // Camera pick and Turn first, applied: what the robot drives. Editors keep `lines`;
   // everything that times, draws, animates or checks the route reads these.
-  $: routeEdits = expandRouteEdits(startPoint, lines, sequence);
+  $: routeEdits = expandRouteEdits(startPoint, lines, sequence, settings);
   $: routeLines = routeEdits.lines;
   $: routeSequence = routeEdits.sequence;
   $: cameraPicks = routeEdits.previews;

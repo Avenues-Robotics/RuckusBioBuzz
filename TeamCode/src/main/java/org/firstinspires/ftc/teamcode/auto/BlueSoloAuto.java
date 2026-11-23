@@ -30,8 +30,8 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @Autonomous(name = "BlueSoloAuto", group = "Auto")
 public class BlueSoloAuto extends OpMode {
     // PathStep fields are editable from FTC Dashboard; paths are built in init(), so edits apply on the next init.
-    public static PathStep START_STEP = new PathStep(85.500, 132.939, 0.000);
-    public static PathStep POINT_1 = new PathStep(131.592, 133.320, 0.000);
+    public static PathStep START_STEP = new PathStep(85.500, 132.304, 0.000);
+    public static PathStep POINT_1 = new PathStep(131.383, 131.960, 0.000);
     public static PathStep POINT_2 = new PathStep(131.278, 131.201, 90.000);
     public static PathStep POINT_3 = new PathStep(95.020, 15.643, 180.000);
     public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);
@@ -57,6 +57,9 @@ public class BlueSoloAuto extends OpMode {
     private CameraPick cameraPick;
     private AutoPath chain5Pick;
     private boolean chain5Switched;
+    // Turn first (runTurnStep): where the robot turns, and whether it is still backing off a wall to get there.
+    private Pose turnClearPose;
+    private boolean turnBackingOff;
 
     private AutoPath activePath;
     private int sequenceIndex;
@@ -69,7 +72,7 @@ public class BlueSoloAuto extends OpMode {
     private static final int REPEAT_LOOP_CAPACITY = 1;
     private final int[] repeatLoopIterations = new int[REPEAT_LOOP_CAPACITY];
     private final int[] repeatLoopPathIndexes = new int[REPEAT_LOOP_CAPACITY];
-    private static final int PARALLEL_EVENT_CAPACITY = 4;
+    private static final int PARALLEL_EVENT_CAPACITY = 5;
     private final String[] activeParallelEventNames = new String[PARALLEL_EVENT_CAPACITY];
     private final long[] activeParallelEventStartTimes = new long[PARALLEL_EVENT_CAPACITY];
     private final long[] activeParallelEventDurations = new long[PARALLEL_EVENT_CAPACITY];
@@ -194,6 +197,8 @@ public class BlueSoloAuto extends OpMode {
                     )
                 )
             )
+        ).addParametricCallback(0, 0.000, () ->
+            startParallelEvent("Intake On", 0)   // collecting in the corner (corner loop + wait)
         );
 
         chain3 = new AutoPath(
@@ -212,6 +217,8 @@ public class BlueSoloAuto extends OpMode {
             )
         ).addParametricCallback(0, 0.380, () ->
             startParallelEvent("Scoopula Down", scoopulaTransitionMs)
+        ).addParametricCallback(0, 0.380, () ->
+            startParallelEvent("Intake On", 0)   // the scoopula feeds the intake
         );
 
         chain4 = new AutoPath(
@@ -231,7 +238,11 @@ public class BlueSoloAuto extends OpMode {
         // picks the biggest clump against the far wall and the rest of the path is replaced by a drive into it
         // (followPickStep). Nothing picked: the path ends at POINT_5 as planned.
         chain5 = new AutoPath(
-            Paths.line(POINT_4.toPose(), POINT_5.toPose()).heading(
+            Paths.curve(
+                POINT_4.toPose(),
+                new Pose(79.536, 85.491),
+                POINT_5.toPose()
+            ).heading(
                 headingInterpolator(
                     Math.toRadians(90.000),
                     Math.toRadians(90.000),
@@ -283,6 +294,8 @@ public class BlueSoloAuto extends OpMode {
             )
         ).addParametricCallback(0, 0.280, () ->
             startParallelEvent("Scoopula Down", scoopulaTransitionMs)
+        ).addParametricCallback(0, 0.280, () ->
+            startParallelEvent("Intake On", 0)   // the scoopula feeds the intake
         );
     }
 
@@ -314,20 +327,41 @@ public class BlueSoloAuto extends OpMode {
     }
 
     /**
-     * Turn in place to {@code headingDeg} (the next path's end heading) before driving it, first backing off any
-     * wall far enough for the corners to clear it (TurnInPlace). Done within
-     * TURN_TOLERANCE_DEG, or after TURN_TIMEOUT_MS whatever the heading.
+     * Turn first: turn in place to {@code headingDeg} (the next path's end heading) before driving it. Two phases,
+     * because Foresight's hold moves and turns AT ONCE - one hold to the backed-off pose at the new heading (until
+     * 2026-11-23) started turning while the front corners were still on the wall: (1) back straight off any wall,
+     * holding the current heading, until the corners' sweep clears it (TurnInPlace.clearOfWalls) - within
+     * TURN_BACKOFF_TOLERANCE_IN or after TURN_BACKOFF_TIMEOUT_MS; (2) turn there - within TURN_TOLERANCE_DEG or after
+     * TURN_TIMEOUT_MS. Then {@code rebuild} gets the pose reached, so the next path starts where the robot is.
      */
-    private void runTurnStep(double headingDeg) {
+    private void runTurnStep(double headingDeg, java.util.function.Consumer<Pose> rebuild) {
+        long now = System.currentTimeMillis();
         if (!stepStarted) {
-            // Off any wall first: the corners sweep the half-diagonal while turning (auto/modules/TurnInPlace).
-            follower.hold(TurnInPlace.clearOfWalls(follower.pose(), Math.toRadians(headingDeg)));
-            stepStartTime = System.currentTimeMillis();
+            Pose here = follower.pose();
+            turnClearPose = TurnInPlace.clearOfWalls(here, Math.toRadians(headingDeg));
+            turnBackingOff = Math.hypot(turnClearPose.x() - here.x(), turnClearPose.y() - here.y())
+                    > AutoConstants.Autonomous.TURN_BACKOFF_TOLERANCE_IN;
+            follower.hold(turnBackingOff
+                    ? new Pose(turnClearPose.x(), turnClearPose.y(), here.heading())
+                    : turnClearPose);
+            stepStartTime = now;
             stepStarted = true;
         }
-        double error = Math.abs(normalizeRadians(Math.toRadians(headingDeg) - follower.pose().heading()));
+        Pose pose = follower.pose();
+        if (turnBackingOff) {
+            boolean clear = Math.hypot(turnClearPose.x() - pose.x(), turnClearPose.y() - pose.y())
+                    <= AutoConstants.Autonomous.TURN_BACKOFF_TOLERANCE_IN;
+            if (clear || now - stepStartTime >= AutoConstants.Autonomous.TURN_BACKOFF_TIMEOUT_MS) {
+                turnBackingOff = false;
+                follower.hold(turnClearPose);
+                stepStartTime = now;
+            }
+            return;
+        }
+        double error = Math.abs(normalizeRadians(Math.toRadians(headingDeg) - pose.heading()));
         if (error <= Math.toRadians(AutoConstants.Autonomous.TURN_TOLERANCE_DEG)
-                || System.currentTimeMillis() - stepStartTime >= AutoConstants.Autonomous.TURN_TIMEOUT_MS) {
+                || now - stepStartTime >= AutoConstants.Autonomous.TURN_TIMEOUT_MS) {
+            rebuild.accept(new Pose(pose.x(), pose.y()));
             advanceSequence();
         }
     }
@@ -369,7 +403,7 @@ public class BlueSoloAuto extends OpMode {
         runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 10:
-        runTurnStep(0.000);
+        runTurnStep(0.000, start -> chain6 = buildChain6(start));
         break;
       case 11:
         followPathStep(chain6, 1.000);

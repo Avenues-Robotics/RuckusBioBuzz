@@ -868,7 +868,7 @@ export async function generateTeamCodeAutoCode(
         /** Camera pick on this chain: followed with followPickStep. */
         pick?: boolean;
       }
-    | { kind: "turn"; degrees: string }
+    | { kind: "turn"; degrees: string; field: string }
     | { kind: "wait"; item: SequenceWaitItem }
     | { kind: "event"; item: SequenceEventItem }
     | { kind: "pollen"; item: SequencePollenItem; field: string }
@@ -915,6 +915,7 @@ export async function generateTeamCodeAutoCode(
         exportSteps.push({
           kind: "turn",
           degrees: getLineEndHeading(first.line, first.startPoint as Point).toFixed(3),
+          field,
         });
       }
 
@@ -1043,9 +1044,14 @@ export async function generateTeamCodeAutoCode(
   }
   const rebuiltField = pick?.nextField ?? null;
   const rebuiltCap = rebuiltField ? rebuiltField.charAt(0).toUpperCase() + rebuiltField.slice(1) : "";
+  const capOf = (field: string) => field.charAt(0).toUpperCase() + field.slice(1);
+  // Chains built from a runtime start: the one after a camera pick (starts where the pick ended) and every
+  // Turn first chain (starts where the robot is once it has backed off the wall and turned).
+  const turnFields = exportSteps.flatMap((step) => (step.kind === "turn" ? [step.field] : []));
+  const builtFields = chainFields.filter((field) => field === rebuiltField || turnFields.includes(field));
   const chainAssignmentBlocks = chainFields.map((field) =>
-    field === rebuiltField
-      ? `${field} = build${rebuiltCap}(${chainStartExpressions.get(field)});`
+    builtFields.includes(field)
+      ? `${field} = build${capOf(field)}(${chainStartExpressions.get(field)});`
       : `${field} = ${chainRenderers.get(field)!()};`,
   );
   const hasTurn = exportSteps.some((step) => step.kind === "turn");
@@ -1072,6 +1078,13 @@ import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "";
     private boolean ${pick.field}Switched;
 `
     : "";
+  const turnDeclarations = hasTurn
+    ? `
+    // Turn first (runTurnStep): where the robot turns, and whether it is still backing off a wall to get there.
+    private Pose turnClearPose;
+    private boolean turnBackingOff;
+`
+    : "";
   const cameraPickInit = pick
     ? `
         cameraPick = new CameraPick(hardwareMap, Alliance.${pick.alliance});`
@@ -1095,15 +1108,14 @@ import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "";
         }`
     : "";
   const cameraPickMethods = [
-    rebuiltField
-      ? `/**
-     * ${rebuiltField}, from wherever the camera-pick path ended (its planned end, or the wall spot the
-     * camera picked); its control points stay where they were planned.
+    ...builtFields.map(
+      (field) => `/**
+     * ${field} from a start known only at runtime - ${field === rebuiltField ? "where the camera-pick path ended (its planned end, or the wall spot the camera picked)" : ""}${field === rebuiltField && turnFields.includes(field) ? ", then " : ""}${turnFields.includes(field) ? "where the robot is after its Turn first (backed off the wall, turned)" : ""}; its control points stay where they were planned.
      */
-    private AutoPath build${rebuiltCap}(Pose start) {
-        return ${chainRenderers.get(rebuiltField)!("start")};
-    }`
-      : "",
+    private AutoPath build${capOf(field)}(Pose start) {
+        return ${chainRenderers.get(field)!("start")};
+    }`,
+    ),
     pick
       ? `/** The camera pick: when ${pick.field} passes CameraPick.pickY(). Builds the drive into the clump, if any. */
     private void decide${pickCap}Pick() {
@@ -1134,20 +1146,40 @@ import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "";
       : "",
     hasTurn
       ? `/**
-     * Turn in place to {@code headingDeg} (the next path's end heading) before driving it, first backing off any
-     * wall far enough for the corners to clear it (TurnInPlace). Done within
-     * TURN_TOLERANCE_DEG, or after TURN_TIMEOUT_MS whatever the heading.
+     * Turn first: turn in place to {@code headingDeg} (the next path's end heading) before driving it. Two phases,
+     * because Foresight's hold moves and turns AT ONCE: (1) back straight off any wall, holding the current
+     * heading, until the corners' sweep clears it (TurnInPlace.clearOfWalls) - within TURN_BACKOFF_TOLERANCE_IN or
+     * after TURN_BACKOFF_TIMEOUT_MS; (2) turn there - within TURN_TOLERANCE_DEG or after TURN_TIMEOUT_MS. Then
+     * {@code rebuild} gets the pose reached, so the next path starts where the robot actually is.
      */
-    private void runTurnStep(double headingDeg) {
+    private void runTurnStep(double headingDeg, java.util.function.Consumer<Pose> rebuild) {
+        long now = System.currentTimeMillis();
         if (!stepStarted) {
-            // Off any wall first: the corners sweep the half-diagonal while turning (auto/modules/TurnInPlace).
-            follower.hold(TurnInPlace.clearOfWalls(follower.pose(), Math.toRadians(headingDeg)));
-            stepStartTime = System.currentTimeMillis();
+            Pose here = follower.pose();
+            turnClearPose = TurnInPlace.clearOfWalls(here, Math.toRadians(headingDeg));
+            turnBackingOff = Math.hypot(turnClearPose.x() - here.x(), turnClearPose.y() - here.y())
+                    > AutoConstants.Autonomous.TURN_BACKOFF_TOLERANCE_IN;
+            follower.hold(turnBackingOff
+                    ? new Pose(turnClearPose.x(), turnClearPose.y(), here.heading())
+                    : turnClearPose);
+            stepStartTime = now;
             stepStarted = true;
         }
-        double error = Math.abs(normalizeRadians(Math.toRadians(headingDeg) - follower.pose().heading()));
+        Pose pose = follower.pose();
+        if (turnBackingOff) {
+            boolean clear = Math.hypot(turnClearPose.x() - pose.x(), turnClearPose.y() - pose.y())
+                    <= AutoConstants.Autonomous.TURN_BACKOFF_TOLERANCE_IN;
+            if (clear || now - stepStartTime >= AutoConstants.Autonomous.TURN_BACKOFF_TIMEOUT_MS) {
+                turnBackingOff = false;
+                follower.hold(turnClearPose);
+                stepStartTime = now;
+            }
+            return;
+        }
+        double error = Math.abs(normalizeRadians(Math.toRadians(headingDeg) - pose.heading()));
         if (error <= Math.toRadians(AutoConstants.Autonomous.TURN_TOLERANCE_DEG)
-                || System.currentTimeMillis() - stepStartTime >= AutoConstants.Autonomous.TURN_TIMEOUT_MS) {
+                || now - stepStartTime >= AutoConstants.Autonomous.TURN_TIMEOUT_MS) {
+            rebuild.accept(new Pose(pose.x(), pose.y()));
             advanceSequence();
         }
     }`
@@ -1261,7 +1293,11 @@ import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "";
       }
 
       if (step.kind === "turn") {
-        return guardedCase(idx, `runTurnStep(${step.degrees});`, undefined);
+        return guardedCase(
+          idx,
+          `runTurnStep(${step.degrees}, start -> ${step.field} = build${capOf(step.field)}(start));`,
+          undefined,
+        );
       }
 
       if (step.kind === "wait") {
@@ -1819,7 +1855,7 @@ public class ${autoClassName} extends OpMode {
     private final String[] activeParallelEventNames = new String[PARALLEL_EVENT_CAPACITY];
     private final long[] activeParallelEventStartTimes = new long[PARALLEL_EVENT_CAPACITY];
     private final long[] activeParallelEventDurations = new long[PARALLEL_EVENT_CAPACITY];
-${pollenDeclarations}${cameraPickDeclarations}
+${pollenDeclarations}${cameraPickDeclarations}${turnDeclarations}
     @Override
     public void init() {
         // Pedro 3 follows paths with Foresight, whose braking model and gains must be measured

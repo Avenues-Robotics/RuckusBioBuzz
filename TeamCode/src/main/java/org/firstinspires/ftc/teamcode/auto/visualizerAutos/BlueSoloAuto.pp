@@ -1,7 +1,7 @@
 {
   "startPoint": {
     "x": 85.5,
-    "y": 132.939,
+    "y": 132.304,
     "heading": "constant",
     "degrees": 0,
     "locked": false
@@ -11,8 +11,8 @@
       "id": "l1",
       "name": "Start to corner",
       "endPoint": {
-        "x": 131.592,
-        "y": 133.32,
+        "x": 131.383,
+        "y": 131.96,
         "heading": "linear",
         "startDeg": 0,
         "endDeg": 0,
@@ -81,6 +81,14 @@
           "position": 0.38,
           "triggerMs": 0,
           "durationMs": 300
+        },
+        {
+          "id": "ev-intake-flower-1",
+          "name": "Intake On",
+          "triggerType": "parametric",
+          "position": 0.38,
+          "triggerMs": 0,
+          "durationMs": 0
         }
       ]
     },
@@ -119,7 +127,12 @@
         "endDeg": 90,
         "headingCurve": 1.0
       },
-      "controlPoints": [],
+      "controlPoints": [
+        {
+          "x": 79.536,
+          "y": 85.491
+        }
+      ],
       "speed": 1,
       "eventMarkers": [
         {
@@ -170,6 +183,14 @@
           "position": 0.28,
           "triggerMs": 0,
           "durationMs": 300
+        },
+        {
+          "id": "ev-intake-flower-2",
+          "name": "Intake On",
+          "triggerType": "parametric",
+          "position": 0.28,
+          "triggerMs": 0,
+          "durationMs": 0
         }
       ],
       "turnFirst": true
@@ -240,7 +261,16 @@
         }
       ],
       "speed": 1,
-      "eventMarkers": []
+      "eventMarkers": [
+        {
+          "id": "ev-intake-corner",
+          "name": "Intake On",
+          "triggerType": "parametric",
+          "position": 0,
+          "triggerMs": 0,
+          "durationMs": 0
+        }
+      ]
     }
   ],
   "sequence": [
@@ -321,7 +351,7 @@
   "variables": [],
   "settings": {
     "rWidth": 18,
-    "rHeight": 16.39,
+    "rHeight": 15,
     "maxVelocity": 52,
     "maxAcceleration": 30,
     "maxDeceleration": 197.1,

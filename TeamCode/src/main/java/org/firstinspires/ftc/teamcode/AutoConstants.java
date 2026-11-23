@@ -43,5 +43,9 @@ public final class AutoConstants {
         public static double ROBOT_LENGTH_IN = 18;
         public static double ROBOT_WIDTH_IN = 15;
         public static double TURN_WALL_MARGIN_IN = 0.75;
+        // Phase 1 of the turn: back off (heading held) until within this of the clear point, or give up waiting
+        // after the timeout and turn anyway. A back-off shorter than the tolerance is skipped.
+        public static double TURN_BACKOFF_TOLERANCE_IN = 0.5;
+        public static double TURN_BACKOFF_TIMEOUT_MS = 800;
     }
 }

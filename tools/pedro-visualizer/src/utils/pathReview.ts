@@ -171,7 +171,7 @@ export function reviewProject(
 
   // Reviewed as driven: Camera pick (at its preview clump) and Turn first applied,
   // so the MCP review times and checks what the editor shows.
-  const edited = expandRouteEdits(startPoint, project.lines, project.sequence);
+  const edited = expandRouteEdits(startPoint, project.lines, project.sequence, settings);
   const lines = edited.lines;
   const sequence = edited.sequence;
   const prediction = calculatePathTime(startPoint, lines, settings, sequence, variables);

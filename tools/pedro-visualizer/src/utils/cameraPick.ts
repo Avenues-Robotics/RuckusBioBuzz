@@ -18,8 +18,12 @@
  *     -> (end.x, end.y - 0.35 dy) -> end, dy = end.y - from.y, heading held;
  *   - the next path starts from `end`, its own control points unchanged.
  *
- * Turn first (on a path): before driving, the robot turns in place at the
- * path's start to the path's end heading, then holds it - Java runTurnStep.
+ * Turn first (on a path): before driving, the robot backs straight off any
+ * field wall (holding its heading) until its corners' sweep clears it, turns
+ * in place there to the path's end heading, then drives the path from that
+ * point holding it - Java runTurnStep + TurnInPlace.clearOfWalls. (Until
+ * 2026-11-23 it turned where it stood: pressed on the wall after a camera
+ * pick, an 18 in robot's corners swept into the wall.)
  *
  * `expandRouteEdits` turns both into plain lines / sequence items, so every
  * consumer that times, draws, animates or checks the route sees them without
@@ -42,6 +46,38 @@ export const BALL_LINE_OFFSET = 1.4;
 
 /** Suffix of the synthetic line that carries the re-routed leg. */
 export const PICK_LEG_SUFFIX = "::camera-pick";
+export const TURN_BACKOFF_SUFFIX = "::turn-backoff";
+/** AutoConstants.Autonomous.TURN_WALL_MARGIN_IN: clearance past the corners' sweep. */
+export const TURN_WALL_MARGIN_IN = 0.75;
+/** AutoConstants.Autonomous.TURN_BACKOFF_TOLERANCE_IN: a back-off shorter than this is skipped. */
+export const TURN_BACKOFF_TOLERANCE_IN = 0.5;
+
+export interface RobotFootprint {
+  /** Along the heading, in (Settings rWidth). */
+  length: number;
+  /** Across the heading, in (Settings rHeight). */
+  width: number;
+}
+
+/**
+ * TurnInPlace.clearOfWalls: the point a turn happens at - moved straight off any field wall until the
+ * circle the corners sweep (half-diagonal + TURN_WALL_MARGIN_IN) clears it. Obstacles are not considered.
+ */
+export function turnClearPoint(at: BasePoint, robot: RobotFootprint): BasePoint {
+  const r = Math.hypot(robot.length / 2, robot.width / 2) + TURN_WALL_MARGIN_IN;
+  const clamp = (v: number) => Math.max(r, Math.min(FIELD_SIZE - r, v));
+  return { x: clamp(at.x), y: clamp(at.y) };
+}
+
+/** The robot the route edits assume: the project's rWidth x rHeight, or TeamCode's 18 x 15 in. */
+export function footprintOf(settings?: { rWidth?: number; rHeight?: number } | null): RobotFootprint {
+  const length = Number(settings?.rWidth);
+  const width = Number(settings?.rHeight);
+  return {
+    length: Number.isFinite(length) && length > 0 ? length : 18,
+    width: Number.isFinite(width) && width > 0 ? width : 15,
+  };
+}
 export const TURN_ITEM_PREFIX = "turn-first::";
 
 const finite = (value: unknown, fallback: number) =>
@@ -236,8 +272,9 @@ export function turnFirstHeading(line: Line, start: BasePoint): number {
  * - a camera-pick path is cut at the pick, and a synthetic line (id + PICK_LEG_SUFFIX,
  *   appended at the END of the array so every original index still means the same path)
  *   carries the drive into the wall, right after it in the sequence;
- * - a Turn first path gets its heading held at its end heading and a wait item before
- *   it that turns the robot in place (`turnToDeg`).
+ * - a Turn first path gets its heading held at its end heading; before it, a synthetic
+ *   back-off line (id + TURN_BACKOFF_SUFFIX, appended like the pick leg) when the robot
+ *   is too close to a wall to turn, then a wait item that turns it in place (`turnToDeg`).
  *
  * Top-level sequence items only, like Pollen Pickup: a repeat loop's fixed slots
  * cannot hold legs that depend on what the camera sees.
@@ -256,7 +293,9 @@ export function expandRouteEdits(
   startPoint: Point,
   lines: Line[],
   sequence: SequenceItem[],
+  settings?: { rWidth?: number; rHeight?: number } | null,
 ): { lines: Line[]; sequence: SequenceItem[]; previews: CameraPickPreview[] } {
+  const robot = footprintOf(settings);
   const previews: CameraPickPreview[] = [];
   const hasEdit = lines.some((line) => activeCameraPick(line) || line.turnFirst);
   if (!hasEdit) return { lines, sequence, previews };
@@ -273,6 +312,10 @@ export function expandRouteEdits(
 
   // Where the robot is along the top-level route, to place picks and turns.
   let current: BasePoint = startPoint;
+  // Heading the robot holds at `current`, degrees (needed to back off a wall without turning).
+  const sp = startPoint as any;
+  let currentDeg: number = Number.isFinite(Number(sp.degrees)) ? Number(sp.degrees)
+    : Number.isFinite(Number(sp.startDeg)) ? Number(sp.startDeg) : 0;
   for (const item of items) {
     if (item.kind !== "path") {
       outSequence.push(item);
@@ -296,6 +339,30 @@ export function expandRouteEdits(
     if (line.turnFirst) {
       const deg = turnFirstHeading(line, current);
       effective = { ...effective, endPoint: heldHeading(effective, deg) };
+      const clear = turnClearPoint(current, robot);
+      if (Math.hypot(clear.x - current.x, clear.y - current.y) > TURN_BACKOFF_TOLERANCE_IN) {
+        const backId = `${line.id}${TURN_BACKOFF_SUFFIX}`;
+        const back: Line = {
+          id: backId,
+          name: `${line.name || "Path"} - back off the wall`,
+          color: line.color,
+          speed: line.speed,
+          controlPoints: [],
+          endPoint: {
+            x: clear.x,
+            y: clear.y,
+            heading: "linear",
+            startDeg: currentDeg,
+            endDeg: currentDeg,
+            headingCurve: 1,
+          } as Point,
+          stopAtEnd: true,
+          eventMarkers: [],
+        };
+        outLines.push(back);
+        outSequence.push({ kind: "path", lineId: backId });
+        current = clear;
+      }
       const turn: SequenceWaitItem = {
         kind: "wait",
         id: `${TURN_ITEM_PREFIX}${line.id}`,
@@ -357,11 +424,13 @@ export function expandRouteEdits(
       outLines.push(leg);
       outSequence.push(item, { kind: "path", lineId: legId });
       current = leg.endPoint;
+      currentDeg = geometry.slam.heading;
       continue;
     }
 
     if (effective !== line) outLines[index] = effective;
     outSequence.push(item);
+    currentDeg = getLineEndHeading(effective, current as Point);
     current = line.endPoint;
   }
 

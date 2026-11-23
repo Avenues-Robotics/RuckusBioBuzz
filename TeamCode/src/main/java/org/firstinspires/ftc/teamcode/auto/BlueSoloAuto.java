@@ -31,7 +31,6 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 public class BlueSoloAuto extends OpMode {
     // PathStep fields are editable from FTC Dashboard; paths are built in init(), so edits apply on the next init.
     public static PathStep START_STEP = new PathStep(85.500, 132.304, 0.000);
-    public static PathStep POINT_1 = new PathStep(131.383, 131.960, 0.000);
     public static PathStep POINT_2 = new PathStep(131.278, 131.201, 90.000);
     public static PathStep POINT_3 = new PathStep(95.020, 15.643, 262.000);
     public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);
@@ -51,12 +50,11 @@ public class BlueSoloAuto extends OpMode {
     private AutoPath chain5;
     private AutoPath chain6;
     private AutoPath chain7;
-    private AutoPath chain8;
     
     // Camera pick on path 5 (visualizer: the path's "Camera pick"; auto/modules/CameraPick).
     private CameraPick cameraPick;
-    private AutoPath chain5Pick;
-    private boolean chain5Switched;
+    private AutoPath chain4Pick;
+    private boolean chain4Switched;
     // Turn first (runTurnStep): where the robot turns, and whether it is still backing off a wall to get there.
     private Pose turnClearPose;
     private boolean turnBackingOff;
@@ -123,9 +121,9 @@ public class BlueSoloAuto extends OpMode {
 
         pinpointGuard.finish();
         follower.setPose(START_STEP.toPose());
-        chain5Pick = null;
-        chain5Switched = false;
-        chain6 = buildChain6(POINT_5.toPose());
+        chain4Pick = null;
+        chain4Switched = false;
+        chain5 = buildChain5(POINT_5.toPose());
     }
 
     @Override
@@ -164,20 +162,15 @@ public class BlueSoloAuto extends OpMode {
     }
 
     private void buildPaths() {
+        // Path 1 + corner loop "back": ONE pass into the corner, the come-back-down approach only (operator
+        // 2026-11-23: the straight run along the wall into the corner, then out and back in, collected twice and
+        // cost ~1.2 s). Start -> the loop's turn-around point (control point set so the two curves join
+        // tangentially, no kink to slow at) -> down into the corner, chained without a stop. Intake on from the start.
         chain1 = new AutoPath(
-            Paths.line(START_STEP.toPose(), POINT_1.toPose()).heading(
-                headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 1.000)
-            )
-        ).addParametricCallback(0, 0.000, () ->
-            startParallelEvent("Intake On", 0)   // collecting from path 1 on: the drive to the corner, the corner loop and wait (operator 2026-11-23)
-        );
-
-        chain2 = new AutoPath(
             Paths.path(
                 Paths.curve(
-                    POINT_1.toPose(),
-                    new Pose(123.121, 123.116),
-                    new Pose(122.551, 118.961),
+                    START_STEP.toPose(),
+                    new Pose(105.500, 117.500),
                     POINT_9.toPose()
                 ).heading(
                     headingInterpolator(
@@ -199,9 +192,11 @@ public class BlueSoloAuto extends OpMode {
                     )
                 )
             )
+        ).addParametricCallback(0, 0.000, () ->
+            startParallelEvent("Intake On", 0)   // collecting from path 1 on (operator 2026-11-23)
         );
 
-        chain3 = new AutoPath(
+        chain2 = new AutoPath(
             Paths.curve(
                 POINT_2.toPose(),
                 new Pose(120.713, 99.619),
@@ -221,7 +216,7 @@ public class BlueSoloAuto extends OpMode {
             startParallelEvent("Intake On", 0)   // the scoopula feeds the intake
         );
 
-        chain4 = new AutoPath(
+        chain3 = new AutoPath(
             Paths.line(POINT_3.toPose(), POINT_4.toPose()).heading(
                 headingInterpolator(
                     Math.toRadians(262.000),
@@ -237,7 +232,7 @@ public class BlueSoloAuto extends OpMode {
         // the stray balls on the way; intake on from the start. Camera pick: at CameraPick.pickY() the latest frame
         // picks the biggest clump against the far wall and the rest of the path is replaced by a drive into it
         // (followPickStep). Nothing picked: the path ends at POINT_5 as planned.
-        chain5 = new AutoPath(
+        chain4 = new AutoPath(
             Paths.curve(
                 POINT_4.toPose(),
                 new Pose(79.536, 85.491),
@@ -251,11 +246,11 @@ public class BlueSoloAuto extends OpMode {
             )
         ).addParametricCallback(0, 0.000, () ->
             startParallelEvent("Intake On", 0)
-        ).addPoseCallback(0, new Pose(POINT_5.x, cameraPick.pickY()), this::decideChain5Pick, 0.5);
+        ).addPoseCallback(0, new Pose(POINT_5.x, cameraPick.pickY()), this::decideChain4Pick, 0.5);
 
-        chain6 = buildChain6(POINT_5.toPose());
+        chain5 = buildChain5(POINT_5.toPose());
 
-        chain7 = new AutoPath(
+        chain6 = new AutoPath(
             Paths.line(POINT_6.toPose(), POINT_7.toPose()).heading(
                 headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 1.000)
             )
@@ -263,7 +258,7 @@ public class BlueSoloAuto extends OpMode {
             startParallelEvent("Scoopula Up", scoopulaTransitionMs)
         );
 
-        chain8 = new AutoPath(
+        chain7 = new AutoPath(
             Paths.curve(
                 POINT_7.toPose(),
                 new Pose(130.187, 86.662),
@@ -279,7 +274,7 @@ public class BlueSoloAuto extends OpMode {
      * point stays where it was planned. The robot has already turned to 0 in place (runTurnStep), so the
      * heading holds 180 (operator 2026-11-23: turn right after the shot, away from the turret wrap).
      */
-    private AutoPath buildChain6(Pose start) {
+    private AutoPath buildChain5(Pose start) {
         return new AutoPath(
             Paths.curve(
                 start,
@@ -300,25 +295,25 @@ public class BlueSoloAuto extends OpMode {
     }
 
     /** Path 5's camera pick: when the path passes CameraPick.pickY(). Builds the drive into the clump, if any. */
-    private void decideChain5Pick() {
+    private void decideChain4Pick() {
         Pose end = cameraPick.decide(follower.pose());
         if (end == null) {
             return;
         }
-        chain5Pick = new AutoPath(CameraPick.slamPath(follower.pose(), end));
-        chain6 = buildChain6(end);
+        chain4Pick = new AutoPath(CameraPick.slamPath(follower.pose(), end));
+        chain5 = buildChain5(end);
     }
 
-    /** Path 5, switched mid-path to the camera-picked drive once decideChain5Pick() has built it. */
+    /** Path 5, switched mid-path to the camera-picked drive once decideChain4Pick() has built it. */
     private void followPickStep(AutoPath path, AutoPath pick, double pathSpeed) {
         if (!stepStarted) {
-            chain5Switched = false;
+            chain4Switched = false;
             startPath(path, pathSpeed);
             stepStarted = true;
         }
-        if (pick != null && !chain5Switched) {
+        if (pick != null && !chain4Switched) {
             startPath(pick, pathSpeed);
-            chain5Switched = true;
+            chain4Switched = true;
         }
         if (!follower.isBusy()) {
             startEvent("Intake Off");
@@ -379,45 +374,42 @@ public class BlueSoloAuto extends OpMode {
         followPathStep(chain1, 1.000);
         break;
       case 2:
-        followPathStep(chain2, 1.000);
-        break;
-      case 3:
         runWaitStep(500L);
         break;
+      case 3:
+        followPathStep(chain2, 1.000);
+        break;
       case 4:
-        followPathStep(chain3, 1.000);
+        runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 5:
-        runTimedEventStep("Shoot", shootTimeMs);
+        followPathStep(chain3, 1.000);
         break;
       case 6:
-        followPathStep(chain4, 1.000);
-        break;
-      case 7:
         runWaitStep(2000L);
         break;
-      case 8:
-        followPickStep(chain5, chain5Pick, 1.000);
+      case 7:
+        followPickStep(chain4, chain4Pick, 1.000);
         break;
-      case 9:
+      case 8:
         // Back off the wall and turn BEFORE the shot (operator 2026-11-23): facing the wall, the hive is
         // straight behind the robot - the turret's wrap - so the wall shot could hang unaimed or unwind.
-        runTurnStep(0.000, start -> chain6 = buildChain6(start));
+        runTurnStep(0.000, start -> chain5 = buildChain5(start));
+        break;
+      case 9:
+        runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 10:
-        runTimedEventStep("Shoot", shootTimeMs);
+        followPathStep(chain5, 1.000);
         break;
       case 11:
         followPathStep(chain6, 1.000);
         break;
       case 12:
-        followPathStep(chain7, 1.000);
-        break;
-      case 13:
         runTimedEventStep("Shoot", shootTimeMs);
         break;
-      case 14:
-        followPathStep(chain8, 1.000);
+      case 13:
+        followPathStep(chain7, 1.000);
         break;
             default:
                 pathFinished = true;

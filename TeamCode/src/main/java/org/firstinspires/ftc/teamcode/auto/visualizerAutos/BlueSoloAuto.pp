@@ -9,18 +9,23 @@
   "lines": [
     {
       "id": "l1",
-      "name": "Start to corner",
+      "name": "Start to the corner loop",
       "endPoint": {
-        "x": 131.383,
-        "y": 131.96,
+        "x": 124.345,
+        "y": 119.17,
         "heading": "linear",
         "startDeg": 0,
-        "endDeg": 0,
-        "headingCurve": 1
+        "endDeg": 45,
+        "headingCurve": 1.0
       },
-      "controlPoints": [],
+      "controlPoints": [
+        {
+          "x": 105.5,
+          "y": 117.5
+        }
+      ],
       "speed": 1,
-      "stopAtEnd": true,
+      "stopAtEnd": false,
       "eventMarkers": [
         {
           "id": "ev-intake-path1",
@@ -247,30 +252,6 @@
       ],
       "speed": 1,
       "eventMarkers": []
-    },
-    {
-      "id": "l2a",
-      "name": "Corner loop, out",
-      "endPoint": {
-        "x": 124.345,
-        "y": 119.17,
-        "heading": "linear",
-        "startDeg": 0,
-        "endDeg": 45,
-        "headingCurve": 1
-      },
-      "controlPoints": [
-        {
-          "x": 123.121,
-          "y": 123.116
-        },
-        {
-          "x": 122.551,
-          "y": 118.961
-        }
-      ],
-      "speed": 1,
-      "eventMarkers": []
     }
   ],
   "sequence": [
@@ -283,10 +264,6 @@
     {
       "kind": "path",
       "lineId": "l1"
-    },
-    {
-      "kind": "path",
-      "lineId": "l2a"
     },
     {
       "kind": "path",

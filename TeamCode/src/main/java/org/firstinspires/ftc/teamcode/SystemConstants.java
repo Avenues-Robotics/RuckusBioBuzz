@@ -254,7 +254,10 @@ public final class SystemConstants {
         public static int xQuality = 5;
         public static int yQuality = 10;
         public static int[][] mapNectar = new int[yQuality][xQuality];
-        public static int[][] mapPollen = new int[yQuality][xQuality];
+        // Red frame: row y (audience -> far wall), column x (red wall -> blue wall); blue is turned 180 deg.
+        // 2026-11-23: mirrored left-right so red's zone comes off the RED wall (operator). As painted it sat
+        // along the blue wall plus a wedge over the blue hive half, so red revved on the far side of the field.
+        public static int[][] mapPollen = {{1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 1, 0, 0, 0}, {1, 1, 1, 0, 0}, {1, 1, 1, 0, 0}, {1, 1, 1, 0, 0}, {1, 1, 0, 0, 0}, {1, 1, 0, 0, 0}, {1, 0, 0, 0, 0}, {1, 0, 0, 0, 0}};
     }
 
     @Config

@@ -63,6 +63,21 @@
   .zgrid td.on.nectar { background: #10263f; border-color: var(--nectar); color: #9ccaff; }
   .zgrid td.ax { cursor: default; border: none; width: auto; padding: 0 4px; }
   .zgrid td.robot { outline: 3px solid #f5c542; outline-offset: -3px; }
+  /* Zone map over the field drawing (/field/field.webp, the BIOBUZZ image FieldView serves): x from the red wall
+     to the right, y from the audience wall up - the frame ZoneCheck uses, red alliance. */
+  .zwrap { display: inline-grid; grid-template-columns: auto auto; gap: 2px 4px; align-items: stretch; }
+  .zfield { display: grid; width: min(440px, 86vw); aspect-ratio: 1; user-select: none;
+            background: #222 url('/field/field.webp') center / 100% 100% no-repeat; }
+  .zc { border: 1px solid rgba(255,255,255,0.18); cursor: pointer; display: flex; align-items: center;
+        justify-content: center; }
+  .zc.on { background: rgba(34,197,94,0.42); border-color: var(--good); }
+  .zc.on.nectar { background: rgba(59,130,246,0.45); border-color: var(--nectar); }
+  .zc.robot { outline: 3px solid #f5c542; outline-offset: -3px; }
+  .zc:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .zc .rarrow { display: inline-block; color: #f5c542; font-size: 18px; line-height: 1; text-shadow: 0 0 3px #000; }
+  .zaxis-y { display: flex; flex-direction: column-reverse; justify-content: space-between; font-size: 11px;
+             color: var(--muted); text-align: right; }
+  .zaxis-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
   .zgrid .rarrow { display: inline-block; color: #f5c542; font-size: 18px; line-height: 1; }
   .zgrid td:not(.ax):hover { outline: 2px solid var(--accent); outline-offset: -2px; }
   .bar { height: 10px; background: #0c1015; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
@@ -629,8 +644,8 @@
   <section>
     <h2>Shooting zone map</h2>
     <p class="hint" style="margin-top:0">Each cell is a square of the field the shooter is allowed to fire from
-      (<code>ZoneCheck.inZone</code>). Red-alliance frame: x → from the red wall, y ↑ from the audience wall; blue
-      is mirrored through the field center. Click a cell to toggle it, or click and drag to paint. Edits are live for
+      (<code>ZoneCheck.inZone</code>). Red-alliance frame, drawn over the field: x → from the red wall (left), y ↑ from the audience wall
+      (bottom); blue is mirrored through the field center. Click a cell to toggle it, or click and drag to paint. Edits are live for
       this run and restored on STOP; ship them from the Export tab (<code>mechtune.py export --only zone --write</code>).</p>
     <div class="row">
       <label class="inline">grid <input type="number" id="zX" min="1" max="48" step="1"> × <input type="number" id="zY" min="1" max="48" step="1"> cells (x × y)</label>
@@ -1278,21 +1293,22 @@ function zoneGrid(name, map, z) {
   // The robot's cell as ZoneCheck sees it (already mirrored for blue - the grid is the red frame).
   var rc = z.robot && z.robot[name];
   var rh = z.robot ? z.robot.h + (z.alliance === 'BLUE' ? 180 : 0) : 0;
-  var h = '<table class="zgrid">';
+  // Cells over the field drawing; top row = far wall. Axis ticks are the cell edges in inches.
+  var h = '<div class="zwrap"><div class="zaxis-y">';
+  for (var j = 0; j <= z.y; j++) h += '<span>' + f(j * ch, 0) + '</span>';
+  h += '</div><div class="zfield" style="grid-template-columns:repeat(' + z.x + ',1fr);grid-template-rows:repeat(' + z.y + ',1fr)">';
   for (var y = map.length - 1; y >= 0; y--) {
-    h += '<tr><td class="ax">' + f(y * ch, 0) + '</td>';
     for (var x = 0; x < map[y].length; x++) {
       var here = rc && rc.cx === x && rc.cy === y;
-      h += '<td data-map="' + name + '" data-x="' + x + '" data-y="' + y + '" class="' + (map[y][x] ? 'on ' + name : '') +
+      h += '<div data-map="' + name + '" data-x="' + x + '" data-y="' + y + '" class="zc' + (map[y][x] ? ' on ' + name : '') +
         (here ? ' robot' : '') +
         '" title="x ' + f(x * cw, 1) + '–' + f((x + 1) * cw, 1) + ' in, y ' + f(y * ch, 1) + '–' + f((y + 1) * ch, 1) + ' in">' +
-        (here ? '<span class="rarrow" style="transform:rotate(' + f(-rh, 0) + 'deg)">➤</span>' : map[y][x] ? '●' : '') + '</td>';
+        (here ? '<span class="rarrow" style="transform:rotate(' + f(-rh, 0) + 'deg)">➤</span>' : '') + '</div>';
     }
-    h += '</tr>';
   }
-  h += '<tr><td class="ax"></td>';
-  for (var i = 0; i < z.x; i++) h += '<td class="ax">' + f(i * cw, 0) + '</td>';
-  return h + '</tr></table>';
+  h += '</div><span></span><div class="zaxis-x">';
+  for (var i = 0; i <= z.x; i++) h += '<span>' + f(i * cw, 0) + '</span>';
+  return h + '</div></div>';
 }
 function renderZone() {
   var z = S.zone; if (!z) return;
@@ -1315,16 +1331,16 @@ function zoneSet(td) {
   if (on === zonePaint) return;
   var m = td.dataset.map, x = +td.dataset.x, y = +td.dataset.y;
   if (S && S.zone && S.zone[m] && S.zone[m][y]) S.zone[m][y][x] = zonePaint;
-  td.classList.toggle('on', !!zonePaint); td.classList.toggle(m, !!zonePaint); td.textContent = zonePaint ? '●' : '';
+  td.classList.toggle('on', !!zonePaint); td.classList.toggle(m, !!zonePaint);
   delete htmlCache[m === 'pollen' ? 'zonePollen' : 'zoneNectar'];
   cmd('zoneCell', {map: m, x: x, y: y, v: zonePaint});
 }
 ['zonePollen', 'zoneNectar'].forEach(function (id) {
   $(id).addEventListener('mousedown', function (e) {
-    var td = e.target.closest('td[data-map]'); if (!td) return;
+    var td = e.target.closest('[data-map]'); if (!td) return;
     e.preventDefault(); zonePaint = td.classList.contains('on') ? 0 : 1; zoneSet(td);
   });
-  $(id).addEventListener('mouseover', function (e) { if (zonePaint !== null) zoneSet(e.target.closest('td[data-map]')); });
+  $(id).addEventListener('mouseover', function (e) { if (zonePaint !== null) zoneSet(e.target.closest('[data-map]')); });
 });
 document.addEventListener('mouseup', function () { zonePaint = null; });
 

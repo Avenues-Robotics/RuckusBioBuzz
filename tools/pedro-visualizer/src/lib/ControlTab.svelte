@@ -76,6 +76,8 @@
   import VariablesSection from "./components/VariablesSection.svelte";
   import ExpressionInput from "./components/ExpressionInput.svelte";
   import PlaybackControls from "./components/PlaybackControls.svelte";
+  import MechanismStrip from "./components/MechanismStrip.svelte";
+  import { buildMechanismTimeline } from "../utils/mechanismStates";
   import WaitRow from "./components/WaitRow.svelte";
   import PollenPickupRow from "./components/PollenPickupRow.svelte";
   import {
@@ -826,6 +828,15 @@
   // The route as driven (Camera pick and Turn first applied), as the field and the header time it.
   $: routeEdits = expandRouteEdits(startPoint, lines, sequence, settings);
   $: timePrediction = calculatePathTime(startPoint, routeEdits.lines, settings, routeEdits.sequence, variables);
+  // Intake / scoopula / shoot / pick / turn over the auto, TeamCode's rules (utils/mechanismStates.ts).
+  $: mechanismTimeline = buildMechanismTimeline(
+    startPoint,
+    routeEdits.lines,
+    routeEdits.sequence,
+    timePrediction,
+    settings,
+    variables,
+  );
   $: markers = (() => {
     const _markers: {
       percent?: number;
@@ -3282,6 +3293,7 @@
     {/if}
   </div>
 
+  <MechanismStrip timeline={mechanismTimeline} {percent} {handleSeek} />
   <PlaybackControls
     bind:playing
     {play}

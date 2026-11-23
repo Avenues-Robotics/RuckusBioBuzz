@@ -61,6 +61,14 @@
   import { planPollenSteps, pollenLegsOf } from "./utils/pollenVision";
   import { expandRouteEdits } from "./utils/cameraPick";
   import { buildEventTimingWindows } from "./utils/timeCalculator";
+  import MechanismOverlay from "./lib/components/MechanismOverlay.svelte";
+  import {
+    allianceOf,
+    buildMechanismTimeline,
+    hiveAimPoint,
+    mechanismStateAt,
+    TURRET_BEHIND_INCHES,
+  } from "./utils/mechanismStates";
   import {
     NECTAR_DIAMETER_INCHES,
     aheadOf,
@@ -1893,6 +1901,28 @@
     buildEventTimingWindows(startPoint, routeLines, timePrediction, settings, routeSequence, variables),
   );
   $: playbackSeconds = ((timePrediction?.totalTime || 0) * percent) / 100;
+
+  /** Mechanism states at the playhead, drawn on the robot (utils/mechanismStates.ts - TeamCode's rules). */
+  $: mechanismTimeline = buildMechanismTimeline(
+    startPoint,
+    routeLines,
+    routeSequence,
+    timePrediction,
+    settings,
+    variables,
+  );
+  $: mechanismState = mechanismStateAt(mechanismTimeline, playbackSeconds);
+  $: mechanismAlliance = allianceOf(startPoint, lines);
+  $: mechanismAim = (() => {
+    if (!x || !y || !mechanismState.shooting) return { turret: null, aim: null };
+    const fieldX = x.invert(robotXY.x);
+    const fieldY = y.invert(robotXY.y);
+    const headingRad = (-robotHeading * Math.PI) / 180;
+    const tx = fieldX - TURRET_BEHIND_INCHES * Math.cos(headingRad);
+    const ty = fieldY - TURRET_BEHIND_INCHES * Math.sin(headingRad);
+    const aim = hiveAimPoint(mechanismAlliance, { x: fieldX, y: fieldY });
+    return { turret: { x: x(tx), y: y(ty) }, aim: { x: x(aim.x), y: y(aim.y) } };
+  })();
   $: activeVfx = vfxAt(stateWindows, playbackSeconds, settings.stateVfx);
   $: robotSpriteMotion = spriteMotion(activeVfx, x ? x(robotWidth) : 0);
 
@@ -5016,6 +5046,17 @@ pointer-events: none;`}
           shot={robotShot?.frame ?? null}
           ballPx={(robotShot?.pxPerInch ?? 0) * NECTAR_DIAMETER_INCHES}
           color={robotShot?.color ?? "#facc15"}
+        />
+        <MechanismOverlay
+          x={robotXY.x}
+          y={robotXY.y}
+          heading={robotHeading}
+          lengthPx={x(robotWidth)}
+          widthPx={x(robotHeight)}
+          pxPerInch={Math.abs(x(1) - x(0))}
+          state={mechanismState}
+          turret={mechanismAim.turret}
+          aim={mechanismAim.aim}
         />
         <!-- Heading arrow for main robot -->
         {#if settings.showHeadingArrow}

@@ -230,6 +230,11 @@ public final class SystemConstants {
         /** The webcam is mounted on its side: frames are turned this far CLOCKWISE (0/90/180/270) before detection,
          *  so the feed and the steering error are upright. 90 from the first feed 2026-11-23 (text read bottom-up). */
         public static int ROTATE_DEG = 90;
+        /** Horizontal field of view of the UPRIGHT (rotated) frame, deg - with ROTATE_DEG 90 that is the camera's
+         *  vertical FOV. 43 is ESTIMATED (Logitech C920 class), not measured: check with a ball at a known offset. */
+        public static double HFOV_DEG = 43;
+        /** Camera lens on the robot, {forward, left} in from the robot centre. ESTIMATED (front, centre line). */
+        public static double[] CAMERA_OFFSET = {9, 0};
         /** Field page feed (/field, Camera tab): frames encoded per second, width, JPEG quality. Not in branch 2. */
         public static double STREAM_FPS = 10;
         public static double STREAM_WIDTH = 320;

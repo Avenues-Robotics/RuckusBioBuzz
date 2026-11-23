@@ -114,8 +114,8 @@
         "y": 10.419,
         "heading": "linear",
         "startDeg": 270,
-        "endDeg": 180,
-        "headingCurve": 4.0
+        "endDeg": 270,
+        "headingCurve": 1.0
       },
       "controlPoints": [],
       "speed": 1
@@ -127,7 +127,7 @@
         "x": 15.442,
         "y": 47.215,
         "heading": "linear",
-        "startDeg": 180,
+        "startDeg": 270,
         "endDeg": 180,
         "headingCurve": 0.6
       },

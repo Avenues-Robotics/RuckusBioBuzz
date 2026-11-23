@@ -19,6 +19,10 @@ import java.util.List;
 import org.firstinspires.ftc.teamcode.AutoConstants;
 import org.firstinspires.ftc.teamcode.auto.modules.AutoMechanisms;
 import org.firstinspires.ftc.teamcode.auto.modules.PathStep;
+import org.firstinspires.ftc.teamcode.auto.modules.WallClumpPicker;
+import org.firstinspires.ftc.teamcode.pipelines.PollenCamera;
+import org.firstinspires.ftc.teamcode.pipelines.PollenDetectionPipeline;
+import com.qualcomm.robotcore.util.RobotLog;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
 import org.firstinspires.ftc.teamcode.helpers.PinpointGuard;
 import org.firstinspires.ftc.teamcode.helpers.PoseStorage;
@@ -33,7 +37,7 @@ public class RedSoloAuto extends OpMode {
     public static PathStep POINT_2 = new PathStep(10.222, 10.299, 270.000);
     public static PathStep POINT_3 = new PathStep(46.480, 125.857, 0.000);
     public static PathStep POINT_4 = new PathStep(58.812, 115.566, 270.000);
-    public static PathStep POINT_5 = new PathStep(57.943, 10.419, 180.000);
+    public static PathStep POINT_5 = new PathStep(57.943, 10.419, 270.000);
     public static PathStep POINT_6 = new PathStep(15.442, 47.215, 180.000);
     public static PathStep POINT_7 = new PathStep(45.308, 11.717, 180.000);
     public static PathStep POINT_8 = new PathStep(10.466, 101.157, 180.000);
@@ -51,6 +55,12 @@ public class RedSoloAuto extends OpMode {
     private AutoPath chain7;
     private AutoPath chain8;
     
+    // Hand-wired (re-apply after a visualizer export): camera pick on path 5. See decideSlam().
+    private PollenCamera camera;
+    private AutoPath chain5Slam;
+    private boolean slamSwitched;
+    private String slamNote = "not yet";
+
     private AutoPath activePath;
     private int sequenceIndex;
     private long stepStartTime;
@@ -81,6 +91,10 @@ public class RedSoloAuto extends OpMode {
         pinpointGuard = new PinpointGuard(hardwareMap);
         pinpointGuard.begin();
         mechanisms = new AutoMechanisms(hardwareMap, follower, Alliance.RED);
+        // Hand-wired: the webcam + pollen pipeline, for the one-frame clump pick on path 5.
+        if (AutoConstants.Autonomous.CAMERA_PICK) {
+            camera = PollenCamera.open(hardwareMap, org.firstinspires.ftc.teamcode.Config.telemetryEnabled());
+        }
 
         shootTimeMs = Math.round(AutoConstants.Autonomous.SHOOT_TIME);
         scoopulaTransitionMs = Math.round(AutoConstants.Autonomous.SCOOPULA_TRANSITION_TIME);
@@ -112,6 +126,10 @@ public class RedSoloAuto extends OpMode {
 
         pinpointGuard.finish();
         follower.setPose(START_STEP.toPose());
+        chain5Slam = null;
+        slamSwitched = false;
+        slamNote = "not yet";
+        chain6 = buildChain6(POINT_5.toPose());
     }
 
     @Override
@@ -132,6 +150,9 @@ public class RedSoloAuto extends OpMode {
 
     @Override
     public void stop() {
+        if (camera != null) {
+            camera.close();
+        }
         finishAllParallelEvents();
         if (mechanisms != null) {
             mechanisms.stop();
@@ -216,31 +237,23 @@ public class RedSoloAuto extends OpMode {
             startParallelEvent("Scoopula Up", scoopulaTransitionMs)
         );
 
+        // Path 5 "Down the field": heading 270 the whole way (operator 2026-11-23, was 270 -> 180) so the intake
+        // faces the stray balls on the way down; intake on from the start. Hand-wired: at PICK_Y the camera's
+        // latest frame picks the biggest clump against the audience wall and decideSlam() re-routes the rest of
+        // the path into it (runSequence case 8). No clump: the path ends at POINT_5 as before.
         chain5 = new AutoPath(
             Paths.line(POINT_4.toPose(), POINT_5.toPose()).heading(
                 headingInterpolator(
                     Math.toRadians(270.000),
-                    Math.toRadians(180.000),
-                    4.000
+                    Math.toRadians(270.000),
+                    1.000
                 )
             )
-        );
+        ).addParametricCallback(0, 0.000, () ->
+            startParallelEvent("Intake On", 0)
+        ).addPoseCallback(0, new Pose(POINT_5.x, AutoConstants.Autonomous.PICK_Y), this::decideSlam, 0.5);
 
-        chain6 = new AutoPath(
-            Paths.curve(
-                POINT_5.toPose(),
-                new Pose(49.769, 42.297),
-                POINT_6.toPose()
-            ).heading(
-                headingInterpolator(
-                    Math.toRadians(180.000),
-                    Math.toRadians(180.000),
-                    0.600
-                )
-            )
-        ).addParametricCallback(0, 0.280, () ->
-            startParallelEvent("Scoopula Down", scoopulaTransitionMs)
-        );
+        chain6 = buildChain6(POINT_5.toPose());
 
         chain7 = new AutoPath(
             Paths.line(POINT_6.toPose(), POINT_7.toPose()).heading(
@@ -267,6 +280,89 @@ public class RedSoloAuto extends OpMode {
                 )
             )
         );
+    }
+
+    /**
+     * Path 6 "To the flower" from wherever path 5 ended (POINT_5, or the wall spot the camera picked). Path 5 now
+     * ends at heading 270, so this turns 270 -> 180 (it was 180 -> 180). From POINT_5 it keeps the visualizer's
+     * control point; from a picked spot it rises straight off the wall, then swings left to the flower.
+     */
+    private AutoPath buildChain6(Pose start) {
+        boolean fromPoint5 = Math.hypot(start.x() - POINT_5.x, start.y() - POINT_5.y) < 0.5;
+        Pose control = fromPoint5 ? new Pose(49.769, 42.297) : new Pose(start.x(), POINT_6.y);
+        return new AutoPath(
+            Paths.curve(
+                start,
+                control,
+                POINT_6.toPose()
+            ).heading(
+                headingInterpolator(
+                    Math.toRadians(270.000),
+                    Math.toRadians(180.000),
+                    0.600
+                )
+            )
+        ).addParametricCallback(0, 0.280, () ->
+            startParallelEvent("Scoopula Down", scoopulaTransitionMs)
+        );
+    }
+
+    /**
+     * Hand-wired camera pick (operator 2026-11-23). Runs once, when path 5 passes PICK_Y: takes the pipeline's
+     * clumps from its latest frame, projects each onto the audience wall (WallClumpPicker) and, for the biggest,
+     * builds the rest of the drive - straight down off the hive, then across to (pick x, WALL_Y) heading 270,
+     * pressed against the wall - and the path 6 that follows from there. No camera / no clump in range: path 5
+     * carries on to POINT_5.
+     */
+    private void decideSlam() {
+        PollenDetectionPipeline pipeline = camera != null ? camera.pipeline() : null;
+        if (pipeline == null) {
+            slamNote = "no camera - POINT_5";
+            RobotLog.ii("RedSoloAuto", "camera pick: " + slamNote);
+            return;
+        }
+        Pose now = follower.pose();
+        WallClumpPicker.Pick pick = WallClumpPicker.pick(now, pipeline.getAllClumps(),
+                AutoConstants.Autonomous.BALL_LINE_Y, AutoConstants.Autonomous.PICK_X_MIN,
+                AutoConstants.Autonomous.PICK_X_MAX);
+        if (pick == null) {
+            slamNote = "no clump in range - POINT_5";
+            RobotLog.ii("RedSoloAuto", "camera pick: " + slamNote);
+            return;
+        }
+        double wallY = AutoConstants.Autonomous.WALL_Y;
+        Pose end = new Pose(pick.x, wallY, Math.toRadians(270));
+        double drop = Math.max(0, now.y() - wallY);
+        chain5Slam = new AutoPath(
+            Paths.curve(
+                new Pose(now.x(), now.y()),
+                new Pose(now.x(), now.y() - 0.45 * drop),   // straight down first: clear of the hive rail
+                new Pose(pick.x, wallY + 0.35 * drop),
+                end
+            ).heading(
+                headingInterpolator(Math.toRadians(270.000), Math.toRadians(270.000), 1.000)
+            )
+        );
+        chain6 = buildChain6(end);
+        slamNote = pick.toString();
+        RobotLog.ii("RedSoloAuto", "camera pick at (" + Math.round(now.x()) + ", " + Math.round(now.y()) + "): " + slamNote);
+    }
+
+    /** Path 5, switched mid-path to the camera-picked wall spot once decideSlam() has built it. */
+    private void followSlamStep() {
+        if (!stepStarted) {
+            slamSwitched = false;
+            startPath(chain5, 1.000);
+            stepStarted = true;
+        }
+        if (chain5Slam != null && !slamSwitched) {
+            startPath(chain5Slam, 1.000);
+            slamSwitched = true;
+        }
+        if (!follower.isBusy()) {
+            startEvent("Intake Off");
+            advanceSequence();
+        }
     }
 
     private void runSequence() {
@@ -300,7 +396,7 @@ public class RedSoloAuto extends OpMode {
         runWaitStep(2000L);
         break;
       case 8:
-        followPathStep(chain5, 1.000);
+        followSlamStep();   // hand-wired: path 5 + camera pick
         break;
       case 9:
         runTimedEventStep("Shoot", shootTimeMs);
@@ -621,6 +717,7 @@ public class RedSoloAuto extends OpMode {
         telemetry.addData("X", "%.2f", pose.x());
         telemetry.addData("Y", "%.2f", pose.y());
         telemetry.addData("Heading", "%.2f", Math.toDegrees(pose.heading()));
+        telemetry.addData("Camera pick", slamNote + (camera != null ? " · " + camera.status() : ""));
         if (mechanisms != null) {
             mechanisms.addTelemetry(telemetry);
         }

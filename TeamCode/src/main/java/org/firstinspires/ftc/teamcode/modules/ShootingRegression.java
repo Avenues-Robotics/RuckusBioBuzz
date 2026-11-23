@@ -25,11 +25,11 @@ public class ShootingRegression {
     // FINDINGS 2026-11-15). Still a stopgap: re-fit on the Regression tab, and re-check the PIDF, at the new gearing.
     // 35:21 installed 2026-11-16 (operator; no flywheel weight yet): 2400 x 1.2 / (35/21) = 1728 - same wheel speed
     // as 2400 at 24:20. Re-fit on the Regression tab.
-    public static double[] POLLEN_COEFFS = {1257.16, -2.78486, 0.0324061};
 
     public static double[] NECTAR_COEFFS = {0, 1};
     /** {min, max} distance (inches) the fit was recorded over. */
-    public static double[] POLLEN_RANGE = {50.2, 103.6};
+    public static double[] POLLEN_COEFFS = {1154.23, -1.56488, 0.0432406};
+    public static double[] POLLEN_RANGE = {30.5, 79.9};
     public static double[] NECTAR_RANGE = {0, 1000};
 
     private final Turret aiming;

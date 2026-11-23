@@ -142,7 +142,7 @@ public final class SystemConstants {
         public static double[] pollenTurretOffset = {-5.91, 0};
         public static double POLLEN_TURRET_CENTER = 0.5;
         public static double NECTAR_TURRET_CENTER = 0.5;
-        public static double RESET_POSE = 0.5;
+        public static double RESET_POSE = 0.8;
 
         // Limits, servo units; every turret command (tracking, unwind, start) is clamped to them.
         // POLLEN, 2026-11-14 (operator): with the servo at 0.5 the turret faces straight, and the
@@ -187,7 +187,7 @@ public final class SystemConstants {
     @Configurable
     public static class Gate {
         public static double openPos = 0.347;
-        public static double closePos = 0.482;
+        public static double closePos = 0.5;
     }
 
     @Config
@@ -239,8 +239,8 @@ public final class SystemConstants {
     @Config
     @Configurable
     public static class PredictiveAiming {
+        /** Zone check + shooter lock lead (predictPose / leadPose). Shoot-on-the-move aiming has its own below. */
         public static double PREDICT_MS = 150;
-        public static double[] CENTER = {0, 0};
         // Turret shoot on the move (Turret.sotmLead): lead t = SOTM_FEED_MS + tof(d) ms, tof(d) = SOTM_TOF_MS[0]
         // + SOTM_TOF_MS[1]·d + ... (d = turret-to-goal, in). FEED = decision to ball leaving the shooter (gate,
         // feed); tof = ball flight. Defaults = the old flat 150 ms, which does NOT hit (operator 2026-11-23).
@@ -251,6 +251,7 @@ public final class SystemConstants {
         public static boolean SOTM_ENABLED = false;
         public static double SOTM_FEED_MS = 150;
         public static double[] SOTM_TOF_MS = {0, 0};
+        public static double[] CENTER = {0, 0};
     }
 
     @Config
@@ -261,8 +262,8 @@ public final class SystemConstants {
         // x 47.8-67.7, blue 73.9-93.8, symmetric about the field centre. 45 / 72 (2026-11-18) were the red
         // rail and the gap between halves. UP_POS / DOWN_POS are shared by both alliances, but the drawing
         // is point-symmetric: red's cells span y 51.9-95.4, blue's 46.2-89.6 (see FINDINGS 2026-11-20).
-        public static double xred = 57.8;
-        public static double xblue = 83.9;
+        public static double xred = 64;
+        public static double xblue = 92;
         public static double UP_POS = 90;
         public static double DOWN_POS = 52;
         public static double HALF_Y = 71;

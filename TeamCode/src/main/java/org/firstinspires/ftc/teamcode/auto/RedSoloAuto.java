@@ -172,6 +172,8 @@ public class RedSoloAuto extends OpMode {
                     1.000
                 )
             )
+        ).addParametricCallback(0, 0.000, () ->
+            startParallelEvent("Intake On", 0)   // collecting from path 1 on: the drive to the corner, the corner loop and wait (operator 2026-11-23)
         );
 
         chain2 = new AutoPath(
@@ -201,8 +203,6 @@ public class RedSoloAuto extends OpMode {
                     )
                 )
             )
-        ).addParametricCallback(0, 0.000, () ->
-            startParallelEvent("Intake On", 0)   // collecting in the corner (corner loop + wait)
         );
 
         chain3 = new AutoPath(

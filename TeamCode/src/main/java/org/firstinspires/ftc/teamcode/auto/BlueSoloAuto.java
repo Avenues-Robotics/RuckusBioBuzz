@@ -33,7 +33,7 @@ public class BlueSoloAuto extends OpMode {
     public static PathStep START_STEP = new PathStep(85.500, 132.304, 0.000);
     public static PathStep POINT_1 = new PathStep(131.383, 131.960, 0.000);
     public static PathStep POINT_2 = new PathStep(131.278, 131.201, 90.000);
-    public static PathStep POINT_3 = new PathStep(95.020, 15.643, 270.100);
+    public static PathStep POINT_3 = new PathStep(95.020, 15.643, 262.000);
     public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);
     public static PathStep POINT_5 = new PathStep(83.557, 131.081, 90.000);
     public static PathStep POINT_6 = new PathStep(126.058, 94.285, 0.000);
@@ -168,6 +168,8 @@ public class BlueSoloAuto extends OpMode {
             Paths.line(START_STEP.toPose(), POINT_1.toPose()).heading(
                 headingInterpolator(Math.toRadians(0.000), Math.toRadians(0.000), 1.000)
             )
+        ).addParametricCallback(0, 0.000, () ->
+            startParallelEvent("Intake On", 0)   // collecting from path 1 on: the drive to the corner, the corner loop and wait (operator 2026-11-23)
         );
 
         chain2 = new AutoPath(
@@ -197,8 +199,6 @@ public class BlueSoloAuto extends OpMode {
                     )
                 )
             )
-        ).addParametricCallback(0, 0.000, () ->
-            startParallelEvent("Intake On", 0)   // collecting in the corner (corner loop + wait)
         );
 
         chain3 = new AutoPath(
@@ -211,7 +211,7 @@ public class BlueSoloAuto extends OpMode {
             ).heading(
                 headingInterpolator(
                     Math.toRadians(90.000),
-                    Math.toRadians(270.100),   // 270.1, not 270: a half turn 90 -> 270 goes counter-clockwise past the blue-wall flower broadside (1.0 in); 270.1 turns clockwise, the mirror of red. Faces the audience-wall flower: the scoopula is on the front (was 180, 2026-11-15, for the turret wrap)
+                    Math.toRadians(262.000),   // the audience-wall flower 5 deg off the nose (scoopula on the front; was 180 2026-11-15 for the turret wrap). Not 270: xblue 92 (measured) puts the hive straight behind the robot there - turret 6 deg from its wrap at 270, 15 deg at 262; 258-265 / 275-280 pass a flower at <= 1.0 in
                     1.000
                 )
             )
@@ -224,7 +224,7 @@ public class BlueSoloAuto extends OpMode {
         chain4 = new AutoPath(
             Paths.line(POINT_3.toPose(), POINT_4.toPose()).heading(
                 headingInterpolator(
-                    Math.toRadians(270.100),
+                    Math.toRadians(262.000),
                     Math.toRadians(90.000),
                     1.350
                 )

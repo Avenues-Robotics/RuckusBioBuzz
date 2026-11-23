@@ -21,7 +21,16 @@
       "controlPoints": [],
       "speed": 1,
       "stopAtEnd": true,
-      "eventMarkers": []
+      "eventMarkers": [
+        {
+          "id": "ev-intake-path1",
+          "name": "Intake On",
+          "triggerType": "parametric",
+          "position": 0,
+          "triggerMs": 0,
+          "durationMs": 0
+        }
+      ]
     },
     {
       "id": "l2",
@@ -55,7 +64,7 @@
         "y": 15.643,
         "heading": "linear",
         "startDeg": 90,
-        "endDeg": 270.1,
+        "endDeg": 262,
         "headingCurve": 1.0
       },
       "controlPoints": [
@@ -99,7 +108,7 @@
         "x": 82.688,
         "y": 25.933999999999997,
         "heading": "linear",
-        "startDeg": 270.1,
+        "startDeg": 262,
         "endDeg": 90,
         "headingCurve": 1.35
       },
@@ -261,16 +270,7 @@
         }
       ],
       "speed": 1,
-      "eventMarkers": [
-        {
-          "id": "ev-intake-corner",
-          "name": "Intake On",
-          "triggerType": "parametric",
-          "position": 0,
-          "triggerMs": 0,
-          "durationMs": 0
-        }
-      ]
+      "eventMarkers": []
     }
   ],
   "sequence": [

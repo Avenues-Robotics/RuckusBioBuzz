@@ -245,6 +245,10 @@ public final class SystemConstants {
         // + SOTM_TOF_MS[1]·d + ... (d = turret-to-goal, in). FEED = decision to ball leaving the shooter (gate,
         // feed); tof = ball flight. Defaults = the old flat 150 ms, which does NOT hit (operator 2026-11-23).
         // Neither part is measured yet - tune on the field.
+        // OFF 2026-11-23 (operator: not worth having for now): turret and shooter lock aim from where the robot
+        // IS, no velocity lead. The zone check still uses PREDICT_MS. Heading lead (Turret.HEADING_LEAD_MS, the
+        // servo lagging a turn) is not SOTM and stays on.
+        public static boolean SOTM_ENABLED = false;
         public static double SOTM_FEED_MS = 150;
         public static double[] SOTM_TOF_MS = {0, 0};
     }

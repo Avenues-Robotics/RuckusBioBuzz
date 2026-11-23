@@ -143,6 +143,10 @@ public class Turret {
      * reproduce exactly that. Operator 2026-11-23: SOTM does not hit.
      */
     private Pose sotmLead(double[] offset) {
+        if (!SystemConstants.PredictiveAiming.SOTM_ENABLED) {   // aim from where the turret is now
+            lastLeadS = 0;
+            return predictor.leadPose(offset, 0);
+        }
         double feed = SystemConstants.PredictiveAiming.SOTM_FEED_MS / 1000.0;
         double[] tof = SystemConstants.PredictiveAiming.SOTM_TOF_MS;
         double t = feed;

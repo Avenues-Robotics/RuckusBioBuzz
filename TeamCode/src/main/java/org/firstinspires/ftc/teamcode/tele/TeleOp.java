@@ -331,7 +331,9 @@ public class TeleOp extends OpMode {
      * heading shape - P on the heading projected ahead by the braking lookahead - so it slows before it arrives.
      */
     private double aimTurn(Pose pose) {
-        Pose lead = predictor.leadPose();
+        // SOTM off (SystemConstants.PredictiveAiming.SOTM_ENABLED): aim from where the robot is, no lead.
+        Pose lead = SystemConstants.PredictiveAiming.SOTM_ENABLED ? predictor.leadPose()
+                : predictor.leadPose(SystemConstants.PredictiveAiming.CENTER, 0);
         Pose goal = shooterSystem.goal(lead);
         double target = Math.atan2(goal.y() - lead.y(), goal.x() - lead.x());
         double w = follower.velocity().omega;

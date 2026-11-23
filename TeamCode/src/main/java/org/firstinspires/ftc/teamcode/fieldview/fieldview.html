@@ -113,8 +113,9 @@
       <div class="row"><span>heading</span><span id="ph">–</span></div>
     </div>
     <div class="card hint">
-      Run the <b>TeleOp</b> OpMode to see the robot. Green bands are the shooting zone
-      (below <span id="zy">–</span> in and its mirror).
+      Run the <b>TeleOp</b> OpMode to see the robot. Green cells are the pollen shooting zone exactly as the
+      shooter reads it (<code>SystemConstants.Zone.mapPollen</code>, red frame, turned 180° for blue); the
+      outlined cell is where the predicted pose is.
     </div>
   </aside>
 </main>
@@ -156,15 +157,35 @@
     const X = (x) => x / F * S;
     const Y = (y) => (1 - y / F) * S;
 
-    ctx.fillStyle = "rgba(34, 197, 94, 0.28)";
-    ctx.strokeStyle = css("--zone");
-    ctx.lineWidth = Math.max(2, S / 400);
-    ctx.fillRect(0, Y(state.zoneY), S, S - Y(state.zoneY));
-    ctx.fillRect(0, 0, S, Y(F - state.zoneY));
-    ctx.beginPath();
-    ctx.moveTo(0, Y(state.zoneY)); ctx.lineTo(S, Y(state.zoneY));
-    ctx.moveTo(0, Y(F - state.zoneY)); ctx.lineTo(S, Y(F - state.zoneY));
-    ctx.stroke();
+    // Shooting zone = SystemConstants.Zone.mapPollen as ZoneCheck reads it: row y, column x, cells of
+    // F/nx by F/ny in the RED frame; blue rotates it 180 deg about the field centre. The cell the predicted
+    // pose is in (the one the shooter decides on) is outlined.
+    if (state.zoneMap) {
+      const nx = state.zoneNx, ny = state.zoneNy, cw = F / nx, ch = F / ny, blue = state.alliance === "BLUE";
+      const cellRect = (x, y) => {
+        let x0 = x * cw, y0 = y * ch;
+        if (blue) { x0 = F - (x + 1) * cw; y0 = F - (y + 1) * ch; }
+        return [X(x0), Y(y0 + ch), X(x0 + cw) - X(x0), Y(y0) - Y(y0 + ch)];
+      };
+      ctx.fillStyle = "rgba(34, 197, 94, 0.28)";
+      ctx.strokeStyle = css("--zone");
+      ctx.lineWidth = Math.max(1, S / 600);
+      state.zoneMap.forEach((row, y) => row.forEach((v, x) => {
+        if (!v) return;
+        const r = cellRect(x, y);
+        ctx.fillRect(r[0], r[1], r[2], r[3]);
+        ctx.strokeRect(r[0], r[1], r[2], r[3]);
+      }));
+      if (state.predCell) {
+        const [cx, cy] = state.predCell;
+        if (cx >= 0 && cy >= 0 && cx < nx && cy < ny) {
+          const r = cellRect(cx, cy);
+          ctx.strokeStyle = state.predInZone ? css("--zone") : css("--bad");
+          ctx.lineWidth = Math.max(3, S / 250);
+          ctx.strokeRect(r[0], r[1], r[2], r[3]);
+        }
+      }
+    }
 
     ctx.setLineDash([S / 120, S / 160]);
     ctx.strokeStyle = css("--pred");
@@ -215,12 +236,17 @@
     $("py").textContent = f1(state.py);
     $("ph").textContent = deg(state.ph).toFixed(1) + "°";
     $("pms").textContent = "(" + Math.round(state.predictMs) + " ms)";
-    $("zy").textContent = state.zoneY;
-
     const zone = $("zone");
-    zone.textContent = state.predInZone ? "IN ZONE" : "OUT OF ZONE";
-    zone.className = "zone-state " + (state.predInZone ? "in" : "out");
-    $("zoneDetail").textContent = "Predicted pose · robot now: " + (state.inZone ? "in" : "out");
+    if (state.zoneMap) {
+      zone.textContent = state.predInZone ? "IN ZONE" : "OUT OF ZONE";
+      zone.className = "zone-state " + (state.predInZone ? "in" : "out");
+      $("zoneDetail").textContent = state.alliance + " · predicted pose (what the shooter uses) · robot now: " +
+        (state.inZone ? "in" : "out") + " · cell " + state.predCell[0] + ", " + state.predCell[1];
+    } else {
+      zone.textContent = "–";
+      zone.className = "zone-state out";
+      $("zoneDetail").textContent = "No zone from this OpMode";
+    }
     draw();
   }
 

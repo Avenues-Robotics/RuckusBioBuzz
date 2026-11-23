@@ -144,7 +144,7 @@ public class TeleOp extends OpMode {
         lastLoopNs = now;
         Pose pose = follower.pose();
         if (Config.telemetryEnabled()) {
-            FieldView.publish(pose, predictor.predictPose());
+            FieldView.publish(pose, predictor.predictPose(), alliance);
         }
         for (LynxModule hub : hubs) {
             hub.clearBulkCache();

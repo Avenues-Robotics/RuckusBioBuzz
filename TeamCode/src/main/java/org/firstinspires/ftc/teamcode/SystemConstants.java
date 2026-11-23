@@ -72,9 +72,14 @@ public final class SystemConstants {
         public static double HOLD_CAPTURE_S = 0.25;
         public static double HOLD_CAPTURE_RATE_DEG_S = 30.0;
         public static double RELOCALIZE_HOLD_S = 0.5;
-        public static double RELOCALIZE_X = 7.8;
-        public static double RELOCALIZE_Y = 10.1;
+        // Robot CENTRE when backed into red's audience corner, facing up the field (+y): robot 15 in wide x 18 in
+        // long (operator, 2026-11-23), left side on the red wall (x = 0), back on the audience wall (y = 0).
+        // Blue mirrors through the field centre (TeleOp.relocalizePose). Assumes the pose origin is the robot's
+        // geometric centre (the Pinpoint pod offsets are measured from it).
+        public static double RELOCALIZE_X = 7.5;
+        public static double RELOCALIZE_Y = 9.0;
         public static double RELOCALIZE_HEADING_DEG = 90;
+        /** Turret stays parked this long after BACK is released, so it does not swing into the wall. */
         public static double RESET_TIMER_SEC = 2;
     }
 

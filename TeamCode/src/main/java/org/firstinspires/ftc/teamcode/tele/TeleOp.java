@@ -40,8 +40,9 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
  *   right bumper        intake (hold)            left bumper   reject / outtake (hold)
  *   right trigger       shoot now (hold)         in the zone the robot also shoots by itself (not in lock)
  *   left trigger        scoopula (hold)
- *   SHARE / BACK        hold 0.5 s with the robot in its alliance's corner, facing its own wall, left side on the
- *                       side wall (red: audience end, blue: far end; SystemConstants.TeleOp.RELOCALIZE_*) - pose reset
+ *   SHARE / BACK        press: turret parks (clear of the back); back into the alliance's corner facing up the field,
+ *                       left side on the alliance wall, back on the end wall (red: audience end, blue: far end);
+ *                       release after 0.5 s: pose reset (SystemConstants.TeleOp.RELOCALIZE_*); turret resumes 2 s later
  * DRIVER 2 (gamepad2) - aiming only
  *   d-pad left / right  aim point one step left / right, as the coach sees it from the last shot ("2 RIGHT")
  *   d-pad up / down     flywheel speed one step up / down (offset on the speed curve)
@@ -75,7 +76,8 @@ public class TeleOp extends OpMode {
     private double holdTargetRad = Double.NaN;
     private final ElapsedTime sinceTurnStick = new ElapsedTime();
     private final ElapsedTime relocalizeHeld = new ElapsedTime();
-    private final ElapsedTime resetTimer = new ElapsedTime();
+    private final ElapsedTime sinceRelocalizeRelease = new ElapsedTime();
+    private boolean turretParked;
     private boolean relocalizeHeldPrev;
     private boolean relocalizeDone;
     private String relocalizeNote = "";
@@ -356,18 +358,27 @@ public class TeleOp extends OpMode {
         return Math.max(-max, Math.min(max, SystemConstants.TeleOp.HOLD_KP * err));
     }
 
-    /** Driver 1 holds SHARE / BACK for RELOCALIZE_HOLD_S with the robot at the spot: the pose is set there. */
+    /**
+     * Driver 1 relocalize, on BACK (SHARE on a PS pad - the SDK reports both from one button):
+     * press -> the turret parks at Turret.RESET_POSE so it does not stick out past the back; back into the corner;
+     * release after at least RELOCALIZE_HOLD_S -> the pose is set to the spot; the turret resumes tracking
+     * RESET_TIMER_SEC after the release (time to drive off the wall). A shorter press only parks and resumes.
+     * Until 2026-11-23 the park / resume calls were swapped: the turret sat parked except for 2 s after a relocalize.
+     */
     private void relocalize(Pose pose) {
         boolean held = gamepad1.back;
         boolean released = !held && relocalizeHeldPrev;
         if (held && !relocalizeHeldPrev) {
             relocalizeHeld.reset();
-            relocalizeDone = false; //Ensures that there is no accidental reset
+            relocalizeDone = false;
+            turretParked = true;
+            shooterSystem.setTurretParked(true);
+        }
+        if (released) {
+            sinceRelocalizeRelease.reset();
         }
 
         if (released && !relocalizeDone && relocalizeHeld.seconds() >= SystemConstants.TeleOp.RELOCALIZE_HOLD_S) {
-            shooterSystem.resetTurretPos();
-            resetTimer.reset();
             Pose spot = relocalizePose();
             follower.setPose(spot);
             fieldCentricOffset = 0;   // the heading is exact again: the drivers' frame needs no re-zero
@@ -377,8 +388,9 @@ public class TeleOp extends OpMode {
             relocalizeNote = String.format(java.util.Locale.US, "set to (%.1f, %.1f, %.0f deg), was (%.1f, %.1f, %.0f deg)",
                     spot.x(), spot.y(), Math.toDegrees(spot.heading()), pose.x(), pose.y(), Math.toDegrees(pose.heading()));
         }
-        if(resetTimer.seconds() >= SystemConstants.TeleOp.RESET_TIMER_SEC){
-            shooterSystem.resumeTurret();
+        if (turretParked && !held && sinceRelocalizeRelease.seconds() >= SystemConstants.TeleOp.RESET_TIMER_SEC) {
+            turretParked = false;
+            shooterSystem.setTurretParked(false);
         }
         relocalizeHeldPrev = held;
     }

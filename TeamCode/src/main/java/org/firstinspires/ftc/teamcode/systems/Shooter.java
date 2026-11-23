@@ -187,11 +187,9 @@ public class Shooter {
         return state.name();
     }
 
-    public void resumeTurret(){
-        aiming.turretResetPos();
-    }
-    public void resetTurretPos(){
-        aiming.resumeTurretPos();
+    /** TeleOp relocalize: true parks the turrets at Turret.RESET_POSE (nothing past the back) and keeps the gate shut. */
+    public void setTurretParked(boolean parked) {
+        aiming.setParked(parked);
     }
 
     public boolean inZone() { return zone.inZone(predictiveAiming.predictPose()); }

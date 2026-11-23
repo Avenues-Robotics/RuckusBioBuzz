@@ -38,14 +38,18 @@ public final class PollenCamera {
         CameraFeed.clear();
         try {
             WebcamName cam = hardwareMap.tryGet(WebcamName.class, SystemConstants.Camera.WEBCAM_NAME);
-            String how = "\"" + SystemConstants.Camera.WEBCAM_NAME + "\"";
+            String how = "\"" + SystemConstants.Camera.WEBCAM_NAME + "\" from the config";
             if (cam == null) {
                 List<WebcamName> all = ClassFactory.getInstance().getCameraManager().getAllWebcams();
+                // The serial is what a <Webcam name=".." serialNumber=".."/> config entry needs: logged for that.
+                for (WebcamName w : all) {
+                    RobotLog.ii(TAG, "attached webcam serialNumber=\"" + w.getSerialNumber() + "\" " + w.getDeviceName());
+                }
                 if (all.isEmpty()) {
                     return new PollenCamera(null, null, "no webcam attached");
                 }
                 cam = all.get(0);
-                how = "first attached webcam (" + all.size() + " found)";
+                how = "first attached webcam, NOT in the config (serial " + cam.getSerialNumber() + ")";
             }
             PollenDetectionPipeline pipeline = new PollenDetectionPipeline(null);
             VisionPortal portal = new VisionPortal.Builder()

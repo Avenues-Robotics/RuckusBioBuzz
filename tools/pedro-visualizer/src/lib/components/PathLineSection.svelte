@@ -872,7 +872,7 @@
 
       <label
         class="flex flex-row items-center gap-2 mb-2 cursor-pointer select-none"
-        title="Before driving this path the robot turns in place at its start to the path's end heading, then holds it (TeamCode runTurnStep; done within 4 deg or after 1.2 s)."
+        title="As soon as the previous path ends - before any wait or event (e.g. a Shoot) in between - the robot backs straight off any wall until its corners clear it, turns in place to this path's end heading, then holds it for this path (TeamCode runTurnStep + TurnInPlace; back-off within 0.5 in or 0.8 s, turn within 4 deg or 1.2 s)."
       >
         <input
           type="checkbox"
@@ -883,7 +883,7 @@
         <span class="font-light">Turn first</span>
         {#if line.turnFirst}
           <span class="text-xs text-neutral-500 dark:text-neutral-400">
-            — turns in place to {Math.round(Number(line.endPoint.heading === "linear" ? line.endPoint.endDeg : line.endPoint.heading === "constant" ? line.endPoint.degrees : 0))}°, then drives
+            — right after the previous path: backs off any wall, turns in place to {Math.round(Number(line.endPoint.heading === "linear" ? line.endPoint.endDeg : line.endPoint.heading === "constant" ? line.endPoint.degrees : 0))}°, then any waits / events, then drives
           </span>
         {/if}
       </label>

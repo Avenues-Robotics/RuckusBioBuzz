@@ -455,3 +455,4 @@ npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 - Turn first turns about a point moved off any field wall until the robot's half-diagonal (18 x 15 in: 11.7 in) plus `TURN_WALL_MARGIN_IN` clears it (TeamCode `auto/modules/TurnInPlace`, called by the generated `runTurnStep`): pressed on a wall after a camera pick the centre is only 9 in off it, so a turn there would scrape the corners. The preview turns at the path start and does not draw that few-inch back-off.
+- Turn first happens right after the previous path ends, BEFORE any waits / events between the two (so in the solo autos the sequence is: drive into the wall, stop, back off, turn, Shoot, path 6 - shooting while facing the wall put the hive straight behind the robot, at the turret's wrap). The path before a Turn first always ends at a full stop. Both the preview (`expandRouteEdits`) and the exporter place it that way.

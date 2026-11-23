@@ -412,10 +412,12 @@ public class RedSoloAuto extends OpMode {
         followPickStep(chain5, chain5Pick, 1.000);
         break;
       case 9:
-        runTimedEventStep("Shoot", shootTimeMs);
+        // Back off the wall and turn BEFORE the shot (operator 2026-11-23): facing the wall, the hive is
+        // straight behind the robot - the turret's wrap - so the wall shot could hang unaimed or unwind.
+        runTurnStep(180.000, start -> chain6 = buildChain6(start));
         break;
       case 10:
-        runTurnStep(180.000, start -> chain6 = buildChain6(start));
+        runTimedEventStep("Shoot", shootTimeMs);
         break;
       case 11:
         followPathStep(chain6, 1.000);

@@ -18,7 +18,8 @@
  *     -> (end.x, end.y - 0.35 dy) -> end, dy = end.y - from.y, heading held;
  *   - the next path starts from `end`, its own control points unchanged.
  *
- * Turn first (on a path): before driving, the robot backs straight off any
+ * Turn first (on a path): as soon as the previous path ends - before any waits
+ * or events between the two, so a Shoot there happens after the turn - the robot backs straight off any
  * field wall (holding its heading) until its corners' sweep clears it, turns
  * in place there to the path's end heading, then drives the path from that
  * point holding it - Java runTurnStep + TurnInPlace.clearOfWalls. (Until
@@ -310,6 +311,8 @@ export function expandRouteEdits(
     ? sequence
     : lines.filter((line) => line.id).map((line) => ({ kind: "path", lineId: line.id! }));
 
+  // Where in outSequence the robot last moved: a Turn first goes here, ahead of the waits / events after it.
+  let afterLastMove = 0;
   // Where the robot is along the top-level route, to place picks and turns.
   let current: BasePoint = startPoint;
   // Heading the robot holds at `current`, degrees (needed to back off a wall without turning).
@@ -320,6 +323,9 @@ export function expandRouteEdits(
     if (item.kind !== "path") {
       outSequence.push(item);
       // Groups move the robot by their own paths; follow them by their last path's end.
+      if (item.kind === "repeat" || item.kind === "conditional" || item.kind === "pollen") {
+        afterLastMove = outSequence.length;
+      }
       if (item.kind === "repeat" || item.kind === "conditional") {
         const members = (item.members || []).filter((member) => member.kind === "path");
         const last = members[members.length - 1];
@@ -332,10 +338,12 @@ export function expandRouteEdits(
     const line = index === undefined ? undefined : lines[index];
     if (!line?.endPoint || index === undefined) {
       outSequence.push(item);
+      afterLastMove = outSequence.length;
       continue;
     }
 
     let effective = line;
+    const turnSteps: SequenceItem[] = [];
     if (line.turnFirst) {
       const deg = turnFirstHeading(line, current);
       effective = { ...effective, endPoint: heldHeading(effective, deg) };
@@ -360,7 +368,7 @@ export function expandRouteEdits(
           eventMarkers: [],
         };
         outLines.push(back);
-        outSequence.push({ kind: "path", lineId: backId });
+        turnSteps.push({ kind: "path", lineId: backId });
         current = clear;
       }
       const turn: SequenceWaitItem = {
@@ -370,7 +378,16 @@ export function expandRouteEdits(
         durationMs: 0,
         turnToDeg: deg,
       };
-      outSequence.push(turn);
+      turnSteps.push(turn);
+      // The path before the turn ends at a full stop (Java: followPathStep / followPickStep wait for
+      // !isBusy() before the turn step) - with no wait or event left between them, the chain rules would
+      // otherwise drive it straight on into the back-off.
+      const prev = outSequence[afterLastMove - 1];
+      if (prev && prev.kind === "path") {
+        const at = outLines.findIndex((candidate) => candidate.id === prev.lineId);
+        if (at >= 0) outLines[at] = { ...outLines[at], stopAtEnd: true };
+      }
+      outSequence.splice(afterLastMove, 0, ...turnSteps);
     }
 
     const geometry = cameraPickGeometry(effective, current);
@@ -423,6 +440,7 @@ export function expandRouteEdits(
       outLines[index] = before;
       outLines.push(leg);
       outSequence.push(item, { kind: "path", lineId: legId });
+      afterLastMove = outSequence.length;
       current = leg.endPoint;
       currentDeg = geometry.slam.heading;
       continue;
@@ -430,6 +448,7 @@ export function expandRouteEdits(
 
     if (effective !== line) outLines[index] = effective;
     outSequence.push(item);
+    afterLastMove = outSequence.length;
     currentDeg = getLineEndHeading(effective, current as Point);
     current = line.endPoint;
   }

@@ -909,10 +909,14 @@ export async function generateTeamCodeAutoCode(
       const enabledExpression =
         run.steps.length === 1 ? run.steps[0].line.enabledExpression : undefined;
 
-      // Turn first: turn in place to the path's end heading, as its own step.
+      // Turn first: turn in place to the path's end heading, as its own step - right after the previous
+      // movement, BEFORE any waits / events between it and this path (operator 2026-11-23: back off the wall,
+      // turn, THEN shoot - shooting at the wall put the turret at its wrap).
       const first = run.steps[0];
       if (first.line.turnFirst) {
-        exportSteps.push({
+        let at = exportSteps.length;
+        while (at > 0 && (exportSteps[at - 1].kind === "wait" || exportSteps[at - 1].kind === "event")) at--;
+        exportSteps.splice(at, 0, {
           kind: "turn",
           degrees: getLineEndHeading(first.line, first.startPoint as Point).toFixed(3),
           field,

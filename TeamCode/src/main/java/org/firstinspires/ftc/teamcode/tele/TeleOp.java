@@ -259,6 +259,7 @@ public class TeleOp extends OpMode {
             out.addData("ready", shooterSystem.ready());
             out.addData("pollen wheel (ticks/s)", Math.round(shooterSystem.pollenVelocity()) + " / " + Math.round(shooterSystem.pollenCommand()));
             out.addData("F volt scale", Math.round(shooterSystem.flywheelFScale() * 1000) / 1000.0);
+            out.addData("SOTM lead (ms)", Math.round(shooterSystem.sotmLeadMs()));
         }
         if (camera != null) {
             PollenDetectionPipeline p = camera.pipeline();

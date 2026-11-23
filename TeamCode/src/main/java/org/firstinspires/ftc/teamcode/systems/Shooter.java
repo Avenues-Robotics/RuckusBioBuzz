@@ -198,5 +198,7 @@ public class Shooter {
     public double pollenCommand() { return flywheel.pollenCommand(); }
     public double flywheelFScale() { return flywheel.fScale(); }
     public boolean pollenAimed() { return aiming.pollenAimed(); }
+    /** Shoot-on-the-move lead time last used by the turret, ms. */
+    public double sotmLeadMs() { return aiming.sotmLeadSeconds() * 1000.0; }
     public boolean nectarAimed() { return aiming.nectarAimed(); }
 }

@@ -31,9 +31,13 @@ public class PredictiveAiming {
     }
 
     public Pose leadPose(double[] offset) {
+        return leadPose(offset, SystemConstants.PredictiveAiming.PREDICT_MS / 1000.0);
+    }
+
+    /** The point at robot-frame {@code offset}, moved along its own field velocity (spin included) for {@code t} s. */
+    public Pose leadPose(double[] offset, double t) {
         Pose robot = follower.pose();
         Velocity v = follower.velocity();
-        double t = SystemConstants.PredictiveAiming.PREDICT_MS / 1000.0;
         double c = Math.cos(robot.heading());
         double s = Math.sin(robot.heading());
         double rx = offset[0] * c - offset[1] * s;

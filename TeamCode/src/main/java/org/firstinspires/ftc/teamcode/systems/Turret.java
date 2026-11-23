@@ -34,6 +34,7 @@ public class Turret {
     private boolean lockForward;
     /** Which hive end is targeted (HivePosition.upper, with hysteresis); null until the first goal() call. */
     private Boolean upperHive;
+    private double lastLeadS;
 
     public class aimer {
         public double theta;
@@ -124,13 +125,47 @@ public class Turret {
      */
     private Pose turretPose(double[] offset) {
         if (aimPose == null) {
-            Pose lead = predictor.leadPose(offset);
+            Pose lead = sotmLead(offset);
             double heading = lead.heading() + predictor.headingRate() * SystemConstants.Turret.HEADING_LEAD_MS / 1000.0;
             return new Pose(lead.x(), lead.y(), heading);
         }
         double c = Math.cos(aimPose.heading()), s = Math.sin(aimPose.heading());
         return new Pose(aimPose.x() + offset[0] * c - offset[1] * s, aimPose.y() + offset[0] * s + offset[1] * c,
                 aimPose.heading());
+    }
+
+    /**
+     * Shoot on the move: aiming from the turret moved along its velocity for t = SOTM_FEED_MS + tof(d) is the same
+     * as aiming at the goal shifted back by velocity x t - the ball inherits the robot's velocity for its flight
+     * (tof) and the robot keeps moving between the decision and the release (feed). tof(d) = SOTM_TOF_MS[0] +
+     * SOTM_TOF_MS[1]·d + ..., d = turret-to-goal distance in inches, iterated (d depends on t). Until 2026-11-23
+     * the lead was PREDICT_MS (150 ms) flat, shared with the zone check; the defaults (feed 150, tof 0)
+     * reproduce exactly that. Operator 2026-11-23: SOTM does not hit.
+     */
+    private Pose sotmLead(double[] offset) {
+        double feed = SystemConstants.PredictiveAiming.SOTM_FEED_MS / 1000.0;
+        double[] tof = SystemConstants.PredictiveAiming.SOTM_TOF_MS;
+        double t = feed;
+        Pose p = predictor.leadPose(offset, t);
+        boolean distanceDependent = false;
+        for (double c : tof) distanceDependent |= c != 0;
+        if (distanceDependent) {
+            Pose goal = goal(predictor.leadPose());
+            for (int k = 0; k < 3; k++) {
+                double d = Math.hypot(goal.x() - p.x(), goal.y() - p.y());
+                double ms = 0;
+                for (int i = tof.length - 1; i >= 0; i--) ms = ms * d + tof[i];
+                t = feed + Math.max(0, ms) / 1000.0;
+                p = predictor.leadPose(offset, t);
+            }
+        }
+        lastLeadS = t;
+        return p;
+    }
+
+    /** The last shoot-on-the-move lead time, seconds (telemetry). */
+    public double sotmLeadSeconds() {
+        return lastLeadS;
     }
 
     public boolean pollenAimed() { return pollenAimed; }

@@ -68,6 +68,8 @@ public class turretTrackTest extends LinearOpMode {
 
         @Override public double headingRate() { return simOmega; }
 
+        @Override public Pose leadPose(double[] offset, double t) { return leadPose(offset); }
+
         @Override public Pose leadPose(double[] offset) {
             double c = Math.cos(sim.heading()), s = Math.sin(sim.heading());
             return new Pose(sim.x() + offset[0] * c - offset[1] * s,

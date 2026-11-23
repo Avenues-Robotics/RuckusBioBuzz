@@ -241,6 +241,12 @@ public final class SystemConstants {
     public static class PredictiveAiming {
         public static double PREDICT_MS = 150;
         public static double[] CENTER = {0, 0};
+        // Turret shoot on the move (Turret.sotmLead): lead t = SOTM_FEED_MS + tof(d) ms, tof(d) = SOTM_TOF_MS[0]
+        // + SOTM_TOF_MS[1]·d + ... (d = turret-to-goal, in). FEED = decision to ball leaving the shooter (gate,
+        // feed); tof = ball flight. Defaults = the old flat 150 ms, which does NOT hit (operator 2026-11-23).
+        // Neither part is measured yet - tune on the field.
+        public static double SOTM_FEED_MS = 150;
+        public static double[] SOTM_TOF_MS = {0, 0};
     }
 
     @Config

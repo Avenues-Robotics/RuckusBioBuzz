@@ -64,6 +64,11 @@ public final class AutoMechanisms {
                         org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKI,
                         org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKD,
                         org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalSwitchIn));
+        double tolDeg = Double.isNaN(AutoConstants.Autonomous.HEADING_TOLERANCE_DEG)
+                ? 11.25 : AutoConstants.Autonomous.HEADING_TOLERANCE_DEG;
+        org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingDeviationTolerance.set(
+                Math.toRadians(tolDeg));
+        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "Foresight heading tolerance " + tolDeg + " deg");
         com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "Foresight heading kP " + kp
                 + ", translational kP fwd " + fP + "/" + fS + " strafe " + sP + "/" + sS);
         shooter = new Shooter(hardwareMap, new PredictiveAiming(follower), alliance);

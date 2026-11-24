@@ -77,5 +77,12 @@ public final class AutoConstants {
          * further short (0.19 power breakaway / 0.12 ~ 1.6 in band).
          */
         public static double TRANSLATIONAL_KP = 0.12;
+        /**
+         * Foresight headingDeviationTolerance for the autos, degrees (NaN = Pedro's 11.25). Past it the heading
+         * correction is allocated before translation. Blue run 9 (2026-11-24): 37% of path 3 (a 172 deg turn while
+         * driving) sat past 11.25 at heading kP 1.5, translation command 0.91 -> 0.59 and speed 30 -> 20 in/s there.
+         * 30 is an ESTIMATE; on trial, not accepted. The heading still converges - it just stops preempting driving.
+         */
+        public static double HEADING_TOLERANCE_DEG = 30;
     }
 }

@@ -2117,3 +2117,21 @@ ones too - with the yaw rate reversing several times a second: the TeleOp fishta
 pod error 19.7 vs 4.0 deg; fixed with 1.0), here with Foresight heading kP 7.72 at a 26 Hz loop. Next run, ONE
 behaviour change: AutoConstants.Autonomous.HEADING_KP = 1.5 (estimate, see the constant), plus a loop-time
 breakdown logged by BlueSoloAuto (measurement only) to find what holds the loop at 26 Hz.
+
+### Blue run 5 — heading kP 1.5 (AutoConstants.HEADING_KP), 12.89 V at rest, tiles, flush start. ONE run per arm.
+
+| segment | arm | time | speed mean / max | pod \|err\| med / p90 | \|heading err\| med / p90 | yaw rev | flip changes | dips < 3 in/s |
+|---|---|---|---|---|---|---|---|---|
+| path 3 | kP 7.72 (run 4) | 11.5 s | 12.9 / 31.7 in/s | 26 / 62 | 2.5 / 6.0 | 2.4 /s | 10.1 /s | 12 |
+| path 3 | kP 1.5 (run 5) | 6.7 s | 21.4 / 42.3 | 25 / 57 | 7.0 / 15.1 | 1.7 /s | 1.2 /s | 3 |
+| return | kP 7.72 | 6.3 s | 15.8 / 33.2 | 25 / 60 | 2.0 / 5.8 | 3.3 /s | 11.0 /s | 2 |
+| return | kP 1.5 | 2.9 s | 32.1 / 45.9 | 21 / 49 | 2.8 / 7.6 | 3.4 /s | 0.0 /s | 0 |
+
+Step log: corner -> wall flower (step 3 -> 4) 5.4 s (run 4: 10.1 s); the auto reached step 12 in ~28 s. Heading now
+LAGS on path 3 (arrives at 245 vs 262 target; finishes the turn during the shot wait). Pod error median barely moved
+(21-25 deg) and yaw reversals on the return are unchanged - not explained by the heading gain; the loop rate is the
+next suspect. n = 1 run per arm, not an A/B: not accepted, HEADING_KP stays 1.5 on trial.
+
+Loop-time breakdown (BlueSoloAuto, 5 s means): dt 32.5-53.5 ms; **follower.update 17.2-31.4 ms**, **mechanisms
+13.1-18.6 ms**, sequence 0.1-0.2, /field publish 0.1-0.3, telemetry 0.4-0.8. The follower update (Pinpoint +
+4 pods' servo/motor writes) and the mechanisms are the whole loop.

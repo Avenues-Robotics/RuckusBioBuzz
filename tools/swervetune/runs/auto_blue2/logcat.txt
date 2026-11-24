@@ -1,0 +1,4 @@
+--------- beginning of main
+12-31 18:02:54.728 I/PollenCamera(  998): opened "Webcam 1" from the config
+--------- beginning of system
+12-31 18:02:59.165 I/BlueSoloAuto(  998): step 1 at (85.5, 133.9, 0 deg) shoot=0 intake=0 scoop=up shooter=SHOOT/zone/aimP

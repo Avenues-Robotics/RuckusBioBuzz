@@ -36,6 +36,7 @@ public final class AutoMechanisms {
      */
     private final TeleLoopProbe trace;
     private double loopHzEma;
+    private boolean traceDisabled;
 
     public AutoMechanisms(HardwareMap hardwareMap, Follower follower, Alliance alliance) {
         this.follower = follower;
@@ -104,8 +105,14 @@ public final class AutoMechanisms {
         long c = System.nanoTime();
         scoopula.update(scoopDown);
         long d = System.nanoTime();
-        if (trace != null) {
-            traceLoop(dtMs / 1000.0);
+        if (trace != null && !traceDisabled) {
+            // A diagnostic must never stop the auto: on any exception the trace turns itself off for this run.
+            try {
+                traceLoop(dtMs / 1000.0);
+            } catch (RuntimeException ex) {
+                com.qualcomm.robotcore.util.RobotLog.ee("AutoMechanisms", ex, "drive trace failed - trace off");
+                traceDisabled = true;
+            }
         }
         long e = System.nanoTime();
         lastNs[0] = b - a;
@@ -140,7 +147,9 @@ public final class AutoMechanisms {
                 follow[3] = closest.y();
                 follow[4] = Math.toDegrees(closest.heading());
             }
-            follow[5] = follower.tangentialVelocity();
+            // Not follower.tangentialVelocity(): its tangent is null on a path's first loop (NPE killed blue run 8).
+            com.pedropathing.math.Vector2D tan = follower.closestTangent();
+            if (tan != null) follow[5] = follower.velocity().toVector2D().dot(tan);
         }
         follow[6] = follower.isBusy() ? 1 : 0;
         // No drivetrain.debug(): it reads every drive motor's power off the hub (4 Lynx reads a loop) and would slow

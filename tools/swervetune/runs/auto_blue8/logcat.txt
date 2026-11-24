@@ -1,0 +1,5 @@
+--------- beginning of main
+12-31 18:34:28.089 I/AutoMechanisms( 9878): Foresight heading kP 1.5, translational kP fwd 0.12/0.12 strafe 0.12/0.12
+12-31 18:34:28.166 I/PollenCamera( 9878): opened "Webcam 1" from the config
+--------- beginning of system
+12-31 18:34:31.627 I/BlueSoloAuto( 9878): step 1 at (85.5, 133.9, 360 deg) shoot=0 intake=0 scoop=up shooter=SHOOT/zone/aimP

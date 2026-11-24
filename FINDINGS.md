@@ -2188,3 +2188,8 @@ read-only accessor) and cross-track error / closest pose / along-path speed (Pod
 
 Hive history (git): xred/xblue 58/84 (11-05) -> 57.8/83.9 (11-20, measured cell centres, mirror-consistent:
 141.5 - 83.9 = 57.6) -> 64/92 (11-23, operator "robot regression"). 92 is not the mirror of 64 (77.5).
+
+Blue run 8 (translational kP 0.12, blue hive x 83.9) did not happen: MY trace code killed the auto on path 1's first
+loop - Follower.tangentialVelocity() NPEs while the path tangent is still null; the OpMode manager stopped the OpMode
+after the start shot, robot never moved. Fixed: tangential velocity computed only with a non-null tangent, and
+the whole trace wrapped so an exception turns the trace off instead of stopping the auto.

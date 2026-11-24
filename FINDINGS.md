@@ -2256,3 +2256,13 @@ HEADING_BRAKE_SCALE 0 (projection off) - hypothesis test.
 (e498156e, 2026-11-23 17:05) predates the third flywheel weight and today's P 45 -> 450 (both hold wheel speed
 through a shot better, so a ball leaves faster at the same target). Needs a Regression-tab re-fit; affects
 TeleOp too.
+
+### Blue run 12 — heading braking projection off (12.98 V at rest, tiles, flush start)
+
+Path 3 3.9 s by the step log (run 11 6.1), mean 28.0 vs 22.9 in/s, |heading err| median 3.3 vs 7.3 deg; rotation
+command jitter (0.6 s detrended rms) 0.12 -> 0.08, but yaw-rate jitter only 39 -> 33 deg/s and speed jitter 4.4
+both. The auto got through step 14. Remaining: pod targets move at median 155 / p90 329 deg/s on path 3 while the
+robot turns ~41 deg/s (loop-to-loop command jitter); pod |err| median 10 / 13 / 19 / 24 deg for target rates
+< 50 / 50-150 / 150-300 / > 300 deg/s. Suspected source: Foresight's translational projection (pose + braking
+displacement of the NOISY velocity, 4-8 in at 40 in/s) - not touched, it also does path-end braking. Next run:
+AutoConstants DEMAND_SLEW_DEG_S 150 (Constants 300) - filter the jitter at the mixer.

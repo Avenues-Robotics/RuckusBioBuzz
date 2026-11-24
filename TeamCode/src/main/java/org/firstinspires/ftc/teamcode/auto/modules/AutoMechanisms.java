@@ -73,6 +73,11 @@ public final class AutoMechanisms {
                 org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighStart,
                 org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighFull);
         com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "pod schedule high floor " + floorHigh);
+        if (!Double.isNaN(AutoConstants.Autonomous.DEMAND_SLEW_DEG_S)) {
+            com.pedropathing.revhub.drivetrains.Swerve.setDemandSlewDegPerSec(AutoConstants.Autonomous.DEMAND_SLEW_DEG_S);
+        }
+        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "demand slew "
+                + com.pedropathing.revhub.drivetrains.Swerve.getDemandSlewDegPerSec() + " deg/s");
         double hb = Double.isNaN(AutoConstants.Autonomous.HEADING_BRAKE_SCALE) ? 1 : AutoConstants.Autonomous.HEADING_BRAKE_SCALE;
         org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingBrakeCoefficients.set(
                 com.pedropathing.math.Vector2D.cartesian(

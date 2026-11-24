@@ -102,5 +102,12 @@ public final class AutoConstants {
          * cycle, the jerky turning the operator sees. 0 = projection off: a hypothesis test, not a tune.
          */
         public static double HEADING_BRAKE_SCALE = 0.0;
+        /**
+         * Swerve demand slew limit for the autos, deg/s (Swerve.setDemandSlewDegPerSec; NaN = Constants, 300). Blue
+         * run 12 (2026-11-24), path 3: pod targets moved at a median 155 / p90 329 deg/s while the robot turned
+         * ~41 deg/s - loop-to-loop command jitter - and pod error grows with it (10 deg median below 50 deg/s, 24
+         * above 300). 150 filters the jitter and still passes the real demand. Hypothesis test, not a tune.
+         */
+        public static double DEMAND_SLEW_DEG_S = 150;
     }
 }

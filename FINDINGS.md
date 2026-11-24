@@ -2193,3 +2193,22 @@ Blue run 8 (translational kP 0.12, blue hive x 83.9) did not happen: MY trace co
 loop - Follower.tangentialVelocity() NPEs while the path tangent is still null; the OpMode manager stopped the OpMode
 after the start shot, robot never moved. Fixed: tangential velocity computed only with a non-null tangent, and
 the whole trace wrapped so an exception turns the trace off instead of stopping the auto.
+
+### Blue run 9 — translational kP 0.12, blue hive x 83.9 (12.58 V at rest, tiles, flush start)
+
+Ran end to end: path 3 5.2 s (step log), all four shots; loop 30.6-34.5 Hz.
+
+| path 3 | run 7 (kP_t 0.26) | run 9 (kP_t 0.12) |
+|---|---|---|
+| pod \|err\| med / p90 | 24 / 53 | 19 / 47 deg |
+| common-mode command sway (detrended rms) | 20.1 | 14.9 deg |
+| speed mean / dips < 3 in/s | 21.8 / 6 | 21.6 / 7 |
+
+Translational gain was NOT the main oscillator: cross-track error crosses zero 0.8 /s (not 2-3 Hz), |err| median
+0.98 in, p90 3.13 in. With the follower command now recorded: field-frame command direction sways 15.2 deg rms,
+heading wobble only 2.8 deg of it. **The path 3 slow-downs are Foresight's heading priority:** 63 of 171 path-3
+samples (37%) have |heading error| > headingDeviationTolerance 11.25 deg; there the translation command median is
+0.59 vs 0.91 and speed 20.4 vs 30.1 in/s; both deep dips (t 8.93, 10.04) sit at 12-22 deg heading error with
+rotation command ~0.5. At kP 7.72 this rarely triggered (heading tight but oscillating); at kP 1.5 the heading
+lags the 172 deg turn path 3 asks for. Candidate next: raise headingDeviationTolerance for the autos (translation
+keeps priority; the heading finishes at the end, as it already does in the shot wait).

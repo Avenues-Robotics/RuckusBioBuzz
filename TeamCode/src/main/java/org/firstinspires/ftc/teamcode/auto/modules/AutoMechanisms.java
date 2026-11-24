@@ -74,7 +74,9 @@ public final class AutoMechanisms {
         // Pre-aim: while a path is followed, aim from its end pose (AutoConstants.Autonomous.PRE_AIM).
         preAiming = AutoConstants.Autonomous.PRE_AIM && follower.following() && follower.currentPath() != null;
         shooter.setAimPose(preAiming ? follower.currentPath().endPose() : null);
+        long a = System.nanoTime();
         shooter.update();
+        long b = System.nanoTime();
         if (shooting && shooter.shooting()) {
             gateOpenMs += dtMs;
         }
@@ -83,11 +85,21 @@ public final class AutoMechanisms {
         } else {
             intake.update(false, intaking);
         }
+        long c = System.nanoTime();
         scoopula.update(scoopDown);
+        long d = System.nanoTime();
         if (trace != null) {
             traceLoop(dtMs / 1000.0);
         }
+        long e = System.nanoTime();
+        lastNs[0] = b - a;
+        lastNs[1] = c - b;
+        lastNs[2] = d - c;
+        lastNs[3] = e - d;
     }
+
+    /** Loop-time breakdown (DIAGNOSTIC): ns of the last update() in shooter, intake, scoopula, drive trace. */
+    public final long[] lastNs = new long[4];
 
     private void traceLoop(double dt) {
         if (dt <= 0) {

@@ -66,10 +66,20 @@ public class Follower {
         previousNanoTime = nanoTime;
     }
 
+    /**
+     * RUCKUS PATCH (2026-11-24, timing only): nanoseconds the last update() spent in localizer.update() [0], the
+     * algorithm's calculatePath / calculateHold [1] and drivetrain.drive / stop [2]. Read by the autos' loop-time
+     * log; nothing in the follower reads it.
+     */
+    public static final long[] lastUpdateNs = new long[3];
+
     public void update(double deltaTime) {
         debug = null;
 
+        long tA = System.nanoTime();
         localizer.update();
+        long tB = System.nanoTime();
+        long tC = tB;
 
         switch (mode) {
             case FOLLOW: {
@@ -84,12 +94,14 @@ public class Follower {
                 }
 
                 DrivePowers powers = algorithm.calculatePath(drivetrain, pathTracker, localizer.state(), deltaTime);
+                tC = System.nanoTime();
                 drivetrain.drive(powers, false);
                 break;
             }
             case HOLD: {
                 DrivePowers powers =
                         algorithm.calculateHold(drivetrain, holdPose, localizer.state(), useHoldScaling, deltaTime);
+                tC = System.nanoTime();
                 drivetrain.drive(powers, false);
                 break;
             }
@@ -102,6 +114,11 @@ public class Follower {
                 break;
             }
         }
+
+        long tD = System.nanoTime();
+        lastUpdateNs[0] = tB - tA;
+        lastUpdateNs[1] = tC - tB;
+        lastUpdateNs[2] = tD - tC;
 
         if (debug != null && !loggers.isEmpty()) {
             createDebug();

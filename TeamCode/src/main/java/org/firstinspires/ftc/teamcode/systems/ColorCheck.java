@@ -55,9 +55,15 @@ public class ColorCheck {
         return cachedReject;
     }
 
+    /** Loop-time breakdown (DIAGNOSTIC, 2026-11-24): color reads done and ns spent in them, all instances. */
+    public static long readCount, readNs;
+
     private boolean readReject() {
+        long t0 = System.nanoTime();
         int r = colorSensor.red();
         int b = colorSensor.blue();
+        readNs += System.nanoTime() - t0;
+        readCount++;
         boolean wrongColor = alliance == Alliance.BLUE ? isRed(r, b) : isBlue(r, b);
         // Distance is only read once the color already says reject, to keep I2C reads off the loop.
         return wrongColor && present(distanceCm());

@@ -2135,3 +2135,13 @@ next suspect. n = 1 run per arm, not an A/B: not accepted, HEADING_KP stays 1.5 
 Loop-time breakdown (BlueSoloAuto, 5 s means): dt 32.5-53.5 ms; **follower.update 17.2-31.4 ms**, **mechanisms
 13.1-18.6 ms**, sequence 0.1-0.2, /field publish 0.1-0.3, telemetry 0.4-0.8. The follower update (Pinpoint +
 4 pods' servo/motor writes) and the mechanisms are the whole loop.
+
+Operator after run 5: "better but still limping a bit"; only the START shot missed (left/right), the wall and return
+shots hit. The start shot is the one fired with the robot still (heading within 0.4 deg, yaw <= 15 deg/s); the wall
+and return shots fired while the robot was still settling (yaw up to 43 / 47 deg/s, 15 / 26 in/s) and hit. So the
+start miss is not motion: the auto aims there exactly as the stationary tuner check did (-74.2 deg, servo 0.6986),
+which the operator saw on the hive - placement (x by eye), the new servo's re-centre, or ballistics. Open.
+
+**Tool change (rule 9), measurement only:** finer loop-time breakdown in the BlueSoloAuto log - follower split
+into localizer / algorithm / drive writes (vendored Follower.lastUpdateNs, timing-only patch, RUCKUS_PATCHES row),
+mechanisms into shooter / intake / scoopula / drive trace, and ColorCheck read time + reads/s. No behaviour change.

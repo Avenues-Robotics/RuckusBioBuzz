@@ -81,7 +81,7 @@ for poly, idx, closed in loops(S45):
 W_IN = 10.0
 fig = plt.figure(figsize=(W_IN, W_IN * (VIEW[3] - VIEW[2]) / (VIEW[1] - VIEW[0])), dpi=a.dpi)
 ax = fig.add_axes([0, 0, 1, 1]); ax.set_xlim(VIEW[0], VIEW[1]); ax.set_ylim(VIEW[2], VIEW[3]); ax.axis("off")
-fig.patch.set_facecolor(SURF)
+fig.patch.set_alpha(0.0)          # transparent: sits on the slide panel colour
 
 # silhouette: smoothed mask, filled, with a soft outline
 from scipy.ndimage import binary_closing, label
@@ -221,5 +221,5 @@ if a.arrows:
                 (-40, 245), (-40, 258)], "#9E1A13")
     path_arrow([(100, 126), (128, 112), (152, 132), (168, 168), (162, 205), (158, 240), (158, 258)], "#A27A00")
 
-fig.savefig(a.out, facecolor=SURF)
+fig.savefig(a.out, transparent=True)
 print("wrote", a.out, "ramp45", int(ramp45.sum()), "ramp0", int(ramp0.sum()), "tube", int(tube0.sum()), "dropped", int(drop0.sum()))

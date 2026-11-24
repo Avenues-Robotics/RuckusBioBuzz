@@ -2019,3 +2019,29 @@ straight runs at 64-72 in/s, battery 11.2-12.9 V under load / 12.5-12.9 V restin
 - 1x9 strip attempt aborted: +/-7 in lateral stop area on a 1-tile strip let the hold-off arm leave the tiles.
   The stop area's guard also trips on the lateral part of the stick once the robot has yawed a few degrees
   (margin 4 in + 0.30 s x speed) - give it >= +/-14 in sideways.
+
+## 2026-11-24 — Foresight Tuner in the 2x6 lane; tool calibration file had reset; candidate gains rejected on pedrocheck
+
+**Swerve Bring-Up's own calibration file (FIRST/swerve_bringup_cal.txt) was at DEFAULTS** - zeros 0, encoders
+se0..se3 by index (shipped: se0/se2/se3/se1), every drive and servo direction un-reversed, default gains.
+Driving it would have steered three pods from another pod's encoder and pushed two corners backwards. The
+competition code never reads this file. Rebuilt from Constants.java (zeros, encoders, directions incl. servos
+REVERSE as buildPod sets them, ranges, gains, cache, pulsed approach); `reload` mid-run did not re-read it,
+restarting the OpMode did; `robot.py check` then clean. Default copy kept off-repo. Note robot.py check output
+must be read whole - the first errors were scrolled off by a `tail`.
+
+**Foresight box tuner** (border fence 47.2 x 141.5 in, operator-measured pose; Bring-Up reads 0.0 V today -
+volts UNKNOWN on these): heading kP 14.52 then 11.00 (K 6.29 / 6.41, tau 0.274 / 0.212 s); heading braking
+0.0611 / 0.0331; natural decel forward 73.9 in/s^2 (from 34.5 in/s), strafe 95.1 (target lowered to fit 21 in);
+translational forward K 56.7 in/s/power tau 0.17 s -> kP 0.304 / 0.112, strafe (fence re-declared a quarter turn
+so strafe ran along the lane) K 45.6 tau 0.17 -> 0.377 / 0.139; braking forward 0.0031 / 0.0024; braking strafe
+-0.0386 / 0.0035 (negative linear term - not physical, 5 scattered points - rejected). Max velocity not measured
+by the tuner; the TeleOp probe saw 72 in/s at full stick (Foresight ships 52).
+
+**pedrocheck (real follower, --pods live), shipped gains vs the tuner's (hp 11.0, fwd 0.304/0.112, strafe
+0.377/0.139), n=3/arm interleaved:** hold residual 0.37/0.28 vs 0.99/0.91 in, settle-to-1-in 1.42/1.31 vs
+1.87/1.84 s, line end error 0.18 vs 0.69 in, line duration 2.9 vs 3.9 s; turns indistinguishable. The low
+secondary kP cannot push through the drive deadband to finish a hold - the 11-15 candidate-A failure again.
+Gains NOT shipped. x-axis holds, x lines and curves were refused (lane too narrow for the 6 in + half-diagonal
+hold margin) - nothing moved. Decel / braking / max-velocity constants not yet shipped: they change only with a
+deploy and need a --pods shipped acceptance run.

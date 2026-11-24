@@ -1,169 +1,169 @@
 {
   "heading kP": {
-    "value": 13.76608,
-    "time": "2026-11-15T14:33:28",
-    "volts": 12.847,
+    "value": 10.995737,
+    "time": "2026-11-24T11:48:51",
+    "volts": 0.0,
     "extras": {
-      "K": 4.02333,
-      "tau": 0.166292
+      "K": 6.40682,
+      "tau": 0.211515
     },
     "pods": "shipped"
   },
   "headingBrakingLinearCoefficient": {
-    "value": 0.050501,
-    "time": "2026-11-15T13:48:59",
-    "volts": 13.306,
+    "value": 0.061129,
+    "time": "2026-11-24T11:49:26",
+    "volts": 0.0,
     "extras": {},
     "pods": "shipped"
   },
   "headingBrakingQuadraticCoefficient": {
-    "value": 0.019853,
-    "time": "2026-11-15T13:48:59",
-    "volts": 13.306,
+    "value": 0.033098,
+    "time": "2026-11-24T11:49:26",
+    "volts": 0.0,
     "extras": {},
     "pods": "shipped"
   },
   "naturalForwardDeceleration": {
-    "value": 90.444582,
-    "time": "2026-11-15T14:09:55",
-    "volts": 12.878,
+    "value": 73.859318,
+    "time": "2026-11-24T11:49:34",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 18.426992,
-      "vCut": 25.841218,
-      "coastIn": 4.72326,
-      "decelFromDistance": 70.689375,
+      "roomIn": 113.887453,
+      "vCut": 34.461957,
+      "coastIn": 8.067118,
+      "decelFromDistance": 73.609092,
       "cutShort": 0.0
     },
     "pods": "shipped"
   },
   "naturalStrafeDeceleration": {
-    "value": 92.275872,
-    "time": "2026-11-15T13:50:14",
-    "volts": 13.044,
+    "value": 95.095691,
+    "time": "2026-11-24T11:49:40",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 14.533482,
-      "vCut": 22.783974,
-      "coastIn": 3.503563,
-      "decelFromDistance": 74.083091,
+      "roomIn": 21.432551,
+      "vCut": 28.685501,
+      "coastIn": 5.928493,
+      "decelFromDistance": 69.398572,
       "cutShort": 0.0
     },
     "pods": "shipped"
   },
   "forwardTranslational Primary kP": {
-    "value": 0.450696,
-    "time": "2026-11-15T14:10:07",
-    "volts": 12.887,
+    "value": 0.303591,
+    "time": "2026-11-24T11:49:49",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 18.081444,
-      "K": 38.031051,
-      "tau": 0.164749,
-      "power": 0.35,
-      "runtime": 1.20343,
+      "roomIn": 113.896248,
+      "K": 56.740912,
+      "tau": 0.165571,
+      "power": 0.4,
+      "runtime": 1.209924,
       "cutShort": 0.0,
-      "plateauSpread": -0.024338
+      "plateauSpread": 0.004741
     },
     "pods": "shipped"
   },
   "forwardTranslational Secondary kP": {
-    "value": 0.16652,
-    "time": "2026-11-15T14:10:07",
-    "volts": 12.887,
+    "value": 0.112169,
+    "time": "2026-11-24T11:49:49",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 18.081444,
-      "K": 38.031051,
-      "tau": 0.164749,
-      "power": 0.35,
-      "runtime": 1.20343,
+      "roomIn": 113.896248,
+      "K": 56.740912,
+      "tau": 0.165571,
+      "power": 0.4,
+      "runtime": 1.209924,
       "cutShort": 0.0,
-      "plateauSpread": -0.024338
+      "plateauSpread": 0.004741
     },
     "pods": "shipped"
   },
   "coast kV": {
-    "value": 0.026294,
-    "time": "2026-11-15T14:10:07",
-    "volts": 12.887,
+    "value": 0.017624,
+    "time": "2026-11-24T11:49:49",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 18.081444,
-      "K": 38.031051,
-      "tau": 0.164749,
-      "power": 0.35,
-      "runtime": 1.20343,
+      "roomIn": 113.896248,
+      "K": 56.740912,
+      "tau": 0.165571,
+      "power": 0.4,
+      "runtime": 1.209924,
       "cutShort": 0.0,
-      "plateauSpread": -0.024338
+      "plateauSpread": 0.004741
     },
     "pods": "shipped"
   },
   "brake kV": {
-    "value": 0.02235,
-    "time": "2026-11-15T14:10:07",
-    "volts": 12.887,
+    "value": 0.01498,
+    "time": "2026-11-24T11:49:49",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 18.081444,
-      "K": 38.031051,
-      "tau": 0.164749,
-      "power": 0.35,
-      "runtime": 1.20343,
+      "roomIn": 113.896248,
+      "K": 56.740912,
+      "tau": 0.165571,
+      "power": 0.4,
+      "runtime": 1.209924,
       "cutShort": 0.0,
-      "plateauSpread": -0.024338
+      "plateauSpread": 0.004741
     },
     "pods": "shipped"
   },
   "strafeTranslational Primary kP": {
-    "value": 0.331818,
-    "time": "2026-11-15T14:10:11",
-    "volts": 12.847,
+    "value": 0.376618,
+    "time": "2026-11-24T11:51:01",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 18.458233,
-      "K": 45.661915,
-      "tau": 0.145631,
-      "power": 0.35,
-      "runtime": 1.137293,
-      "cutShort": 1.0,
-      "plateauSpread": 0.003558
+      "roomIn": 115.680501,
+      "K": 45.608103,
+      "tau": 0.165098,
+      "power": 0.4,
+      "runtime": 1.204968,
+      "cutShort": 0.0,
+      "plateauSpread": -0.00243
     },
     "pods": "shipped"
   },
   "strafeTranslational Secondary kP": {
-    "value": 0.122598,
-    "time": "2026-11-15T14:10:11",
-    "volts": 12.847,
+    "value": 0.13915,
+    "time": "2026-11-24T11:51:01",
+    "volts": 0.0,
     "extras": {
-      "roomIn": 18.458233,
-      "K": 45.661915,
-      "tau": 0.145631,
-      "power": 0.35,
-      "runtime": 1.137293,
-      "cutShort": 1.0,
-      "plateauSpread": 0.003558
+      "roomIn": 115.680501,
+      "K": 45.608103,
+      "tau": 0.165098,
+      "power": 0.4,
+      "runtime": 1.204968,
+      "cutShort": 0.0,
+      "plateauSpread": -0.00243
     },
     "pods": "shipped"
   },
   "forwardBrakingLinearCoefficient": {
-    "value": 0.008531,
-    "time": "2026-11-15T14:43:26",
-    "volts": 12.703,
+    "value": 0.003102,
+    "time": "2026-11-24T11:50:34",
+    "volts": 0.0,
     "extras": {},
     "pods": "shipped"
   },
   "forwardBrakingQuadraticCoefficient": {
-    "value": 0.005693,
-    "time": "2026-11-15T14:43:26",
-    "volts": 12.703,
+    "value": 0.002368,
+    "time": "2026-11-24T11:50:34",
+    "volts": 0.0,
     "extras": {},
     "pods": "shipped"
   },
   "strafeBrakingLinearCoefficient": {
-    "value": 0.000108,
-    "time": "2026-11-15T13:59:08",
-    "volts": 12.961,
+    "value": -0.038552,
+    "time": "2026-11-24T11:51:26",
+    "volts": 0.0,
     "extras": {},
     "pods": "shipped"
   },
   "strafeBrakingQuadraticCoefficient": {
-    "value": 0.002689,
-    "time": "2026-11-15T13:59:08",
-    "volts": 12.961,
+    "value": 0.003484,
+    "time": "2026-11-24T11:51:26",
+    "volts": 0.0,
     "extras": {},
     "pods": "shipped"
   }

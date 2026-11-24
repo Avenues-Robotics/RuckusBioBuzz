@@ -203,25 +203,7 @@ def flat_ball(b, clip=None, hidden=False):
             pt.set_clip_path(disk if clip is None else clip)
 
 for b in balls:
-    r = b["d"] * 25.4 / 2
-    # does this piece straddle the rail (within the rail's length)?
-    t = (np.array([b["y"], b["z"]]) - RAIL_A) @ rail_dir
-    d = (np.array([b["y"], b["z"]]) - RAIL_A) @ rail_n - TOP_OFF
-    on_rail = -r < t < np.linalg.norm(RAIL_B - RAIL_A) + r and abs(d) < r
-    if on_rail:
-        flat_ball(b, clip=half_plane(True))                 # above the rail: seen
-        flat_ball(b, clip=half_plane(False), hidden=True)   # below the rail top: between the rails (hidden line)
-    else:
-        flat_ball(b)
-
-# the rail in front of the pieces (near side, mirror of the x = -45 mm rail): band + standoffs
-L = np.linalg.norm(RAIL_B - RAIL_A); nstand = 12
-band = [RAIL_A + rail_n * (RAIL_R + 0.8), RAIL_B + rail_n * (RAIL_R + 0.8), RAIL_B - rail_n * (RAIL_R + 0.8), RAIL_A - rail_n * (RAIL_R + 0.8)]
-ax.add_patch(Polygon(band, closed=True, facecolor="#C9D3AE", edgecolor=RAMP, lw=1.5, zorder=9, joinstyle="round"))
-for k in range(nstand):
-    c = RAIL_A + rail_dir * (L * (k + 0.5) / nstand)
-    ax.add_patch(Circle(c, RAIL_R - 0.6, facecolor="#E7EBD4", edgecolor=RAMP, lw=1.2, zorder=9.2))
-    ax.add_patch(Circle(c, 1.6, facecolor=RAMP, edgecolor="none", zorder=9.3))
+    flat_ball(b)
 
 if a.arrows:
     def path_arrow(pts, color):

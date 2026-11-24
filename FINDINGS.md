@@ -2339,3 +2339,9 @@ BlueSoloAuto chain1 - a visualizer re-export drops it).
 Path 2 (x > 121 -> corner), run 16 -> 17: pod |err| median 23 -> 13 deg (p90 65 -> 31), heading err median 26 -> 10
 deg (max 31 -> 16), yaw rate -37..99 -> 35..101 deg/s (one continuous turn, no reversal), min speed 10.2 -> 14.1
 in/s; start -> corner 1.72 -> 1.76 s (no time cost). n = 1.
+
+Operator after run 17: "smooth now, the path 2 still not good enough, port everything to red". Port: every auto
+override lives in AutoMechanisms / AutoConstants (heading kP 0.8, translational kP 0.12, heading tolerance 30, pod
+high floor 0.30, heading braking off, isotropic braking, flywheel -90), so RedSoloAuto already runs them; the
+path-2 segment cap is now hand-wired in RedSoloAuto chain1 too (mirror geometry). PATH2_SPEED 0.4 -> 0.3 for both
+(estimate). Red has not run with any of today's auto changes; red hive x stays 64 (TeleOp-tested).

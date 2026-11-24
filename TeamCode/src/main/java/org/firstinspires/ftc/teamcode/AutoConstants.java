@@ -143,10 +143,11 @@ public final class AutoConstants {
          */
         public static double FLYWHEEL_OFFSET = -90;
         /**
-         * Speed cap on the blue auto's path 2 (POINT_9 -> POINT_2, the tight curve into the corner), a fraction of max
-         * achievable velocity (Foresight maxPathSpeed, ~70 in/s): 0.4 ~ 28 in/s, ~150 deg/s of pod direction change
-         * on its ~10 in radius. ESTIMATE, on trial (run 17). >= 1 = no cap.
+         * Speed cap on path 2 of both autos (POINT_9 -> POINT_2, the tight curve into the corner), a fraction of max
+         * achievable velocity (Foresight maxPathSpeed, ~70 in/s). Blue run 17 at 0.4 (~28 in/s): pod error 23 -> 13
+         * deg, heading error 26 -> 10 deg, no time cost; operator "path 2 still not good enough" -> 0.3 (~21 in/s),
+         * an ESTIMATE, on trial. >= 1 = no cap.
          */
-        public static double PATH2_SPEED = 0.4;
+        public static double PATH2_SPEED = 0.3;
     }
 }

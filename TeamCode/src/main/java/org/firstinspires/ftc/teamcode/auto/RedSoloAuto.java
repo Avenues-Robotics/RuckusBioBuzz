@@ -194,7 +194,9 @@ public class RedSoloAuto extends OpMode {
                         Math.toRadians(270.000),
                         1.000
                     )
-                )
+                ).with(((Foresight) follower.algorithm()).config.maxPathSpeed.at(AutoConstants.Autonomous.PATH2_SPEED))
+                // ^ Hand-wired 2026-11-24 (re-apply after a visualizer export): mirror of the blue path-2 cap - ~70 deg
+                //   in ~13 in; blue run 17 at 0.4: pod error 23 -> 13 deg, heading error 26 -> 10 deg, same time.
             )
         ).addParametricCallback(0, 0.000, () ->
             startParallelEvent("Intake On", 0)   // collecting from path 1 on (operator 2026-11-23)

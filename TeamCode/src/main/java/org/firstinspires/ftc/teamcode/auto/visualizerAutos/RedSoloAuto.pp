@@ -163,7 +163,7 @@
         "pickY": 59,
         "wallY": 9,
         "xMin": 8.5,
-        "xMax": 81,
+        "xMax": 58.0,
         "previewX": 57.943,
         "hfovDeg": 43,
         "cameraForward": 9

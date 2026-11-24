@@ -163,7 +163,7 @@
         "alliance": "BLUE",
         "pickY": 82.5,
         "wallY": 132.5,
-        "xMin": 60.5,
+        "xMin": 83.5,
         "xMax": 133,
         "previewX": 83.557,
         "hfovDeg": 43,

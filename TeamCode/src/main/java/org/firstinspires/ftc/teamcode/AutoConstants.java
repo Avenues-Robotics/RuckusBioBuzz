@@ -31,9 +31,15 @@ public final class AutoConstants {
         public static double WALL_Y = 9.0;
         /** Clumps are assumed against the wall, centred this far out (a 2.8 in ball's radius). */
         public static double BALL_LINE_Y = 1.4;
-        /** Allowed drive-to x along the wall: red wall + half the 15 in width + 1; audience flower (x 90.7) - 9.7. */
+        /** Allowed drive-to x along the wall. MIN: red wall + half the 15 in width + 1. */
         public static double PICK_X_MIN = 8.5;
-        public static double PICK_X_MAX = 81.0;
+        /**
+         * MAX: the AUTO midline (x 70.75, G402 - the whole ROBOT stays on its own half). Pressed on the wall the
+         * robot's side is at x + 7.5, but the turn in place after the pick sweeps its corners out to its half-
+         * diagonal, 11.7 in: 70.75 - 11.72 - 1.0 margin = 58.0. Was 81.0 (the audience flower) until 2026-11-23,
+         * which let a pick drive the robot - and its turn - across the midline. Blue mirrors: x >= 83.5.
+         */
+        public static double PICK_X_MAX = 58.0;
         // Turn in place before a path marked "turn first" (after the camera-pick shot: to the next path's end
         // heading, away from the turret wrap). Done within the tolerance, or after the timeout regardless.
         public static double TURN_TOLERANCE_DEG = 4.0;

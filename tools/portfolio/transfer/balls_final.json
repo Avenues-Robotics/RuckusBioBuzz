@@ -1,0 +1,6 @@
+[
+ {"name":"NectarRails","kind":"NECTAR","d":3.62,"y":0,"z":127},
+ {"name":"NectarUp","kind":"NECTAR","d":3.62,"y":-40,"z":212},
+ {"name":"PollenFloor","kind":"POLLEN","d":2.80,"y":100,"z":126},
+ {"name":"PollenTube","kind":"POLLEN","d":2.80,"y":158,"z":215}
+]

@@ -1,0 +1,31 @@
+--------- beginning of main
+12-31 18:28:36.299 I/AutoMechanisms( 9645): pod schedule high floor 0.3
+12-31 18:28:36.299 I/AutoMechanisms( 9645): demand slew 300.0 deg/s
+12-31 18:28:36.300 I/AutoMechanisms( 9645): braking fwd 0.003102/0.002368 strafe 0.003102/0.002368
+12-31 18:28:36.300 I/AutoMechanisms( 9645): pod demand-rate kV 0.045, flywheel offset -90.0
+12-31 18:28:36.300 I/AutoMechanisms( 9645): heading braking x0.0
+12-31 18:28:36.300 I/AutoMechanisms( 9645): Foresight heading tolerance 30.0 deg
+12-31 18:28:36.301 I/AutoMechanisms( 9645): Foresight heading kP 0.8, translational kP fwd 0.12/0.12 strafe 0.12/0.12
+12-31 18:28:36.396 I/PollenCamera( 9645): opened "Webcam 1" from the config
+--------- beginning of system
+12-31 18:28:40.315 I/BlueSoloAuto( 9645): step 1 at (85.5, 133.8, 360 deg) shoot=0 intake=0 scoop=up shooter=SHOOT/zone/aimP
+12-31 18:28:42.542 I/BlueSoloAuto( 9645): step 2 at (131.7, 129.3, 71 deg) shoot=0 intake=1 scoop=up shooter=TRACK/zone/aimP
+12-31 18:28:42.798 I/BlueSoloAuto( 9645): loopms n=119 dt 42.1 | follower 28.5 (loc 6.3 alg 1.5 drive 20.6) seq 0.1 mech 10.4 (shoot 7.7 intake 1.3 scoop 0.4 trace 1.0) field 0.2 telem 0.7
+12-31 18:28:43.090 I/BlueSoloAuto( 9645): step 3 at (131.5, 128.3, 82 deg) shoot=0 intake=1 scoop=up shooter=TRACK/zone/aimP
+12-31 18:28:46.199 I/BlueSoloAuto( 9645): step 4 at (95.3, 13.0, 266 deg) shoot=0 intake=1 scoop=down shooter=TRACK
+12-31 18:28:47.802 I/BlueSoloAuto( 9645): loopms n=180 dt 27.8 | follower 17.2 (loc 6.2 alg 1.4 drive 9.6) seq 0.2 mech 8.3 (shoot 6.4 intake 0.9 scoop 0.3 trace 0.6) field 0.2 telem 0.5
+12-31 18:28:48.152 I/BlueSoloAuto( 9645): step 5 at (94.9, 15.2, 261 deg) shoot=0 intake=0 scoop=down shooter=SHOOT/aimP
+12-31 18:28:49.477 I/BlueSoloAuto( 9645): step 6 at (81.8, 28.5, 113 deg) shoot=0 intake=0 scoop=up shooter=TRACK/aimP
+12-31 18:28:51.517 I/BlueSoloAuto( 9645): step 7 at (82.5, 26.5, 93 deg) shoot=0 intake=0 scoop=up shooter=TRACK/aimP
+12-31 18:28:52.764 I/CameraPick( 9645): pick at (81, 85): (87.4, 132.5) x 54.1 (clump 54.1, ~1 balls, 1 candidates)
+12-31 18:28:52.815 I/BlueSoloAuto( 9645): loopms n=201 dt 24.9 | follower 14.9 (loc 6.2 alg 0.8 drive 8.0) seq 0.2 mech 7.8 (shoot 6.2 intake 0.8 scoop 0.2 trace 0.5) field 0.1 telem 0.5
+12-31 18:28:53.997 I/BlueSoloAuto( 9645): step 8 at (86.7, 131.0, 91 deg) shoot=0 intake=0 scoop=up shooter=TRACK/zone
+12-31 18:28:55.085 I/BlueSoloAuto( 9645): step 9 at (85.8, 129.3, 3 deg) shoot=0 intake=0 scoop=up shooter=TRACK/zone
+12-31 18:28:56.320 I/BlueSoloAuto( 9645): step 10 at (86.5, 128.6, 357 deg) shoot=0 intake=0 scoop=up shooter=SHOOT/zone/aimP
+12-31 18:28:57.822 I/BlueSoloAuto( 9645): loopms n=186 dt 26.9 | follower 17.0 (loc 6.0 alg 0.8 drive 10.2) seq 0.2 mech 7.8 (shoot 6.1 intake 0.9 scoop 0.3 trace 0.5) field 0.1 telem 0.4
+12-31 18:28:58.336 I/BlueSoloAuto( 9645): step 11 at (127.7, 92.3, 353 deg) shoot=0 intake=1 scoop=down shooter=TRACK/aimP
+12-31 18:28:59.683 I/BlueSoloAuto( 9645): step 12 at (92.7, 131.6, 353 deg) shoot=0 intake=1 scoop=up shooter=TRACK/zone/aimP
+12-31 18:29:01.090 I/BlueSoloAuto( 9645): step 13 at (95.8, 130.0, 360 deg) shoot=0 intake=0 scoop=up shooter=SHOOT/zone/aimP
+12-31 18:29:02.831 I/BlueSoloAuto( 9645): loopms n=198 dt 25.3 | follower 15.8 (loc 5.7 alg 0.8 drive 9.3) seq 0.2 mech 7.4 (shoot 5.9 intake 0.8 scoop 0.3 trace 0.5) field 0.2 telem 0.4
+12-31 18:29:03.910 I/BlueSoloAuto( 9645): step 14 at (131.4, 38.2, 4 deg) shoot=0 intake=0 scoop=up shooter=TRACK/aimP
+12-31 18:29:07.824 I/BlueSoloAuto( 9645): loopms n=260 dt 19.3 | follower 10.3 (loc 5.7 alg 0.2 drive 4.3) seq 0.0 mech 7.1 (shoot 5.9 intake 0.6 scoop 0.2 trace 0.4) field 0.1 telem 0.3

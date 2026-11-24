@@ -2310,3 +2310,18 @@ samples in run 14) - not every run.
 
 Heading still hunts on constant-heading legs (run 15 chain 5-6: +/-6-10 deg, yaw +/-90 deg/s) with the projection
 off: kP 1.5 vs ~170 ms rotation delay. Next run (vs run 14 as the baseline): HEADING_KP 0.8.
+
+### Blue run 16 — heading kP 0.8 (vs run 14 baseline; 12.80 V at rest, tiles, flush start): BEST SO FAR (n = 1)
+
+| | run 14 (kP 1.5) | run 16 (kP 0.8) |
+|---|---|---|
+| paths 1-2 curves: time / speed | 2.02 s / 28.1 in/s | 1.69 s / 33.8 in/s |
+| curves: pod err median / lag / yaw jitter | 24 deg / 176 ms / 32 deg/s | 18 deg / 128 ms / 23 deg/s |
+| path 3 cruise: time / speed | 2.17 s / 41.5 | 1.87 s / 48.1 |
+| path 3 cruise: yaw jitter / speed jitter | 33 deg/s / 4.0 | 14 deg/s / 2.7 |
+| path 3 step log (corner -> flower) | 4.9 s | 3.1 s |
+| garden clear 2: heading err rms / sign changes / yaw p90 | 3.0 deg / 2.0 /s / 40 | 4.9 deg / 1.3 /s / 51 |
+| start -> step 14 | 26.1 s | 23.6 s |
+
+Heading now LAGS rather than hunts: |heading err| median 11.6 deg on path 3's 172 deg turn, a steady ~7 deg on the
+return leg (P-only offset). Smoother and faster nearly everywhere; the garden clear trades oscillation for lag.

@@ -2227,3 +2227,17 @@ high-speed floor 0.80 (caf98ea2, this morning, was 0.60), which raises the near-
 power; it was accepted in the TeleOp Drive Probe (mechanisms OFF, 48-75 Hz loop), the auto runs 30-35 Hz.
 Next run: AutoConstants.STEER_FLOOR_HIGH 0.30 (high-speed leg off) - a hypothesis test. If it holds, TeleOp
 (mechanisms ON, loop unmeasured) probably limit-cycles at full speed too.
+
+### Blue run 11 — pod high-speed floor 0.30 in the auto (13.34 V at rest after a swap, tiles, flush start; adb down, no step log)
+
+**The limp is the pod limit cycle, and the high-speed floor drives it.** Straight return leg, run 10 -> run 11:
+pod |err| median 19 -> 9 deg (p90 44 -> 31), yaw-rate reversals 4.5 -> 1.2 /s, heading error median 2.7 -> 1.2
+deg, mean speed 37.5 -> 56.7 in/s (max 72.4), leg 2.5 -> 1.6 s. Per loop at 50-72 in/s cruise: wheels steady
+within a few degrees of the (flipped) target, pod turn power 0.02-0.06 - run 10 swung +/-35-45 deg with
++/-0.5-0.6. Path 3: 6.1 s, 3 dips < 3 in/s (run 9: 6.3 s, 7), yaw reversals 1.1 /s. All fast cruise (path 3's
+turning included): pod |err| 19 -> 17 deg, turn power median 0.21 -> 0.12, |yaw rate| p90 73 -> 63 deg/s.
+n = 1 run per arm; the per-loop wheel trace is the strongest evidence (a 3 Hz +/-40 deg cycle present vs absent).
+
+Implication, NOT measured: floorHigh 0.80 is in Constants for TeleOp. It was accepted in the TeleOp Drive Probe with
+mechanisms OFF (48-75 Hz). TeleOp with mechanisms runs slower (unmeasured; the auto with the same mechanisms is
+30-38 Hz), so TeleOp full-speed driving may limit-cycle the same way. Needs a TeleOp-path check with mechanisms on.

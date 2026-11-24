@@ -77,7 +77,9 @@ public class Flywheel {
         double scale = Math.max(0.85, Math.min(1.25, SystemConstants.Flywheel.F_NOMINAL_VOLTS / filteredVolts));
         if (Math.abs(scale - appliedFScale) > 0.005 * appliedFScale) {
             setVelocityPidf(pollenFlywheel, SystemConstants.Flywheel.POLLEN_PIDF, scale);
-            setVelocityPidf(nectarFlywheel, SystemConstants.Flywheel.NECTAR_PIDF, scale);
+            if (SystemConstants.Shooter.NECTAR_MOUNTED) {
+                setVelocityPidf(nectarFlywheel, SystemConstants.Flywheel.NECTAR_PIDF, scale);
+            }
             appliedFScale = scale;
         }
     }
@@ -93,9 +95,13 @@ public class Flywheel {
         nectarTarget = Math.max(0, regression.shooterspeednectar() + speedOffset);
         pollenCommand = pollenTarget * scale;
         pollenWriter.set(pollenCommand, SystemConstants.Flywheel.POLLEN_FLYWHEEL_REVERSED);
-        nectarWriter.set(nectarTarget * scale, SystemConstants.Flywheel.NECTAR_FLYWHEEL_REVERSED);
         pollenVelocity = pollenFlywheel.getVelocity();
-        nectarVelocity = nectarFlywheel.getVelocity();
+        // Nothing is plugged into the nectar port while it is unmounted (SystemConstants.Shooter.NECTAR_MOUNTED):
+        // its target moves with the pose, so it was a Lynx write nearly every loop to an empty port (2026-11-24).
+        if (SystemConstants.Shooter.NECTAR_MOUNTED) {
+            nectarWriter.set(nectarTarget * scale, SystemConstants.Flywheel.NECTAR_FLYWHEEL_REVERSED);
+            nectarVelocity = nectarFlywheel.getVelocity();
+        }
     }
     public double pollenVelocity() { return pollenVelocity; }
     /** What the wheel is commanded right now: the shooting target, or IDLE_FRACTION of it out of the zone. */

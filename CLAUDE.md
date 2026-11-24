@@ -43,7 +43,9 @@ contradicts the code, the code wins — fix this file in the same commit.**
   been ruled out as a loop-time cost. Since 2026-10-10 `SwerveBringUp` pays it
   every loop in FOLLOW and in DRIVE with heading hold off too (the fence needs a
   fresh pose; FINDINGS.md), so those modes' loop rates are not comparable with
-  earlier traces.
+  earlier traces. **A full `localizer.update()` (Pinpoint bulk read, I2C bus 0 at the default 100 kHz)
+  measured 5.7–6.4 ms per loop in the blue auto (2026-11-24, `Follower.lastUpdateNs`)** - the 1.81 ms
+  was not that read.
 - Servo rail current is readable via `LynxGetADCCommand` on the
   `SERVO_CURRENT` channel — but it is a **rail total for all four servos** and
   is sampled on the **5 Hz** idle path, far too slow to catch a 0.37 s rise.

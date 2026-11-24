@@ -328,7 +328,7 @@ public class PreMatchSystemCheck extends OpMode {
         nectarTurretServo = device(Servo.class, "nectarTurretServo", "nectar turret");
         Turret.configurePwm(pollenTurretServo); // same pulse range as the competition turret
         Turret.configurePwm(nectarTurretServo);
-        colorSensor = device(ColorSensor.class, "colorSensor", "intake color sensor");
+        colorSensor = hardwareMap.tryGet(ColorSensor.class, "colorSensor");   // not on the robot since 2026-11-24: optional
         if (device(Servo.class, "turretGate", "shooter gate") != null) {
             shooterGate = new Gate(hardwareMap);
         }

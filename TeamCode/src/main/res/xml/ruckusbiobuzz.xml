@@ -25,7 +25,7 @@
       se0-se3            Axon absolute enc.  analog ports 0-3  (name = analog port number)
       pollenTurretServo  pollen turret       servo port 5      (systems/turret)
       pinpoint           goBILDA Pinpoint    I2C bus 0
-      colorSensor        intake color        I2C bus 1         (systems/intake)
+      (I2C bus 1 free: the intake color sensor was removed from the robot 2026-11-24)
 
     Expansion Hub (module 2, the factory default address - check it if the hub was re-addressed):
       intakeLeft         intake              motor port 0      (systems/intake)
@@ -61,7 +61,6 @@
             <AnalogInput name="se2" port="2" />
             <AnalogInput name="se3" port="3" />
             <goBILDAPinpoint name="pinpoint" port="0" bus="0" />
-            <ColorSensor name = "colorSensor" port = "1" bus="1"/>
 
         </LynxModule>
         <LynxModule name="Expansion Hub 2" port="2">

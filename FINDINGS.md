@@ -2145,3 +2145,27 @@ which the operator saw on the hive - placement (x by eye), the new servo's re-ce
 **Tool change (rule 9), measurement only:** finer loop-time breakdown in the BlueSoloAuto log - follower split
 into localizer / algorithm / drive writes (vendored Follower.lastUpdateNs, timing-only patch, RUCKUS_PATCHES row),
 mechanisms into shooter / intake / scoopula / drive trace, and ColorCheck read time + reads/s. No behaviour change.
+
+### Blue run 6 — loop-time breakdown (measurement only), 12.79 V at rest, tiles, flush start
+
+Steady-state 5 s means (dt 33.4-41.8 ms; the first window, 57.8, includes the start shot spin-up):
+
+| section | ms / loop |
+|---|---|
+| follower: localizer.update (Pinpoint bulk I2C read) | 5.7-6.4 |
+| follower: Foresight calculate | 0.8-2.1 |
+| follower: drive writes (4 CR servos + 4 motors) | 11.1-15.1 (24.8 at the start) |
+| shooter | 7.2-8.6 |
+| intake (incl. color reads) | 4.7-6.0 |
+| color read (unplugged sensor) | **7.2-8.0 ms per read, 14-15 reads/s** |
+| scoopula / trace / field / telemetry | 0.3-0.6 / 0.5-1.2 / 0.2-0.3 / 0.5-1.0 |
+
+Operator: still limping; shots consistently "way to the left" near the start and to the right at the far end -
+the same FIELD side (+x of the hive) from both ends, which a turret angle bias cannot do (it moves both to the
+robot's same side) and a constant x error (start placement or hive x) does. Suspect the start x (85.5, by eye):
+TeleOp tested hive x 92 after the corner relocalize, which sets the pose exactly.
+
+**Change for run 7 (loop time, no physical behaviour change):** color sensor removed from the robot (operator:
+never coming back) - Intake no longer reads it (reject = driver's left bumper only), config entry removed; the
+unmounted nectar flywheel and turret (NECTAR_MOUNTED false) no longer get writes. Expected: intake ~4-5 ms and
+shooter ~1-3 ms less per loop (estimate).

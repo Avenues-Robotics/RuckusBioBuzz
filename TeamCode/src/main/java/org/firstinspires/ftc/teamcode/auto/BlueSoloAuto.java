@@ -154,10 +154,10 @@ public class BlueSoloAuto extends OpMode {
 
     // Loop-time breakdown (DIAGNOSTIC, 2026-11-24 - the auto loop measured 25.7 Hz): mean ms per section, logged every
     // 5 s. follower = localizer / algorithm / drive writes (Follower.lastUpdateNs, timing-only vendored patch);
-    // mech = shooter / intake / scoopula / drive trace (AutoMechanisms.lastNs); color = ms per color read and reads/s.
+    // mech = shooter / intake / scoopula / drive trace (AutoMechanisms.lastNs).
     private final double[] loopMs = new double[13];
     private int loopN;
-    private long loopLastNs, loopLogNs, colorCount0, colorNs0;
+    private long loopLastNs, loopLogNs;
 
     private void loopTiming(long t0, long t1, long t2, long t3, long t4, long t5) {
         if (loopLastNs != 0) {
@@ -172,27 +172,17 @@ public class BlueSoloAuto extends OpMode {
             loopN++;
         }
         loopLastNs = t0;
-        if (loopLogNs == 0) {
-            loopLogNs = t0;
-            colorCount0 = org.firstinspires.ftc.teamcode.systems.ColorCheck.readCount;
-            colorNs0 = org.firstinspires.ftc.teamcode.systems.ColorCheck.readNs;
-        }
+        if (loopLogNs == 0) loopLogNs = t0;
         if (t0 - loopLogNs >= 5_000_000_000L && loopN > 0) {
-            long cc = org.firstinspires.ftc.teamcode.systems.ColorCheck.readCount - colorCount0;
-            long cn = org.firstinspires.ftc.teamcode.systems.ColorCheck.readNs - colorNs0;
-            double secs = (t0 - loopLogNs) / 1e9;
             double[] m = new double[loopMs.length];
             for (int k = 0; k < m.length; k++) m[k] = loopMs[k] / loopN;
             com.qualcomm.robotcore.util.RobotLog.ii("BlueSoloAuto", String.format(java.util.Locale.US,
                     "loopms n=%d dt %.1f | follower %.1f (loc %.1f alg %.1f drive %.1f) seq %.1f mech %.1f (shoot %.1f"
-                            + " intake %.1f scoop %.1f trace %.1f) field %.1f telem %.1f | color %.1f ms/read %.1f reads/s",
-                    loopN, m[0], m[1], m[6], m[7], m[8], m[2], m[3], m[9], m[10], m[11], m[12], m[4], m[5],
-                    cc > 0 ? cn / 1e6 / cc : 0.0, cc / secs));
+                            + " intake %.1f scoop %.1f trace %.1f) field %.1f telem %.1f",
+                    loopN, m[0], m[1], m[6], m[7], m[8], m[2], m[3], m[9], m[10], m[11], m[12], m[4], m[5]));
             java.util.Arrays.fill(loopMs, 0);
             loopN = 0;
             loopLogNs = t0;
-            colorCount0 = org.firstinspires.ftc.teamcode.systems.ColorCheck.readCount;
-            colorNs0 = org.firstinspires.ftc.teamcode.systems.ColorCheck.readNs;
         }
     }
 

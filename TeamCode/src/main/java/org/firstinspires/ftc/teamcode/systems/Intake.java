@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.systems;
 import org.firstinspires.ftc.teamcode.SystemConstants;
 
 
-import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
@@ -11,10 +10,8 @@ import org.firstinspires.ftc.teamcode.helpers.Alliance;
 
 public class Intake {
     private DcMotor intakeLeft, intakeRight;
-    private ColorSensor colorSensor;
     HardwareMap hardwareMap;
     private intakeState currentState = intakeState.STOP;
-    private ColorCheck colorCheck;
     private Alliance alliance;
     public enum intakeState {
         INTAKE, STOP, REJECT
@@ -28,10 +25,11 @@ public class Intake {
 
         intakeLeft = hardwareMap.get(DcMotor.class, "intakeLeft");
         intakeRight = hardwareMap.get(DcMotor.class, "intakeRight");
-        colorSensor = hardwareMap.get(ColorSensor.class, "colorSensor");
         intakeLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        colorCheck = new ColorCheck(colorSensor, alliance);
+        // No color sensor (operator 2026-11-24: not on the robot, ever). Its read cost 7.3 ms each, 15 reads/s, in
+        // every loop of every OpMode (blue auto loop-time log), on a device that was not plugged in. Reject is
+        // the driver's left bumper only; ColorCheck's rule stays for the Mechanism Tuner.
 
         // Per-motor direction is SystemConstants.Intake.INTAKE_LEFT/RIGHT_REVERSED, applied in update()
         // (not setDirection) so a live edit from the Mechanism Tuner takes effect without a rebuild.
@@ -40,7 +38,6 @@ public class Intake {
     /** Runtime alliance change; only the Mechanism Tuner needs it (OpModes pass it to the constructor). */
     public void setAlliance(Alliance alliance) {
         this.alliance = alliance;
-        colorCheck.setAlliance(alliance);
     }
 
     public intakeState getState(){
@@ -48,7 +45,7 @@ public class Intake {
     }
 
     public void update(boolean leftBumper, boolean rightBumper) {
-        if(leftBumper || colorCheck.reject()){
+        if(leftBumper){
             currentState = intakeState.REJECT;
         }else if(rightBumper){
             currentState = intakeState.INTAKE;

@@ -66,7 +66,10 @@ public class Turret {
     public void update(){
         pollenAimed = pollenTurret.track(lockForward ? 0 : aimPollen().theta, SystemConstants.Turret.POLLEN_TURRET_CENTER, SystemConstants.Turret.POLLEN_TURRET_REVERSED, SystemConstants.Turret.POLLEN_TURRET_GEAR_RATIO,
                 SystemConstants.Turret.POLLEN_TURRET_MIN, SystemConstants.Turret.POLLEN_TURRET_MAX);
-        nectarAimed = nectarTurret.track(lockForward ? 0 : aimNectar().theta, SystemConstants.Turret.NECTAR_TURRET_CENTER, SystemConstants.Turret.NECTAR_TURRET_REVERSED, SystemConstants.Turret.NECTAR_TURRET_GEAR_RATIO,
+        // Unmounted nectar side (SystemConstants.Shooter.NECTAR_MOUNTED false): no servo writes to an empty port.
+        // Shooter.nectarReady counts it ready regardless.
+        nectarAimed = SystemConstants.Shooter.NECTAR_MOUNTED
+                && nectarTurret.track(lockForward ? 0 : aimNectar().theta, SystemConstants.Turret.NECTAR_TURRET_CENTER, SystemConstants.Turret.NECTAR_TURRET_REVERSED, SystemConstants.Turret.NECTAR_TURRET_GEAR_RATIO,
                 SystemConstants.Turret.NECTAR_TURRET_MIN, SystemConstants.Turret.NECTAR_TURRET_MAX);
         if (aimPose != null) {   // aimed at where the robot WILL be, not where it is: never a reason to fire
             pollenAimed = false;

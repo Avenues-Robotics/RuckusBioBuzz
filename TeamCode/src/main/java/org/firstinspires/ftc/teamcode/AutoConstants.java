@@ -145,9 +145,9 @@ public final class AutoConstants {
         /**
          * Speed cap on path 2 of both autos (POINT_9 -> POINT_2, the tight curve into the corner), a fraction of max
          * achievable velocity (Foresight maxPathSpeed, ~70 in/s). Blue run 17 at 0.4 (~28 in/s): pod error 23 -> 13
-         * deg, heading error 26 -> 10 deg, no time cost; operator "path 2 still not good enough" -> 0.3 (~21 in/s),
-         * an ESTIMATE, on trial. >= 1 = no cap.
+         * deg, heading error 26 -> 10 deg, no time cost. Run 18 at 0.3: corner 2.27 vs 1.76 s, pod error p90 44 vs
+         * 31, heading error 15 vs 10 deg - slower, no better; operator: back to 0.4. >= 1 = no cap.
          */
-        public static double PATH2_SPEED = 0.3;
+        public static double PATH2_SPEED = 0.4;
     }
 }

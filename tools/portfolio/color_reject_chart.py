@@ -92,7 +92,7 @@ def main():
     for label, colour, marker, name in CLASSES:
         xs = [p[0] for p in pts[label]]
         ys = [p[1] for p in pts[label]]
-        ax.scatter(xs, ys, s=88, marker=marker, color=colour, edgecolors=SURFACE, linewidths=1.5, zorder=3,
+        ax.scatter(xs, ys, s=110, marker=marker, color=colour, edgecolors=SURFACE, linewidths=1.5, zorder=3,
                    label=f"{name}  ·  {len(xs)}")
 
     ax.set_xscale("log")
@@ -102,30 +102,30 @@ def main():
     ax.set_xticklabels(["0.5", "1", "2", "4", "8"])
     ax.set_xticks([], minor=True)
     ax.set_yticks([2, 4, 6, 8])
-    ax.set_xlabel("blue ÷ red light", color=INK, fontsize=15, fontweight="medium", labelpad=8)
-    ax.set_ylabel("distance to piece (cm)", color=INK, fontsize=15, fontweight="medium", labelpad=8)
-    ax.tick_params(colors=INK2, length=0, labelsize=14, pad=6)
+    ax.set_xlabel("blue ÷ red light", color=INK, fontsize=18, fontweight="medium", labelpad=8)
+    ax.set_ylabel("distance to piece (cm)", color=INK, fontsize=18, fontweight="medium", labelpad=8)
+    ax.tick_params(colors=INK2, length=0, labelsize=16.5, pad=6)
     ax.grid(True, which="major", color=GRID, lw=1, zorder=0)
     for s in ax.spines.values():
         s.set_visible(False)
 
     # region names (ink; colour is carried by the marks and tints) and threshold values
-    ax.text(0.53, 6.2, "called RED", color=INK, fontsize=15, fontweight="semibold", ha="center", va="center")
-    ax.text(4.9, 6.2, "called BLUE", color=INK, fontsize=15, fontweight="semibold", ha="center", va="center")
-    ax.text(1.32, 8.75, "nothing in the intake", color=INK, fontsize=15, fontweight="semibold", ha="center",
+    ax.text(0.53, 6.2, "called RED", color=INK, fontsize=18, fontweight="semibold", ha="center", va="center")
+    ax.text(4.9, 6.2, "called BLUE", color=INK, fontsize=18, fontweight="semibold", ha="center", va="center")
+    ax.text(1.05, 8.8, "nothing in the intake", color=INK, fontsize=18, fontweight="semibold", ha="center",
             va="center")
-    ax.text(X_MAX / 1.02, MAX_DIST_CM + 0.15, "6.7 cm", color=INK2, fontsize=13, ha="right", va="bottom")
-    ax.text(x_red / 1.03, 3.0, "red ÷ blue > 0.93", color=INK2, fontsize=12, rotation=90, ha="right", va="center")
-    ax.text(x_blue * 1.03, 3.0, "blue ÷ red > 1.62", color=INK2, fontsize=12, rotation=90, ha="left", va="center")
+    ax.text(X_MAX / 1.02, MAX_DIST_CM + 0.15, "6.7 cm", color=INK2, fontsize=15.5, ha="right", va="bottom")
+    ax.text(x_red / 1.03, 3.0, "red ÷ blue > 0.93", color=INK2, fontsize=15, rotation=90, ha="right", va="center")
+    ax.text(x_blue * 1.03, 3.0, "blue ÷ red > 1.62", color=INK2, fontsize=15, rotation=90, ha="left", va="center")
 
-    leg = ax.legend(loc="upper right", bbox_to_anchor=(1.0, 0.985), frameon=False, fontsize=13, handletextpad=0.25,
+    leg = ax.legend(loc="upper right", bbox_to_anchor=(1.0, 0.985), frameon=False, fontsize=15.5, handletextpad=0.25,
                     labelspacing=0.45, labelcolor=INK)
     for h in leg.legend_handles:
-        h.set_sizes([75])
+        h.set_sizes([95])
 
-    fig.text(0.035, 0.955, f"{len(rows)} recorded readings", color=HEAD, fontsize=19, fontweight="bold",
+    fig.text(0.035, 0.955, f"{len(rows)} recorded readings", color=HEAD, fontsize=23, fontweight="bold",
              ha="left", va="center")
-    fig.text(0.965, 0.955, f"{wrong} misclassified", color=HEAD, fontsize=19, fontweight="bold", ha="right",
+    fig.text(0.965, 0.955, f"{wrong} misclassified", color=HEAD, fontsize=23, fontweight="bold", ha="right",
              va="center")
 
     fig.tight_layout(rect=(0, 0, 1, 0.94))

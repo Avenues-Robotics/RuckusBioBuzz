@@ -2278,3 +2278,16 @@ sticks change slowly, the auto's targets jitter. Suspected jitter source: Foresi
 DERIVED strafe braking (quadratic 0.0053, 2.2x the measured forward 0.00237) on robot-frame strafe velocity, which
 path 3's turning-while-driving is full of; the straight forward legs (forward coefficients) are smooth. Next run:
 AutoConstants.ISOTROPIC_BRAKING (strafe = measured forward braking; swerve is isotropic).
+
+### Blue run 14 — strafe braking = measured forward braking (12.82 V at rest, tiles, flush start): KEPT (n = 1)
+
+Path 3 cruise (after the corner, y 118 -> 32), run 12 -> 14: 2.74 -> 2.17 s, mean 34.2 -> 41.5 in/s (min 15.4 ->
+21.9), pod |err| median 17 -> 10 deg (p90 44 -> 29), target rate median 172 -> 116 deg/s; yaw jitter 31 -> 33
+deg/s (unchanged). Straight return leg: pod |err| median 6 / p90 13 deg, zero yaw reversals at 60 in/s mean.
+Per loop 6.0-8.8 s: commands change smoothly, |heading err| 0-9 deg.
+
+**Hard stop at the flower approach, every run:** run 14 at (96.4, 24.8) heading 246 - commanded 0.91, speed 25 ->
+~0 in/s within ~0.15 s, held ~0.4 s, then the heading error built to -22 deg while stuck; similar stalls at
+(99, 28) run 9, (99, 27) run 11. The robot is ~9 in short of POINT_3 (95.0, 15.6, 262) and still ~8-16 deg short
+of its heading there, scoopula down since path 3 t = 0.38. Suspect the scoopula meeting the audience-wall flower
+(x 90.7-97.9, y 0-5.1) before the robot is squared up. Not confirmed - an operator observation.

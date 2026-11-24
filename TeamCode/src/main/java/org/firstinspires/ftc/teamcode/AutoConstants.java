@@ -120,5 +120,20 @@ public final class AutoConstants {
          * every direction (CLAUDE.md). Hypothesis test: false = Constants.
          */
         public static boolean ISOTROPIC_BRAKING = true;
+        /**
+         * Pod demand-rate feed-forward kV for the autos, power per rad/s of target motion (CoaxialPod
+         * setDemandRateFeedforward; NaN = Constants.turnDemandRateKV 0.045, same tau / cap). Run 14 (2026-11-24):
+         * pod error is tracking lag - 110-120 ms on path 3, 176 ms on the path 1-2 curves (r -0.86, error median 24 /
+         * p90 60 deg). Following a moving target takes ~0.108 power per rad/s (pods ~530 deg/s at full power); 0.045
+         * covers ~40% and the P term makes up the rest by lagging. 0.09 is an ESTIMATE (~85%); on trial.
+         */
+        public static double DEMAND_RATE_KV = 0.09;
+        /**
+         * Auto flywheel offset, ticks/s added to the regression target (Shooter.setAimOffsets). Operator 2026-11-24:
+         * auto shots aimed but too powerful - POLLEN_COEFFS (2026-11-23) predate the third flywheel weight and P
+         * 45 -> 450. QUICK FIX until a Regression-tab re-fit: -90 = ~-8% at the auto's 36-45 in (~1160 ticks/s),
+         * an estimate (range ~ v^2, so ~-15% range). TeleOp unaffected.
+         */
+        public static double FLYWHEEL_OFFSET = -90;
     }
 }

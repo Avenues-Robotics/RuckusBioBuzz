@@ -90,6 +90,13 @@ public final class AutoMechanisms {
                     com.pedropathing.math.Matrix.diag(fq, sq));
             com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "braking fwd " + fl + "/" + fq + " strafe " + sl + "/" + sq);
         }
+        double kv = Double.isNaN(AutoConstants.Autonomous.DEMAND_RATE_KV)
+                ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnDemandRateKV : AutoConstants.Autonomous.DEMAND_RATE_KV;
+        com.pedropathing.revhub.drivetrains.CoaxialPod.setDemandRateFeedforward(kv,
+                org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnDemandRateTauS,
+                Math.toRadians(org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnDemandRateMaxDegS));
+        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "pod demand-rate kV " + kv
+                + ", flywheel offset " + AutoConstants.Autonomous.FLYWHEEL_OFFSET);
         double hb = Double.isNaN(AutoConstants.Autonomous.HEADING_BRAKE_SCALE) ? 1 : AutoConstants.Autonomous.HEADING_BRAKE_SCALE;
         org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingBrakeCoefficients.set(
                 com.pedropathing.math.Vector2D.cartesian(
@@ -104,6 +111,7 @@ public final class AutoMechanisms {
         com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "Foresight heading kP " + kp
                 + ", translational kP fwd " + fP + "/" + fS + " strafe " + sP + "/" + sS);
         shooter = new Shooter(hardwareMap, new PredictiveAiming(follower), alliance);
+        shooter.setAimOffsets(0, 0, AutoConstants.Autonomous.FLYWHEEL_OFFSET);
         intake = new Intake(hardwareMap, alliance);
         scoopula = new Scoopula(hardwareMap);
         if (Config.telemetryEnabled() && TeleLoopProbe.ENABLED) {

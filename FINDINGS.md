@@ -2291,3 +2291,10 @@ Per loop 6.0-8.8 s: commands change smoothly, |heading err| 0-9 deg.
 (99, 28) run 9, (99, 27) run 11. The robot is ~9 in short of POINT_3 (95.0, 15.6, 262) and still ~8-16 deg short
 of its heading there, scoopula down since path 3 t = 0.38. Suspect the scoopula meeting the audience-wall flower
 (x 90.7-97.9, y 0-5.1) before the robot is squared up. Not confirmed - an operator observation.
+
+Operator after run 14: "better but still wobbles in curved segments like path 2"; flower stop not seen; flywheel:
+auto quick fix. Run 14 paths 1-2 (start -> corner, curves): pod error lags its target by 176 ms (r -0.86), |err|
+median 24 / p90 60 deg, targets swinging +/-20 deg at ~4 Hz, cross-track -2 .. +0.7 in. On a curve the target
+rotates by design, so lag = wheels off = drift = correction swing. Next run: AutoConstants DEMAND_RATE_KV 0.09
+(Constants 0.045 covers ~40% of the ~0.108 power per rad/s a moving target needs - estimate) and, separately for the
+shots, FLYWHEEL_OFFSET -90 ticks/s (estimate).

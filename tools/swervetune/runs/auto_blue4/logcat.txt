@@ -1,0 +1,11 @@
+--------- beginning of main
+12-31 18:08:29.705 I/PollenCamera( 2688): opened "Webcam 1" from the config
+--------- beginning of system
+12-31 18:08:33.691 I/BlueSoloAuto( 2688): step 1 at (85.5, 133.9, 360 deg) shoot=0 intake=0 scoop=up shooter=SHOOT/zone/aimP
+12-31 18:08:38.212 I/BlueSoloAuto( 2688): step 2 at (131.8, 128.6, 89 deg) shoot=0 intake=1 scoop=up shooter=TRACK/zone/aimP
+12-31 18:08:38.793 I/BlueSoloAuto( 2688): step 3 at (131.5, 128.3, 90 deg) shoot=0 intake=1 scoop=up shooter=TRACK/zone/aimP
+12-31 18:08:48.930 I/BlueSoloAuto( 2688): step 4 at (96.2, 15.0, 265 deg) shoot=0 intake=1 scoop=down shooter=TRACK/aimP
+12-31 18:08:51.001 I/BlueSoloAuto( 2688): step 5 at (95.1, 15.5, 262 deg) shoot=0 intake=0 scoop=down shooter=SHOOT/aimP
+12-31 18:08:52.952 I/BlueSoloAuto( 2688): step 6 at (82.5, 27.1, 96 deg) shoot=0 intake=0 scoop=up shooter=TRACK/aimP
+12-31 18:08:54.988 I/BlueSoloAuto( 2688): step 7 at (82.8, 25.8, 90 deg) shoot=0 intake=0 scoop=up shooter=TRACK/aimP
+12-31 18:08:58.914 I/CameraPick( 2688): pick at (81, 83): (96.6, 132.5) x 44.9 (clump 44.9, ~2 balls, 1 candidates)

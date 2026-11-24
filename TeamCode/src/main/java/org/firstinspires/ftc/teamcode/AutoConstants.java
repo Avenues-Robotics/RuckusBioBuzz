@@ -59,5 +59,14 @@ public final class AutoConstants {
         public static double PATH_STALL_NEAR_IN = 6.0;
         public static double PATH_STALL_MOVE_IN = 0.5;
         public static double PATH_STALL_S = 0.8;
+        /**
+         * Foresight heading kP for the autos (AutoMechanisms applies it at init; NaN = Constants.headingKP 7.7173).
+         * 2026-11-24: kP 7.72 was accepted on in-place turns and holds in Bring-Up (100+ Hz loop). In the auto
+         * (25.7 Hz loop) blue run 4 had pod |error| median 25 / p90 60 deg on path 3 AND on the straight return,
+         * yaw rate reversing 2.4-3.3 /s, heading error only 2-2.5 deg median - the TeleOp fishtail of 11-17
+         * again (hold kP 3.0 -> 1.0 fixed it there). 1.5 is an ESTIMATE (loop gain ~6.5 rad/s per power x kP
+         * kept near ~10 rad/s for ~40-80 ms of loop delay), on trial in the next run - not accepted.
+         */
+        public static double HEADING_KP = 1.5;
     }
 }

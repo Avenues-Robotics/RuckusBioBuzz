@@ -2099,3 +2099,21 @@ when Config.telemetryEnabled() (off in comp): per loop pose, heading + follower 
 per pod, body twist. Pull /swerve/rec.csv. Cost: the PodRecorder row per loop + the 20 Hz /swerve/state publish,
 the same probe TeleDriveProbe runs. Swerve.debug() deliberately NOT used (4 drive-motor power reads per loop).
 No earlier auto run has loop data, so nothing already collected becomes non-comparable.
+
+### Blue run 4 — the trace (tools/swervetune/runs/auto_blue4/rec.csv + logcat), 13.0 V at rest, tiles, flush start
+
+Loop: **25.7 Hz true**, dt mean 39.0 ms, p50 36.7, p90 55.6, p99 76.3 (n=837) - the auto's loop rate, first
+measurement (the drive probe recorder itself is part of it). Volts (2 Hz samples) 10.26 at the corner leg, **9.08**
+pulling away from the corner hold (t 7.9 s).
+
+| segment | pod \|err\| med / p90 | \|heading err\| med / p90 | yaw-rate reversals | speed mean | flip changes |
+|---|---|---|---|---|---|
+| path 3 (turn 90 -> 262), 11.4 s | 26 / 62 deg | 2.5 / 5.9 deg | 2.4 /s | 12.9 in/s | 10.0 /s |
+| return leg (heading held 90), 6.3 s | 25 / 60 deg | 2.0 / 5.8 deg | 3.3 /s | 15.8 in/s | 11.0 /s |
+
+The "heading takes all the capacity past 11.25 deg" half of the hypothesis is NOT supported: heading error stays
+small (1 sample over 11.25). What the trace shows is the pods 25-60 deg off their targets on BOTH legs - straight
+ones too - with the yaw rate reversing several times a second: the TeleOp fishtail of 2026-11-17 (hold kP 3.0:
+pod error 19.7 vs 4.0 deg; fixed with 1.0), here with Foresight heading kP 7.72 at a 26 Hz loop. Next run, ONE
+behaviour change: AutoConstants.Autonomous.HEADING_KP = 1.5 (estimate, see the constant), plus a loop-time
+breakdown logged by BlueSoloAuto (measurement only) to find what holds the loop at 26 Hz.

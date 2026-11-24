@@ -128,8 +128,10 @@ public class BlueSoloAuto extends OpMode {
 
     @Override
     public void loop() {
+        long t0 = System.nanoTime();
         mechanisms.clearCache();
         follower.update();
+        long t1 = System.nanoTime();
         // Path callbacks run right after the follower update, where Pedro 2 ran them.
         if (activePath != null) {
             activePath.update(follower);
@@ -137,13 +139,46 @@ public class BlueSoloAuto extends OpMode {
         updateParallelEvents();
 
         runSequence();
+        long t2 = System.nanoTime();
         mechanisms.update();
+        long t3 = System.nanoTime();
         // Recording (2026-11-24): pose on /field (TeleOp's FieldView, with the zone) at its own 20 Hz throttle.
         if (org.firstinspires.ftc.teamcode.Config.telemetryEnabled()) {
             org.firstinspires.ftc.teamcode.fieldview.FieldView.publish(follower.pose(), follower.pose(), Alliance.BLUE);
         }
+        long t4 = System.nanoTime();
 
         updateTelemetry(pathFinished ? "Done" : "Running");
+        loopTiming(t0, t1, t2, t3, t4, System.nanoTime());
+    }
+
+    // Loop-time breakdown (DIAGNOSTIC, 2026-11-24 - the auto loop measured 25.7 Hz): mean ms per section of this
+    // loop body, logged every 5 s. Time outside loop() (the SDK between loops) is total dt minus the body.
+    private final double[] loopMs = new double[6];
+    private int loopN;
+    private long loopLastNs, loopLogNs;
+
+    private void loopTiming(long t0, long t1, long t2, long t3, long t4, long t5) {
+        if (loopLastNs != 0) {
+            loopMs[0] += (t1 - t0) / 1e6;
+            loopMs[1] += (t2 - t1) / 1e6;
+            loopMs[2] += (t3 - t2) / 1e6;
+            loopMs[3] += (t4 - t3) / 1e6;
+            loopMs[4] += (t5 - t4) / 1e6;
+            loopMs[5] += (t0 - loopLastNs) / 1e6;
+            loopN++;
+        }
+        loopLastNs = t0;
+        if (loopLogNs == 0) loopLogNs = t0;
+        if (t0 - loopLogNs >= 5_000_000_000L && loopN > 0) {
+            com.qualcomm.robotcore.util.RobotLog.ii("BlueSoloAuto", String.format(java.util.Locale.US,
+                    "loopms n=%d dt %.1f | follower %.1f seq %.1f mech %.1f field %.1f telem %.1f",
+                    loopN, loopMs[5] / loopN, loopMs[0] / loopN, loopMs[1] / loopN, loopMs[2] / loopN,
+                    loopMs[3] / loopN, loopMs[4] / loopN));
+            java.util.Arrays.fill(loopMs, 0);
+            loopN = 0;
+            loopLogNs = t0;
+        }
     }
 
     @Override

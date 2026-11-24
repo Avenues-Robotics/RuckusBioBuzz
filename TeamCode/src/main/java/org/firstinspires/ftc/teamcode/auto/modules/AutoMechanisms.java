@@ -43,6 +43,12 @@ public final class AutoMechanisms {
         for (LynxModule hub : hubs) {
             hub.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
         }
+        // Foresight's heading kP for the autos, set every init (the config is static and shared by every OpMode).
+        double kp = Double.isNaN(AutoConstants.Autonomous.HEADING_KP)
+                ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.headingKP : AutoConstants.Autonomous.HEADING_KP;
+        org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingFeedback.set(
+                com.pedropathing.controllers.Controller.proportional(kp));
+        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "Foresight heading kP " + kp);
         shooter = new Shooter(hardwareMap, new PredictiveAiming(follower), alliance);
         intake = new Intake(hardwareMap, alliance);
         scoopula = new Scoopula(hardwareMap);

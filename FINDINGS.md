@@ -2045,3 +2045,11 @@ secondary kP cannot push through the drive deadband to finish a hold - the 11-15
 Gains NOT shipped. x-axis holds, x lines and curves were refused (lane too narrow for the 6 in + half-diagonal
 hold margin) - nothing moved. Decel / braking / max-velocity constants not yet shipped: they change only with a
 deploy and need a --pods shipped acceptance run.
+
+**Acceptance of the shipped Foresight physical constants (9f18280b: vmax 70, decel 73.9/95.1, forward braking
+measured; deployed, pedro.gainsShipped + staticsShipped true), pedrocheck --pods shipped, 2x6 lane, n=3/trial,
+vs the same session's pre-deploy shipped arm (before/after across a deploy, not interleaved):** hold residual
+0.37/0.28 -> 0.22/0.17 in, settle-to-1-in 1.42/1.31 -> 0.97/1.04 s, hold overshoot 0 -> 0.07/0.16 in; line
+duration 2.91 -> 2.67 s, end error 0.18 -> 0.19 in, max heading error 5.4 -> 5.7 deg (over the 3 deg threshold
+both before and after); turn settle-to-2-deg 1.01-1.09 -> 0.91-0.98 s, turn overshoot 0.04-0.27 -> 0.5-1.4 deg.
+Accepted. Remaining before FORESIGHT_MEASURED: a real auto path on the field (pedrocheck path, field fence).

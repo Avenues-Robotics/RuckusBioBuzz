@@ -2345,3 +2345,9 @@ override lives in AutoMechanisms / AutoConstants (heading kP 0.8, translational 
 high floor 0.30, heading braking off, isotropic braking, flywheel -90), so RedSoloAuto already runs them; the
 path-2 segment cap is now hand-wired in RedSoloAuto chain1 too (mirror geometry). PATH2_SPEED 0.4 -> 0.3 for both
 (estimate). Red has not run with any of today's auto changes; red hive x stays 64 (TeleOp-tested).
+
+### Blue run 18 — path-2 cap 0.3 (operator: observe; 12.76 V at rest, tiles, flush start)
+
+Path 2 (x > 121 -> corner), cap none / 0.4 / 0.3 (runs 16 / 17 / 18): 0.76 / 0.67 / 1.10 s; start -> corner
+1.72 / 1.76 / 2.27 s; min speed 10.2 / 14.1 / 7.3 in/s; pod |err| median 23 / 13 / 13 deg, p90 65 / 31 / 44;
+heading err median 26 / 10 / 15 deg. 0.3 is slower with no tracking gain over 0.4. Path 3 2.9 s (step log).

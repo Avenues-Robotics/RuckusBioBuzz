@@ -67,7 +67,11 @@ public final class AutoConstants {
          * again (hold kP 3.0 -> 1.0 fixed it there). 1.5 is an ESTIMATE (loop gain ~6.5 rad/s per power x kP
          * kept near ~10 rad/s for ~40-80 ms of loop delay), on trial in the next run - not accepted.
          */
-        public static double HEADING_KP = 1.5;
+        // 1.5 (run 5) -> 0.8 (run 16 trial): with the braking projection off, run 15's constant-heading legs still
+        // hunt (heading error +/-6-10 deg, sign changes ~2.5-3.4 /s, yaw +/-90 deg/s). Rotation answers the command
+        // ~170 ms late while driving (run 11); at kP 1.5 x ~6.5 rad/s per power the crossover (~9.8 rad/s) loses
+        // ~95 deg to that delay. 0.8 is an ESTIMATE for margin; on trial.
+        public static double HEADING_KP = 0.8;
         /**
          * Foresight translational kP for the autos, all four (forward / strafe, primary / secondary) set to it; NaN =
          * Constants (0.26, kD 0). 2026-11-24 blue run 7: at 25-35 in/s the pods' commanded direction swings together
@@ -127,7 +131,10 @@ public final class AutoConstants {
          * p90 60 deg). Following a moving target takes ~0.108 power per rad/s (pods ~530 deg/s at full power); 0.045
          * covers ~40% and the P term makes up the rest by lagging. 0.09 is an ESTIMATE (~85%); on trial.
          */
-        public static double DEMAND_RATE_KV = 0.09;
+        // Run 15 (0.09): operator "prob better" on the curves, but the second garden clear got worse vs run 14 (heading
+        // err rms 3.0 -> 4.6 deg, yaw p90 40 -> 71 deg/s, pod err median 13 -> 21) and path 3 pod error 10 -> 24. Back
+        // to Constants (0.045).
+        public static double DEMAND_RATE_KV = Double.NaN;
         /**
          * Auto flywheel offset, ticks/s added to the regression target (Shooter.setAimOffsets). Operator 2026-11-24:
          * auto shots aimed but too powerful - POLLEN_COEFFS (2026-11-23) predate the third flywheel weight and P

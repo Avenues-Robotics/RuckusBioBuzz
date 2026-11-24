@@ -2298,3 +2298,15 @@ median 24 / p90 60 deg, targets swinging +/-20 deg at ~4 Hz, cross-track -2 .. +
 rotates by design, so lag = wheels off = drift = correction swing. Next run: AutoConstants DEMAND_RATE_KV 0.09
 (Constants 0.045 covers ~40% of the ~0.108 power per rad/s a moving target needs - estimate) and, separately for the
 shots, FLYWHEEL_OFFSET -90 ticks/s (estimate).
+
+### Blue run 15 — pod demand-rate kV 0.09 + flywheel -90 (12.81 V at rest): flywheel KEPT, kV REVERTED
+
+Operator: shots good now (flywheel offset -90 kept); curves "looked better ... couldn't tell much of a difference";
+"that second garden clear was horrible". Measured vs run 14 - curves (paths 1-2): pod err 24 -> 28 deg median, lag
+176 -> 183 ms; path 3 cruise: pod err 10 -> 24, lag 110 -> 159 ms, slower (2.17 -> 2.83 s) but yaw jitter 33 -> 21;
+second garden clear (chain 5-6, heading held 0): heading err rms 3.0 -> 4.6 deg, sign changes 2.0 -> 3.4 /s,
+|yaw rate| p90 40 -> 71 deg/s, pod err 13 -> 21. kV back to 0.045. No flower-approach stall this run (0 vs 15
+samples in run 14) - not every run.
+
+Heading still hunts on constant-heading legs (run 15 chain 5-6: +/-6-10 deg, yaw +/-90 deg/s) with the projection
+off: kP 1.5 vs ~170 ms rotation delay. Next run (vs run 14 as the baseline): HEADING_KP 0.8.

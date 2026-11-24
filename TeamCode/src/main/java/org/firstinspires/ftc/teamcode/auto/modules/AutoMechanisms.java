@@ -73,6 +73,12 @@ public final class AutoMechanisms {
                 org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighStart,
                 org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighFull);
         com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "pod schedule high floor " + floorHigh);
+        double hb = Double.isNaN(AutoConstants.Autonomous.HEADING_BRAKE_SCALE) ? 1 : AutoConstants.Autonomous.HEADING_BRAKE_SCALE;
+        org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingBrakeCoefficients.set(
+                com.pedropathing.math.Vector2D.cartesian(
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.headingBrakeLinear * hb,
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.headingBrakeQuadratic * hb));
+        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "heading braking x" + hb);
         double tolDeg = Double.isNaN(AutoConstants.Autonomous.HEADING_TOLERANCE_DEG)
                 ? 11.25 : AutoConstants.Autonomous.HEADING_TOLERANCE_DEG;
         org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingDeviationTolerance.set(

@@ -93,5 +93,14 @@ public final class AutoConstants {
          * 0.30 = the high-speed leg off (same as the low floor): a hypothesis test, not a tune.
          */
         public static double STEER_FLOOR_HIGH = 0.30;
+        /**
+         * Scale on Foresight's heading braking coefficients for the autos (1 = Constants 0.0505 / 0.0199, measured
+         * on in-place spins 2026-11-15). Foresight aims at heading + braking(omega), so the term is rate feedback.
+         * Blue run 11 (2026-11-24), path 3 (172 deg turn while driving): the rotation command tracks kP x PROJECTED
+         * error (corr 0.86 vs 0.61 for the raw error), the projection term is as large as the error term (sd 0.11
+         * vs 0.13), and omega answers the command ~160-190 ms later - rate feedback through that delay is a ~3 Hz
+         * cycle, the jerky turning the operator sees. 0 = projection off: a hypothesis test, not a tune.
+         */
+        public static double HEADING_BRAKE_SCALE = 0.0;
     }
 }

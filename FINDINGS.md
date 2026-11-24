@@ -2241,3 +2241,18 @@ n = 1 run per arm; the per-loop wheel trace is the strongest evidence (a 3 Hz +/
 Implication, NOT measured: floorHigh 0.80 is in Constants for TeleOp. It was accepted in the TeleOp Drive Probe with
 mechanisms OFF (48-75 Hz). TeleOp with mechanisms runs slower (unmeasured; the auto with the same mechanisms is
 30-38 Hz), so TeleOp full-speed driving may limit-cycle the same way. Needs a TeleOp-path check with mechanisms on.
+
+Operator after run 11: "still a ton of wobble ... it still limps except on the hive straight line where it was
+really smooth"; shots AIMED now (blue hive x 83.9 confirmed) but TOO POWERFUL.
+
+**Remaining limp = the heading loop while turning-and-driving (run 11, path 3, n=133 loops):** yaw rate cycles
+~0 <-> ~100 deg/s at ~3 Hz; the rotation command tracks kP x PROJECTED heading error (corr 0.86; raw error 0.61);
+the braking projection (0.0505 / 0.0199 x omega, measured on in-place spins) swings as much as the error term
+(sd 0.11 vs 0.13); omega follows the command ~160-190 ms later (peak corr 0.55 at 5-6 loops). Rate feedback through
+~170 ms is a ~0.35 s cycle. TeleOp has no follower heading loop - hence smooth. Next run: AutoConstants
+HEADING_BRAKE_SCALE 0 (projection off) - hypothesis test.
+
+**Shots too powerful:** the auto shoots from ~36-45 in, where POLLEN_COEFFS give ~1150-1170 ticks/s. The fit
+(e498156e, 2026-11-23 17:05) predates the third flywheel weight and today's P 45 -> 450 (both hold wheel speed
+through a shot better, so a ball leaves faster at the same target). Needs a Regression-tab re-fit; affects
+TeleOp too.

@@ -277,8 +277,11 @@ public final class SystemConstants {
         // x 47.8-67.7, blue 73.9-93.8, symmetric about the field centre. 45 / 72 (2026-11-18) were the red
         // rail and the gap between halves. UP_POS / DOWN_POS are shared by both alliances, but the drawing
         // is point-symmetric: red's cells span y 51.9-95.4, blue's 46.2-89.6 (see FINDINGS 2026-11-20).
+        // xred 64 / xblue 92 since 2026-11-23 (operator, TeleOp-tested on red). 92 is not red's mirror (141.5 - 64
+        // = 77.5), and the blue auto missed to +x at BOTH ends (shooter's left near the start wall, right at the
+        // audience end - runs 5-7, 2026-11-24): the aim x was too large. Operator: back to the measured centre.
         public static double xred = 64;
-        public static double xblue = 92;
+        public static double xblue = 83.9;
         public static double UP_POS = 90;
         public static double DOWN_POS = 52;
         public static double HALF_Y = 71;

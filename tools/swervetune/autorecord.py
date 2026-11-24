@@ -24,14 +24,20 @@ def main():
     ap.add_argument("--label", required=True)
     ap.add_argument("--sec", type=float, default=35)
     ap.add_argument("--tags", default="BlueSoloAuto,RedSoloAuto,CameraPick,PollenCamera")
+    ap.add_argument("--no-logcat", action="store_true", help="skip adb (pose + frames only), e.g. adb offline")
     a = ap.parse_args()
     out = os.path.join(HERE, "runs", "auto_" + a.label)
     os.makedirs(os.path.join(out, "frames"), exist_ok=True)
-    subprocess.run(["adb", "-s", "192.168.43.1:5555", "logcat", "-c"], capture_output=True)
-    tags = [t + ":I" for t in a.tags.split(",")] + ["*:S"]
     lc = open(os.path.join(out, "logcat.txt"), "w")
-    logcat = subprocess.Popen(["adb", "-s", "192.168.43.1:5555", "logcat", "-v", "time"] + tags, stdout=lc,
-                              stderr=subprocess.STDOUT)
+    logcat = None
+    if not a.no_logcat:
+        try:   # a hung adb (device offline after a power cycle) must not hold up the recording
+            subprocess.run(["adb", "-s", "192.168.43.1:5555", "logcat", "-c"], capture_output=True, timeout=5)
+            tags = [t + ":I" for t in a.tags.split(",")] + ["*:S"]
+            logcat = subprocess.Popen(["adb", "-s", "192.168.43.1:5555", "logcat", "-v", "time"] + tags, stdout=lc,
+                                      stderr=subprocess.STDOUT)
+        except subprocess.TimeoutExpired:
+            lc.write("adb logcat -c timed out: no logcat this run\n")
     pose = open(os.path.join(out, "pose.csv"), "w")
     pose.write("t,x,y,h,live,inZone,predInZone,ageMs\n")
     t0 = time.time()
@@ -61,7 +67,8 @@ def main():
         pass
     finally:
         pose.close()
-        logcat.terminate()
+        if logcat is not None:
+            logcat.terminate()
         lc.close()
     print(f"recorded {n} poses, {len(os.listdir(os.path.join(out, 'frames')))} frames -> {out}")
 

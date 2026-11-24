@@ -1,7 +1,7 @@
 {
   "startPoint": {
     "x": 56.0,
-    "y": 9.196,
+    "y": 7.6,
     "heading": "constant",
     "degrees": 180,
     "locked": false

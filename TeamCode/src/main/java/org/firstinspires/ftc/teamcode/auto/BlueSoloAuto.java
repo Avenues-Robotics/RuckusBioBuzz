@@ -30,7 +30,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @Autonomous(name = "BlueSoloAuto", group = "Auto")
 public class BlueSoloAuto extends OpMode {
     // PathStep fields are editable from FTC Dashboard; paths are built in init(), so edits apply on the next init.
-    public static PathStep START_STEP = new PathStep(85.500, 132.304, 0.000);
+    public static PathStep START_STEP = new PathStep(85.500, 133.900, 0.000);   // flush on the far wall (15 in wide: 141.5 - 7.5 - 0.1); was 132.304 (1.7 in gap) until 2026-11-24
     public static PathStep POINT_2 = new PathStep(131.278, 128.201, 90.000);   // 3 in off the far wall (2026-11-24: the robot met the wall short of 131.2)
     public static PathStep POINT_3 = new PathStep(95.020, 15.643, 262.000);
     public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);

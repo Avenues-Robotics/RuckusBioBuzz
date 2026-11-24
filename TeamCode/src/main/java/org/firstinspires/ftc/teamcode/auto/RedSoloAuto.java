@@ -30,7 +30,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @Autonomous(name = "Redpollenauto", group = "Auto")
 public class RedSoloAuto extends OpMode {
     // PathStep fields are editable from FTC Dashboard; paths are built in init(), so edits apply on the next init.
-    public static PathStep START_STEP = new PathStep(56.000, 9.196, 180.000);
+    public static PathStep START_STEP = new PathStep(56.000, 7.600, 180.000);   // flush on the audience wall (15 in wide: 7.5 + 0.1); was 9.196 (1.7 in gap) until 2026-11-24
     public static PathStep POINT_2 = new PathStep(10.222, 13.299, 270.000);   // 3 in off the audience wall (mirror of blue, 2026-11-24)
     public static PathStep POINT_3 = new PathStep(46.480, 125.857, 90.000);
     public static PathStep POINT_4 = new PathStep(58.812, 115.566, 270.000);

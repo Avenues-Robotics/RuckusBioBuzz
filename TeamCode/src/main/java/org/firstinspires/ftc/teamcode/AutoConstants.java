@@ -108,6 +108,17 @@ public final class AutoConstants {
          * ~41 deg/s - loop-to-loop command jitter - and pod error grows with it (10 deg median below 50 deg/s, 24
          * above 300). 150 filters the jitter and still passes the real demand. Hypothesis test, not a tune.
          */
-        public static double DEMAND_SLEW_DEG_S = 150;
+        // Run 13: 150 cut target rates (median 155 -> 131, p90 329 -> 210 deg/s) but yaw jitter rose 33 -> 52 deg/s
+        // (the lag hurt the heading loop). Back to Constants.
+        public static double DEMAND_SLEW_DEG_S = Double.NaN;
+        /**
+         * Autos: strafe braking = the MEASURED forward braking (Constants forwardBrake*), instead of the derived strafe
+         * pair (linear 0, quadratic 1/(2 x 95) = 0.0053, 2.2x forward's 0.00237). Foresight projects the pose ahead by
+         * these per robot axis; on path 3 (turning while driving) much of the motion is robot-frame strafe, where
+         * the larger coefficient turns lateral-velocity wobble into projected-pose jumps (est. ~2 in, ~0.25 command,
+         * for 5 in/s at 40 in/s) - straight forward legs are smooth, turning ones are not. Swerve brakes the same in
+         * every direction (CLAUDE.md). Hypothesis test: false = Constants.
+         */
+        public static boolean ISOTROPIC_BRAKING = true;
     }
 }

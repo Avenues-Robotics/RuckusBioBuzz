@@ -2266,3 +2266,15 @@ robot turns ~41 deg/s (loop-to-loop command jitter); pod |err| median 10 / 13 / 
 < 50 / 50-150 / 150-300 / > 300 deg/s. Suspected source: Foresight's translational projection (pose + braking
 displacement of the NOISY velocity, 4-8 in at 40 in/s) - not touched, it also does path-end braking. Next run:
 AutoConstants DEMAND_SLEW_DEG_S 150 (Constants 300) - filter the jitter at the mixer.
+
+### Blue run 13 — demand slew 150 deg/s (12.85 V at rest): REJECTED
+
+Path 3 4.1 s (step log); target rate median 155 -> 131, p90 329 -> 210 deg/s, but yaw jitter 33 -> 52 deg/s and
+|heading err| median 3.3 -> 5.4 deg: the extra lag hurts the heading loop. Reverted (NaN = Constants 300).
+
+**Pod error is tracking lag** (runs 10, 12, path 3): signed pod error vs target rate, slope -100 / -120 ms,
+r = -0.68 / -0.77; residual |err| median 10-11 deg. So smoothness hinges on how fast the targets move - TeleOp's
+sticks change slowly, the auto's targets jitter. Suspected jitter source: Foresight's pose projection uses the
+DERIVED strafe braking (quadratic 0.0053, 2.2x the measured forward 0.00237) on robot-frame strafe velocity, which
+path 3's turning-while-driving is full of; the straight forward legs (forward coefficients) are smooth. Next run:
+AutoConstants.ISOTROPIC_BRAKING (strafe = measured forward braking; swerve is isotropic).

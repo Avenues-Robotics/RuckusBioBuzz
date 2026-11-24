@@ -73,11 +73,23 @@ public final class AutoMechanisms {
                 org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighStart,
                 org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighFull);
         com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "pod schedule high floor " + floorHigh);
-        if (!Double.isNaN(AutoConstants.Autonomous.DEMAND_SLEW_DEG_S)) {
-            com.pedropathing.revhub.drivetrains.Swerve.setDemandSlewDegPerSec(AutoConstants.Autonomous.DEMAND_SLEW_DEG_S);
-        }
+        com.pedropathing.revhub.drivetrains.Swerve.setDemandSlewDegPerSec(
+                Double.isNaN(AutoConstants.Autonomous.DEMAND_SLEW_DEG_S)
+                        ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.demandSlewDegPerSec
+                        : AutoConstants.Autonomous.DEMAND_SLEW_DEG_S);
         com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "demand slew "
                 + com.pedropathing.revhub.drivetrains.Swerve.getDemandSlewDegPerSec() + " deg/s");
+        {
+            double fl = org.firstinspires.ftc.teamcode.pedroPathing.Constants.forwardBrakeLinear;
+            double fq = org.firstinspires.ftc.teamcode.pedroPathing.Constants.forwardBrakeQuadratic;
+            double sl = AutoConstants.Autonomous.ISOTROPIC_BRAKING ? fl : org.firstinspires.ftc.teamcode.pedroPathing.Constants.strafeBrakeLinear;
+            double sq = AutoConstants.Autonomous.ISOTROPIC_BRAKING ? fq : org.firstinspires.ftc.teamcode.pedroPathing.Constants.strafeBrakeQuadratic;
+            org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.linearBrakeCoefficients.set(
+                    com.pedropathing.math.Matrix.diag(fl, sl));
+            org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.quadraticBrakeCoefficients.set(
+                    com.pedropathing.math.Matrix.diag(fq, sq));
+            com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "braking fwd " + fl + "/" + fq + " strafe " + sl + "/" + sq);
+        }
         double hb = Double.isNaN(AutoConstants.Autonomous.HEADING_BRAKE_SCALE) ? 1 : AutoConstants.Autonomous.HEADING_BRAKE_SCALE;
         org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingBrakeCoefficients.set(
                 com.pedropathing.math.Vector2D.cartesian(

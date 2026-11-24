@@ -1995,3 +1995,27 @@ Target 1200 ticks/s = the middle of what ShootingRegression asks for (1147 at 30
   1.02 s, n.s. (p=0.37); hold sd between bursts 9.4 vs 9.2 (= the 20-tick quantum).
 - Traces: tools/mechtune/runs/burstAB*.csv, smoke-p45-f13.7.csv; per-burst scores burstAB-summary-2026-11-24.jsonl.
 - Not done: AT_SPEED / HOLD_SPEED / MIN_GATE_OPEN_S re-check with the faster recovery; nectar side not mounted.
+
+## 2026-11-24 — Full-speed cruise wobble: high-speed steering floor 0.60 -> 0.80 (shipped); X-lock A/B; top speed 72 in/s
+
+TeleOp Drive Probe (the driver's code path), field tiles, 2x6 lane (stop area 98 x 28 in), full stick, 1.0 s
+straight runs at 64-72 in/s, battery 11.2-12.9 V under load / 12.5-12.9 V resting. Interleaved arms.
+
+- **Top speed is ~72 in/s**, not Foresight's 52 (maxAchievableForward/StrafeVelocity, "measured" 2026-11-16 -
+  probably on too short a run). Re-measure in the Foresight Tuner.
+- **The wobble is the chassis yawing CLOCKWISE in both drive directions** (hold off: -9/-10 deg/s forward,
+  -35..-45 deg/s reverse), with the pods parked 2-5 deg off target in a fixed pattern (BR -2, FR -3, FL +2,
+  BL -5 deg). Heading hold works against it: hold on vs off (n=5/arm) yaw_dev 7.9 vs 16.0 deg, yaw_rate_rms
+  17.4 vs 29.3 deg/s. Not a single slow drive motor (that would flip the yaw with direction).
+- **High-speed steering floor** (CoaxialPod schedule at full drive power): 0.80 (n=10) vs 0.60 (n=15): steady
+  cruise yaw 6.6 vs 11.9 deg/s (-5.3 [-7.9, -2.8], p=0.0002), yaw_rate_rms 11.3 vs 16.3 (-5.0 [-8.0, -2.0],
+  p=0.002), yaw_dev 4.6 vs 7.6 deg (p=0.011), pod err_p95 9.0 vs 13.4 deg (p=0.011), reversals n.s. 1.00 (n=10)
+  cut the steady yaw (4.8) but the pods hunted (cruise yaw oscillation 14.5 vs 3.1 deg/s, reversals 15.5/s).
+  Shipped 0.80 (Constants.turnScheduleFloorHigh; autos too). Slow-circle regime (<0.35 drive) untouched.
+- **X-lock** (3x3, 0.8 power 0.6 s, n=10/arm): removing it did NOT change start-of-move yaw (first 0.4 s 8.7 vs
+  10.1 deg/s, p=0.44); worst early pod error 40 vs 55 deg (p=0.036) but dir_err_p95 16.6 vs 7.8 deg with X-lock
+  OFF (p=0.026) - from standstill the robot sets off at an angle when the pods start where the last move left
+  them. Shipped stays X-lock off pending the operator's call.
+- 1x9 strip attempt aborted: +/-7 in lateral stop area on a 1-tile strip let the hold-off arm leave the tiles.
+  The stop area's guard also trips on the lateral part of the stick once the robot has yawed a few degrees
+  (margin 4 in + 0.30 s x speed) - give it >= +/-14 in sideways.

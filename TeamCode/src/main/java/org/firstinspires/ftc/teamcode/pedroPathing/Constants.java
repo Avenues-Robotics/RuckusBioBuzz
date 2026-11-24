@@ -119,7 +119,14 @@ public class Constants {
     // 2026-11-16 competition field, open-loop 0.8-power shuttles (lanerun.py), FINDINGS "high-speed floor":
     // steady pod offset 3.0 vs 5.1 deg at 0.30, -2.1 [-3.5, -0.8] p=0.003, n=14 runs/arm; oscillation n.s.
     // A flat 0.60 doubled the slow-circle wiggle (23 vs 10/lap), hence the ramp: circles (0.25 drive) keep 0.30.
-    public static final double turnScheduleFloorHigh = 0.60;
+    // 2026-11-24: 0.60 -> 0.80. 2x6 lane, field tiles, TeleOp Drive Probe (the driver's path), full stick, 1.0 s
+    // straight runs at ~70 in/s, 11.3-12.6 V, interleaved. At 0.60 the robot yawed CLOCKWISE in both drive
+    // directions (pods parked 2-5 deg off target in a fixed pattern) and heading hold only half-cancelled it
+    // (hold off: 16.0 vs 7.9 deg drift). 0.80 (n=10) vs 0.60 (n=15): steady cruise yaw 6.6 vs 11.9 deg/s (-5.3
+    // [-7.9, -2.8], p=0.0002), yaw_rate_rms 11.3 vs 16.3 (-5.0 [-8.0, -2.0], p=0.002), yaw_dev 4.6 vs 7.6 deg
+    // (p=0.011), pod err_p95 9.0 vs 13.4 deg (p=0.011), wheel reversals 10.3 vs 9.3 /s (n.s.). 1.00 (n=10) cut
+    // the steady yaw too (4.8) but the pods hunted: cruise yaw oscillation 14.5 vs 3.1 deg/s, reversals 15.5/s.
+    public static final double turnScheduleFloorHigh = 0.80;
     public static final double turnScheduleHighStart = 0.35;
     public static final double turnScheduleHighFull = 0.70;
     public static final double turnDemandRateKV = 0.045;

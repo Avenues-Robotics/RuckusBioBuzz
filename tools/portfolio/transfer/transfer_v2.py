@@ -66,12 +66,15 @@ tube0 = (np.linalg.norm(mid0 - SPOKE, axis=1) < 72) & (mid0[:, 1] < 238) & ~ramp
 
 ramp45 = dist_to_polyline(mid45, [(-195, 0), (-28, 56)]) < 15   # bottom intake ramp plates (both)
 RAIL = [(-50, 88), (120, 137)]
+rod45 = np.zeros(len(S45), bool)
 for poly, idx, closed in loops(S45):
     c = poly.mean(0); ext = poly.max(0) - poly.min(0)
     perim = np.sum(np.linalg.norm(np.diff(poly, axis=0), axis=1))
     is_rail = ext.max() < 14 and dist_to_polyline(c[None], RAIL)[0] < 7
     is_plate = perim > 220 and -40 < c[0] < 190 and 70 < c[1] < 240 and ext[1] > 100
-    if is_rail or is_plate:
+    if is_rail:                    # cut ends of the rail rods: not drawn
+        rod45[idx] = True
+    elif is_plate:
         ramp45[idx] = True
 
 # ---- figure
@@ -93,7 +96,7 @@ ax.contourf(yy, zz, sm, levels=[0.5, 2], colors=[SIL_FILL], zorder=0, antialiase
 ax.contour(yy, zz, sm, levels=[0.5], colors=[SIL_EDGE], linewidths=0.7, zorder=0.5)
 
 kw = dict(capstyle="round", joinstyle="round")
-ax.add_collection(LineCollection(S45[~ramp45], colors=SIDE, linewidths=0.55, zorder=1, **kw))
+ax.add_collection(LineCollection(S45[~ramp45 & ~rod45], colors=SIDE, linewidths=0.55, zorder=1, **kw))
 ax.add_collection(LineCollection(S0[~(ramp0 | drop0 | tube0)], colors=CUT, linewidths=0.9, zorder=2, **kw))
 
 # ramp: faint fill of its closed shapes + heavy outline

@@ -53,6 +53,7 @@ Search the tree for `RUCKUS PATCH`. Each entry names the upstream 3.0.0 behaviou
 | `core/.../utils/Control.java`, `algorithm/ForesightPowerAllocator.java` | `clampBrakingPower(Vector2D, Vector2D, max)` — direction-preserving | **upstream regression:** v3 clamps braking per axis again, the bug the 2.1.2 CustomDrivetrain patch fixed (rotates the command 30–45°) |
 | `core/.../paths/curves/Curve.java` | `pathCompletion` = `1 − remaining/length` | **upstream bug:** default returned the fraction *remaining*; `Line`/`CompoundCurve` inherit it, so `linear`/`longLinear` headings ran backwards, `PiecewiseInterpolator` switched in reverse, `Foresight.completion()` counted down |
 | `core/.../follower/Follower.java` | **update() timing** (2026-11-24): `static long[] lastUpdateNs` = ns in `localizer.update()`, the algorithm's calculate, and `drivetrain.drive/stop` on the last `update()`; read by the autos' loop-time log | none - timing only, no control path reads it |
+| `revhub/.../Swerve.java` | **`lastCommand()`** (2026-11-24): returns the last forward / strafe / rotation `applyDrive` used (plain fields) | none - read-only accessor; `debug()` has the same values but reads every drive motor's power off the hub |
 
 **Equivalence evidence for the pod + mixer port** (2026-09-10, host-side, not on the robot): the
 2.1.2 fork at `a6edf00` and this tree were driven side by side through identical inputs against

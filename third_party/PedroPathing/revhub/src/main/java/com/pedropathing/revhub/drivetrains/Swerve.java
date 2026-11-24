@@ -306,6 +306,15 @@ public class Swerve implements Drivetrain {
         appliedZeroPowerBehavior = null;
     }
 
+    /**
+     * RUCKUS PATCH (2026-11-24, read-only): the last drive command as applyDrive saw it - forward, strafe (already
+     * negated, the mixer's sign) and rotation. debug() has them too but also reads every drive motor's power off
+     * the hub; these are plain fields, for a per-loop recorder.
+     */
+    public double[] lastCommand() {
+        return new double[]{lastForward, lastStrafe, lastRotation};
+    }
+
     @Override
     public Map<String, Object> debug() {
         Map<String, Object> map = new HashMap<>();

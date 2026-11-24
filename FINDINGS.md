@@ -2169,3 +2169,22 @@ TeleOp tested hive x 92 after the corner relocalize, which sets the pose exactly
 never coming back) - Intake no longer reads it (reject = driver's left bumper only), config entry removed; the
 unmounted nectar flywheel and turret (NECTAR_MOUNTED false) no longer get writes. Expected: intake ~4-5 ms and
 shooter ~1-3 ms less per loop (estimate).
+
+### Blue run 7 — color sensor out, nectar writes off (12.69 V at rest, tiles, flush start)
+
+Loop **33.5 Hz true** (dt mean 29.9, p50 28.2, p90 41.6, p99 63.8 ms; run 6: 26.1 Hz, 38.3 / 35.5 / 56.4 / 77.4).
+Breakdown: intake 4.7-6.0 -> 0.7-1.3 ms, shooter 7.2-8.6 -> 5.9-6.7 ms; follower unchanged (localizer 5.6-6.3,
+drive writes 9.8-14 ms). Path 3 6.5 s, 21.8 in/s mean; return 3.0 s, 31.2 in/s. The auto reached step 13 (its third
+shot) inside the run.
+
+**Pod error did not move with loop rate** (median 21-24 deg in runs 5, 6, 7 at 24-34 Hz). Per loop on path 3
+(t 8.6-10.6 s, 25-35 in/s): all four pods' commanded targets swing TOGETHER by +/-25-30 deg at ~2-3 Hz and the
+wheels follow ~90 ms (3 loops) behind - the pods track; the COMMAND oscillates. Common-mode = the commanded travel
+direction, not the turn (heading error +/-7 deg over the same stretch). Hypothesis: Foresight's cross-track loop,
+translational kP 0.26 power/in with kD 0 (removed 11-15): ~18 deg of direction per inch at cruise power, ~12 rad/s
+crossover against ~0.12 s of pod + loop delay - accepted on 2x2 holds only. Next run: AutoConstants
+TRANSLATIONAL_KP 0.12 (estimate) and the trace now records the follower's command (Swerve.lastCommand(), vendored
+read-only accessor) and cross-track error / closest pose / along-path speed (PodRecorder follow columns) to confirm.
+
+Hive history (git): xred/xblue 58/84 (11-05) -> 57.8/83.9 (11-20, measured cell centres, mirror-consistent:
+141.5 - 83.9 = 57.6) -> 64/92 (11-23, operator "robot regression"). 92 is not the mirror of 64 (77.5).

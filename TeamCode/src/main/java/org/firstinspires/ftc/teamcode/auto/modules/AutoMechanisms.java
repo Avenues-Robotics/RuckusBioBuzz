@@ -48,7 +48,23 @@ public final class AutoMechanisms {
                 ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.headingKP : AutoConstants.Autonomous.HEADING_KP;
         org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingFeedback.set(
                 com.pedropathing.controllers.Controller.proportional(kp));
-        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "Foresight heading kP " + kp);
+        double tkp = AutoConstants.Autonomous.TRANSLATIONAL_KP;
+        double fP = Double.isNaN(tkp) ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.forwardTranslationalPrimaryKP : tkp;
+        double fS = Double.isNaN(tkp) ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.forwardTranslationalSecondaryKP : tkp;
+        double sP = Double.isNaN(tkp) ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.strafeTranslationalPrimaryKP : tkp;
+        double sS = Double.isNaN(tkp) ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.strafeTranslationalSecondaryKP : tkp;
+        org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.forwardTranslational.set(
+                org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalController(fP, fS,
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKI,
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKD,
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalSwitchIn));
+        org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.strafeTranslational.set(
+                org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalController(sP, sS,
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKI,
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKD,
+                        org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalSwitchIn));
+        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "Foresight heading kP " + kp
+                + ", translational kP fwd " + fP + "/" + fS + " strafe " + sP + "/" + sS);
         shooter = new Shooter(hardwareMap, new PredictiveAiming(follower), alliance);
         intake = new Intake(hardwareMap, alliance);
         scoopula = new Scoopula(hardwareMap);
@@ -109,10 +125,24 @@ public final class AutoMechanisms {
         loopHzEma = loopHzEma == 0 ? 1 / dt : 0.9 * loopHzEma + 0.1 / dt;
         com.pedropathing.math.Pose pose = follower.pose();
         double target = Double.NaN;
+        double[] follow = new double[org.firstinspires.ftc.teamcode.diagnostics.swerve.PodRecorder.FOLLOW_COLS];
+        java.util.Arrays.fill(follow, Double.NaN);
         if (follower.following()) {
             com.pedropathing.math.Pose closest = follower.closestPose();
-            if (closest != null) target = Math.toDegrees(closest.heading());
+            if (closest != null) {
+                target = Math.toDegrees(closest.heading());
+                // fterr: signed cross-track error, in (+ = left of the path tangent); fherr: heading error, deg
+                com.pedropathing.math.Vector2D n = follower.closestNormal();
+                double ex = pose.x() - closest.x(), ey = pose.y() - closest.y();
+                follow[0] = n != null ? ex * n.x() + ey * n.y() : Math.hypot(ex, ey);
+                follow[1] = Math.toDegrees(com.pedropathing.utils.Angle.normalizeSigned(closest.heading() - pose.heading()));
+                follow[2] = closest.x();
+                follow[3] = closest.y();
+                follow[4] = Math.toDegrees(closest.heading());
+            }
+            follow[5] = follower.tangentialVelocity();
         }
+        follow[6] = follower.isBusy() ? 1 : 0;
         // No drivetrain.debug(): it reads every drive motor's power off the hub (4 Lynx reads a loop) and would slow
         // the loop being measured. The follower's command is recoverable offline (Foresight heading = kP x error).
         double[] drive = new double[org.firstinspires.ftc.teamcode.diagnostics.swerve.PodRecorder.DRIVE_COLS];
@@ -120,13 +150,18 @@ public final class AutoMechanisms {
             com.pedropathing.revhub.drivetrains.CoaxialPod pod = org.firstinspires.ftc.teamcode.pedroPathing.Constants.builtPods[i];
             drive[i] = pod == null ? Double.NaN : pod.getLastDrivePower();
         }
-        drive[4] = drive[5] = drive[6] = Double.NaN;
+        double[] cmd = follower.drivetrain instanceof com.pedropathing.revhub.drivetrains.Swerve
+                ? ((com.pedropathing.revhub.drivetrains.Swerve) follower.drivetrain).lastCommand()
+                : new double[]{Double.NaN, Double.NaN, Double.NaN};
+        drive[4] = cmd[0];
+        drive[5] = cmd[1];
+        drive[6] = cmd[2];
         com.pedropathing.math.Twist tw = follower.twist();
         drive[7] = tw.vx;      // body forward, in/s
         drive[8] = tw.vy;      // body left, in/s
         drive[9] = tw.omega;   // rad/s
         trace.update(dt, loopHzEma, Math.toDegrees(pose.heading()), target, pose.x(), pose.y(),
-                Double.NaN, Double.NaN, Double.NaN, drive);
+                cmd[0], cmd[1], cmd[2], follow, drive);
     }
 
     public void start(String event) {

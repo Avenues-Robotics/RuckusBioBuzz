@@ -147,6 +147,12 @@ public class TeleLoopProbe {
     /** As above, plus the recorder's drive columns (PodRecorder.DRIVE_COLS values, or null). */
     public void update(double dt, double loopHz, double headingDeg, double headingTargetDeg,
             double poseX, double poseY, double cmdF, double cmdS, double cmdT, double[] drive) {
+        update(dt, loopHz, headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, null, drive);
+    }
+
+    /** As above, plus the recorder's follower columns (PodRecorder.FOLLOW_COLS values, or null) - the autos. */
+    public void update(double dt, double loopHz, double headingDeg, double headingTargetDeg,
+            double poseX, double poseY, double cmdF, double cmdS, double cmdT, double[] follow, double[] drive) {
         if (!ENABLED) {
             return;
         }
@@ -176,7 +182,7 @@ public class TeleLoopProbe {
             samplePods();
             recorder.add(dt, volts, loopHz, MODE_DRIVE, Double.NaN, Double.NaN,
                     podVolts, wheelDeg, targetDeg, cmdTargetDeg, errDeg, power, flipped,
-                    headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, null, drive);
+                    headingDeg, headingTargetDeg, poseX, poseY, cmdF, cmdS, cmdT, follow, drive);
         }
 
         if (publishTimer.seconds() >= PUBLISH_INTERVAL_S) {

@@ -68,5 +68,14 @@ public final class AutoConstants {
          * kept near ~10 rad/s for ~40-80 ms of loop delay), on trial in the next run - not accepted.
          */
         public static double HEADING_KP = 1.5;
+        /**
+         * Foresight translational kP for the autos, all four (forward / strafe, primary / secondary) set to it; NaN =
+         * Constants (0.26, kD 0). 2026-11-24 blue run 7: at 25-35 in/s the pods' commanded direction swings together
+         * by +/-25-30 deg at ~2-3 Hz with the pods ~90 ms behind - a cross-track loop at 0.26 power/in (~18 deg of
+         * direction per inch at cruise, ~12 rad/s crossover against ~0.12 s of pod + loop delay), accepted on holds in
+         * the 2x2 only. 0.12 is an ESTIMATE (crossover ~5-6 rad/s); on trial, not accepted. Cost to watch: holds stop
+         * further short (0.19 power breakaway / 0.12 ~ 1.6 in band).
+         */
+        public static double TRANSLATIONAL_KP = 0.12;
     }
 }

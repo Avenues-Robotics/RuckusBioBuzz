@@ -1975,3 +1975,23 @@ uncommitted 45 / 72 were the red rail (45.6-48.0) and the gap between halves, so
 **Open, not changed:** the drawing is point-symmetric, so blue's cells sit ~5.7 in lower in y than red's, but
 `UP_POS 90` / `DOWN_POS 52` are shared by both alliances. Which feature of a cell is the target (outer cap,
 inner opening, centre of the half) is the operator's call; until then the y values stand.
+
+## 2026-11-24 — Pollen flywheel for RAPID FIRE after the third weight: (45, 0.1, 0, 12.75) -> (450, 0.1, 0, 14.5) (shipped)
+
+Mechanism Tuner, field tiles, 13.5 V fresh (12.7 V resting by the end; 10.9-11.9 V under load during bursts).
+Target 1200 ticks/s = the middle of what ShootingRegression asks for (1147 at 30.5 in .. 1305 at 79.9 in).
+
+- **ff sweep** 0.35 / 0.45 / 0.55 power x 6 s holds at 13.3 V: 750 / 1028 / 1352 ticks/s, F 14.0 raw (fit
+  max velocity 2340 ticks/s at full power - was ~2650 before the weight: more friction). 14.5 at F_NOMINAL_VOLTS.
+- **Test**: 4-ball bursts the way TeleOp fires (mechtune burst: wheel at target, gate opens + intake runs on the
+  operator's GO), trace pulled and scored by tools/mechtune/bursts_ab.py from intake-on: speed lost = integral
+  of max(0, 0.98 T - v) dt, worst dip, disturbed span. The tool's own per-ball detector counts the 20 ticks/s
+  velocity step as "contacts" (11 on a 4-ball burst) and is not used.
+- **Baseline P 45**: the 4 balls blend into one 15% dip, ~1.5 s back to 98%.
+- **Search** (n=3/arm, interleaved): speed lost P45 96, P100 42, P200 16, P300 14, P450 6-8, P650 9 (settles
+  slower, hold sd 11.5 vs 8.7 - starting to chatter), P900 20 (chatters, ~4 s disturbed).
+- **Confirmation** P450 vs P200, n=10/arm interleaved: speed lost 9.3 +/- 4.1 vs 19.3 +/- 5.4 (-10.1
+  [-14.6, -5.6], p=0.0002); worst dip 6.2% vs 8.5% (-2.3 pts [-3.3, -1.4], p=0.0001); disturbed span 0.61 vs
+  1.02 s, n.s. (p=0.37); hold sd between bursts 9.4 vs 9.2 (= the 20-tick quantum).
+- Traces: tools/mechtune/runs/burstAB*.csv, smoke-p45-f13.7.csv; per-burst scores burstAB-summary-2026-11-24.jsonl.
+- Not done: AT_SPEED / HOLD_SPEED / MIN_GATE_OPEN_S re-check with the faster recovery; nectar side not mounted.

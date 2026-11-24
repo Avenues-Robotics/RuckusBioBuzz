@@ -128,7 +128,17 @@ public final class SystemConstants {
         // to -30). Real shots, 12.5-13.1 V, F 12.31 (= 12.75 compensated), n=10/arm interleaved, 0 failures each:
         // P 45 98.7 +/- 42.6 ms, P 70 85.4 +/- 27.3 ms (-13 [-47, +21], p=0.42 - P 70 not shown better).
         // Synthetic kicks no longer separate gains (400 ms disable dips the heavier wheel only ~5%).
-        public static PIDFCoefficients POLLEN_PIDF = new PIDFCoefficients(45, 0.1, 0, 12.75);
+        // 2026-11-24, THIRD flywheel weight, tuned for RAPID FIRE: (45, 0.1, 0, 12.75) -> (450, 0.1, 0, 14.5).
+        // Mechanism Tuner, field tiles, target 1200 ticks/s (the regression's 1147-1305 range), 4-ball bursts
+        // through the shipped gate + intake (mechtune burst), scored from the trace (tool detector fooled by the
+        // 20 ticks/s velocity step). ff sweep 0.35/0.45/0.55 x 6 s at 13.3 V: F 14.0 raw -> 14.5 at 12.6 V; the
+        // bursts ran F 14.4 raw at 12.7 V resting (10.9-11.9 V under load). P search (n=3/arm, interleaved):
+        // speed lost (ticks/s*s below 98%) P45 96, P100 42, P200 16, P300 14, P450 6-8, P650 9 (settles slower,
+        // starts to chatter: hold sd 11.5 vs 8.7), P900 20 (chatters, 4 s disturbed). Confirmation P450 vs P200,
+        // n=10/arm interleaved: speed lost 9.3 +/- 4.1 vs 19.3 +/- 5.4 (-10.1 [-14.6, -5.6], p=0.0002), worst dip
+        // 6.2% vs 8.5% (-2.3 pts [-3.3, -1.4], p=0.0001), disturbed span n.s. (p=0.37); hold sd equal (9.4 / 9.2).
+        // P 45 itself: 15% dip and ~1.5 s back to 98% after a burst with the heavier wheel.
+        public static PIDFCoefficients POLLEN_PIDF = new PIDFCoefficients(450, 0.1, 0, 14.5);
         public static PIDFCoefficients NECTAR_PIDF = new PIDFCoefficients(500, 0, 0, 11.7);
     }
 

@@ -138,6 +138,10 @@ public class BlueSoloAuto extends OpMode {
 
         runSequence();
         mechanisms.update();
+        // Recording (2026-11-24): pose on /field (TeleOp's FieldView, with the zone) at its own 20 Hz throttle.
+        if (org.firstinspires.ftc.teamcode.Config.telemetryEnabled()) {
+            org.firstinspires.ftc.teamcode.fieldview.FieldView.publish(follower.pose(), follower.pose(), Alliance.BLUE);
+        }
 
         updateTelemetry(pathFinished ? "Done" : "Running");
     }
@@ -717,6 +721,11 @@ public class BlueSoloAuto extends OpMode {
     private void advanceSequence() {
         sequenceIndex++;
         stepStarted = false;
+        // Recording (2026-11-24): one logcat line per step - the run's timeline (tag = the class name).
+        Pose p = follower.pose();
+        com.qualcomm.robotcore.util.RobotLog.ii(getClass().getSimpleName(), String.format(java.util.Locale.US,
+                "step %d at (%.1f, %.1f, %.0f deg) %s", sequenceIndex, p.x(), p.y(), Math.toDegrees(p.heading()),
+                mechanisms != null ? mechanisms.stateLine() : ""));
     }
 
     private void updateTelemetry(String state) {

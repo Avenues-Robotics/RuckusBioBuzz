@@ -201,7 +201,10 @@ public class Constants {
     // survives in git history at cf5dcee9^ - no branch kept it), import it into TUNED VALUES with
     // robot.py foresight, VALIDATE IT THROUGH PEDRO (TUNING_TASK.md stage 6), and only then set
     // FORESIGHT_MEASURED by hand. No tool sets it.
-    public static final boolean FORESIGHT_MEASURED = false;
+    // true 2026-11-24 (operator asked to run the blue auto): every Foresight value is measured or carried with a
+    // reason (TUNED VALUES comments) and the shipped set passed pedrocheck --pods shipped (FINDINGS 2026-11-24).
+    // Strafe braking is still derived and the field-path check IS this supervised auto run.
+    public static final boolean FORESIGHT_MEASURED = true;
 
     /**
      * Call before following a path or holding a point. Refuses to let Foresight drive on the

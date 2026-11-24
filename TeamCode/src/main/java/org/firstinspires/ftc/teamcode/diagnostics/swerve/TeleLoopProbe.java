@@ -208,6 +208,15 @@ public class TeleLoopProbe {
         }
     }
 
+    /** Start the recorder now, without a host command (the autos record their whole run). */
+    public void startRecording(String label) {
+        if (!ENABLED) {
+            return;
+        }
+        recorder.start(label);
+        message = "Recording " + recorder.label();
+    }
+
     /** Drains queued host commands. update() calls it too; call it before the drive code to act this loop. */
     public void drainCommands() {
         if (!ENABLED) {

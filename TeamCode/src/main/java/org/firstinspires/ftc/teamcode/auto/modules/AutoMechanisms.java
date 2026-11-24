@@ -6,6 +6,8 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.AutoConstants;
+import org.firstinspires.ftc.teamcode.Config;
+import org.firstinspires.ftc.teamcode.diagnostics.swerve.TeleLoopProbe;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;
 import org.firstinspires.ftc.teamcode.modules.PredictiveAiming;
 import org.firstinspires.ftc.teamcode.systems.Intake;
@@ -27,6 +29,13 @@ public final class AutoMechanisms {
     private boolean shooting;
     private boolean intaking;
     private boolean scoopDown;
+    /**
+     * Drive trace (DIAGNOSTIC, 2026-11-24): the drive probe's recorder for the whole auto - pose, the follower's
+     * heading target, the drive command (forward / strafe / turn) and every pod's target, error, turn power and flip,
+     * one row per loop. Pull it from /swerve/rec.csv after the run. Off in comp (Config.telemetryEnabled false).
+     */
+    private final TeleLoopProbe trace;
+    private double loopHzEma;
 
     public AutoMechanisms(HardwareMap hardwareMap, Follower follower, Alliance alliance) {
         this.follower = follower;
@@ -37,6 +46,13 @@ public final class AutoMechanisms {
         shooter = new Shooter(hardwareMap, new PredictiveAiming(follower), alliance);
         intake = new Intake(hardwareMap, alliance);
         scoopula = new Scoopula(hardwareMap);
+        if (Config.telemetryEnabled() && TeleLoopProbe.ENABLED) {
+            trace = new TeleLoopProbe();
+            trace.setSource("Auto " + alliance);
+            trace.init(hardwareMap);
+        } else {
+            trace = null;
+        }
     }
 
     public void clearCache() {
@@ -62,6 +78,37 @@ public final class AutoMechanisms {
             intake.update(false, intaking);
         }
         scoopula.update(scoopDown);
+        if (trace != null) {
+            traceLoop(dtMs / 1000.0);
+        }
+    }
+
+    private void traceLoop(double dt) {
+        if (dt <= 0) {
+            trace.startRecording("auto");   // first loop = START
+            return;
+        }
+        loopHzEma = loopHzEma == 0 ? 1 / dt : 0.9 * loopHzEma + 0.1 / dt;
+        com.pedropathing.math.Pose pose = follower.pose();
+        double target = Double.NaN;
+        if (follower.following()) {
+            com.pedropathing.math.Pose closest = follower.closestPose();
+            if (closest != null) target = Math.toDegrees(closest.heading());
+        }
+        // No drivetrain.debug(): it reads every drive motor's power off the hub (4 Lynx reads a loop) and would slow
+        // the loop being measured. The follower's command is recoverable offline (Foresight heading = kP x error).
+        double[] drive = new double[org.firstinspires.ftc.teamcode.diagnostics.swerve.PodRecorder.DRIVE_COLS];
+        for (int i = 0; i < 4; i++) {
+            com.pedropathing.revhub.drivetrains.CoaxialPod pod = org.firstinspires.ftc.teamcode.pedroPathing.Constants.builtPods[i];
+            drive[i] = pod == null ? Double.NaN : pod.getLastDrivePower();
+        }
+        drive[4] = drive[5] = drive[6] = Double.NaN;
+        com.pedropathing.math.Twist tw = follower.twist();
+        drive[7] = tw.vx;      // body forward, in/s
+        drive[8] = tw.vy;      // body left, in/s
+        drive[9] = tw.omega;   // rad/s
+        trace.update(dt, loopHzEma, Math.toDegrees(pose.heading()), target, pose.x(), pose.y(),
+                Double.NaN, Double.NaN, Double.NaN, drive);
     }
 
     public void start(String event) {

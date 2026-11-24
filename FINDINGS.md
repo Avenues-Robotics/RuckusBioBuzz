@@ -2070,3 +2070,32 @@ Field, operator-placed at blue START (85.5, 132.3, 0), preloads in, recorded wit
 Fixes (shipped): POINT_2 3 in off the wall (blue 128.2, red 13.3); blue path 3 first control point 1.5 in off
 the blue-wall flower (review: 0 problems, 27.8 s both); path stall guard in both autos and the exporter
 (within 6 in of a path end and < 0.5 in of motion over 0.8 s -> hold there, log it, move on).
+
+## 2026-11-24 — Blue auto "limps": path 3 stop-go; suspect Foresight heading kP 7.72 under rotation-while-driving (HYPOTHESIS)
+
+Blue run 3 (tools/swervetune/runs/auto_blue3, pose from /field at ~9 Hz, fresh battery 13.43 V at rest, 11.4 V
+at the end, tiles, robot flush at the blue start; adb was down so no step log):
+- Start -> corner 4.7 s (run 1: ~22 s, wall stall; fixed by the flush start pose 8650ed1f + stall guard e0db4b81).
+- Path 3, corner -> wall flower, 126 in in 10.0 s = 12.6 in/s, turning 90 -> 261 deg on the way. Speed drops to
+  1-3 in/s for a few hundred ms 6-8 times mid-path (t = 14.0, 15.4, 17.5, 18.0, 19.5, 20.1 s), and at those
+  stops the heading is NOT turning fast either - both stall.
+- Return leg (heading held 90): heading wanders 82-96 deg at ~2-3 Hz, cross-track within ~+/-1 in.
+- Operator: "still limping like absolutely crazy".
+- Earlier attempt (run 2) browned out: 11.70 V at rest, 8.78 V at the first shot, hub rebooted. Battery, not code.
+- The "turret shot 90 deg away" in run 1 was a dead turret Axon (no power), replaced; center 0.5 and the blue
+  hive aim checked stationary by the operator after the swap.
+
+Code read, not measured: cosineScale is off (default, Constants does not set it), so the earlier "cosineScale
+slows path 3" guess is WRONG. But ForesightPowerAllocator gives headingFeedforward plus headingDriveRatio 0.5 of
+the heading feedback first claim on pod capacity, and all of the heading feedback when |heading error| > 11.25 deg
+(headingDeviationTolerance); at headingKP 7.72 an error of ~7.4 deg already asks for turn power 1.0. kP 7.72 was
+accepted 2026-11-15 on in-place turns and holds only (pc2x2_candB), never on rotating while translating.
+Hypothesis: the turn takes the capacity on path 3 and its sign flips (heading hunting) swing every pod, which
+tapers drive while they slew - the stop-go.
+
+**Tool change (rule 9), before the data:** AutoMechanisms now runs TeleLoopProbe's recorder for the whole auto
+when Config.telemetryEnabled() (off in comp): per loop pose, heading + follower heading target
+(closestPose().heading()), every pod's commanded target / wheel angle / error / turn power / flip, drive power
+per pod, body twist. Pull /swerve/rec.csv. Cost: the PodRecorder row per loop + the 20 Hz /swerve/state publish,
+the same probe TeleDriveProbe runs. Swerve.debug() deliberately NOT used (4 drive-motor power reads per loop).
+No earlier auto run has loop data, so nothing already collected becomes non-comparable.

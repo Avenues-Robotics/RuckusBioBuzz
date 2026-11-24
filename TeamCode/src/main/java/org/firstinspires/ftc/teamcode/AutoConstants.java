@@ -142,5 +142,11 @@ public final class AutoConstants {
          * an estimate (range ~ v^2, so ~-15% range). TeleOp unaffected.
          */
         public static double FLYWHEEL_OFFSET = -90;
+        /**
+         * Speed cap on the blue auto's path 2 (POINT_9 -> POINT_2, the tight curve into the corner), a fraction of max
+         * achievable velocity (Foresight maxPathSpeed, ~70 in/s): 0.4 ~ 28 in/s, ~150 deg/s of pod direction change
+         * on its ~10 in radius. ESTIMATE, on trial (run 17). >= 1 = no cap.
+         */
+        public static double PATH2_SPEED = 0.4;
     }
 }

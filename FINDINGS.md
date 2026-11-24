@@ -2325,3 +2325,11 @@ off: kP 1.5 vs ~170 ms rotation delay. Next run (vs run 14 as the baseline): HEA
 
 Heading now LAGS rather than hunts: |heading err| median 11.6 deg on path 3's 172 deg turn, a steady ~7 deg on the
 return leg (P-only offset). Smoother and faster nearly everywhere; the garden clear trades oscillation for lag.
+
+Operator after run 16: "much smoother, path 2 still wobbles a bit, keep going". Run 16 path 2 (POINT_9 -> POINT_2):
+the curve turns ~70 deg in ~13 in (radius ~10-11 in), entered at 30-50 in/s; at the POINT_9 junction the pod
+targets swing ~280 deg/s, pod error -60..-89 deg, speed 36 -> 10 in/s; heading ~25 deg behind (path 1's 0 -> 45
+unfinished, path 2 asks 45 -> 90 in the same stretch). Foresight passes no curvature feed-forward (allocator
+normalFeedforwardVector = zero), so it does not slow for a tight curve itself. Next run: segment-only speed cap on
+path 2, AutoConstants PATH2_SPEED 0.4 (~28 in/s) via the child path's maxPathSpeed modifier (hand-wired in
+BlueSoloAuto chain1 - a visualizer re-export drops it).

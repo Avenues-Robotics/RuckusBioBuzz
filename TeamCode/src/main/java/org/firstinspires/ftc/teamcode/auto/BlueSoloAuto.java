@@ -234,7 +234,10 @@ public class BlueSoloAuto extends OpMode {
                         Math.toRadians(90.000),
                         1.000
                     )
-                )
+                ).with(((Foresight) follower.algorithm()).config.maxPathSpeed.at(AutoConstants.Autonomous.PATH2_SPEED))
+                // ^ Hand-wired 2026-11-24 (re-apply after a visualizer export): path 2 turns ~70 deg in ~13 in (radius
+                //   ~10-11 in) and was entered at 30-50 in/s - the pods' direction had to swing ~280 deg/s (run 16:
+                //   pod error -60..-89 deg at POINT_9, 36 -> 10 in/s). Segment-only speed cap; path 1 is untouched.
             )
         ).addParametricCallback(0, 0.000, () ->
             startParallelEvent("Intake On", 0)   // collecting from path 1 on (operator 2026-11-23)

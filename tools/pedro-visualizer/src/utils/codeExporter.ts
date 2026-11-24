@@ -1086,9 +1086,10 @@ export async function generateTeamCodeAutoCode(
 import org.firstinspires.ftc.teamcode.auto.modules.CameraPick;
 import org.firstinspires.ftc.teamcode.helpers.Alliance;`
     : "";
-  const autoConstantsImport = hasTurn ? `
-import org.firstinspires.ftc.teamcode.AutoConstants;
-import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "";
+  // AutoConstants: always (followPathStep's stall guard reads it); TurnInPlace only with a Turn first.
+  const autoConstantsImport = `
+import org.firstinspires.ftc.teamcode.AutoConstants;` + (hasTurn ? `
+import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "");
   const cameraPickDeclarations = pick
     ? `
     // Camera pick on ${pick.line.name?.trim() || "a path"} (visualizer: the path's "Camera pick"; auto/modules/CameraPick).
@@ -1152,12 +1153,14 @@ import org.firstinspires.ftc.teamcode.auto.modules.TurnInPlace;` : "";
             ${pick.field}Switched = false;
             startPath(path, pathSpeed);
             stepStarted = true;
+            resetStallWatch();
         }
         if (pick != null && !${pick.field}Switched) {
             startPath(pick, pathSpeed);
             ${pick.field}Switched = true;
+            resetStallWatch();
         }
-        if (!follower.isBusy()) {
+        if (!follower.isBusy() || stalledNearEnd(${pick.field}Switched && pick != null ? pick : path)) {
             startEvent("Intake Off");
             advanceSequence();
         }
@@ -1965,11 +1968,47 @@ ${pollenStop}
         if (!stepStarted) {
             startPath(path, pathSpeed);
             stepStarted = true;
+            resetStallWatch();
         }
 
-        if (!follower.isBusy()) {
+        if (!follower.isBusy() || stalledNearEnd(path)) {
             advanceSequence();
         }
+    }
+
+    // Stall guard (2026-11-24, blue auto on the field): the follower stays busy until it REACHES the path end,
+    // so an end it cannot reach (a wall, a game piece) ate 17 s of AUTO pushing into the far wall. Near the end
+    // (AutoConstants.Autonomous.PATH_STALL_NEAR_IN) and not moving (< PATH_STALL_MOVE_IN over PATH_STALL_S), hold
+    // where the robot is and move on.
+    private Pose stallAnchor;
+    private long stallAnchorMs;
+
+    private void resetStallWatch() {
+        stallAnchor = null;
+    }
+
+    private boolean stalledNearEnd(AutoPath path) {
+        Pose now = follower.pose();
+        Pose end = path.path.endPose();
+        if (Math.hypot(end.x() - now.x(), end.y() - now.y()) > AutoConstants.Autonomous.PATH_STALL_NEAR_IN) {
+            stallAnchor = null;
+            return false;
+        }
+        long t = System.currentTimeMillis();
+        if (stallAnchor == null
+                || Math.hypot(now.x() - stallAnchor.x(), now.y() - stallAnchor.y()) > AutoConstants.Autonomous.PATH_STALL_MOVE_IN) {
+            stallAnchor = now;
+            stallAnchorMs = t;
+            return false;
+        }
+        if (t - stallAnchorMs < AutoConstants.Autonomous.PATH_STALL_S * 1000) {
+            return false;
+        }
+        com.qualcomm.robotcore.util.RobotLog.ww(getClass().getSimpleName(), String.format(java.util.Locale.US,
+                "path stalled %.1f in short of its end at (%.1f, %.1f) - holding here and moving on",
+                Math.hypot(end.x() - now.x(), end.y() - now.y()), now.x(), now.y()));
+        follower.hold(now);
+        return true;
     }
 
     /** Pedro 2's followPath(path, maxPower, holdEnd = true), callbacks re-armed as it did. */

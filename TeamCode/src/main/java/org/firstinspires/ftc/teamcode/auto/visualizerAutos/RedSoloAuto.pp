@@ -42,7 +42,7 @@
       "name": "Corner loop, back",
       "endPoint": {
         "x": 10.222,
-        "y": 10.299,
+        "y": 13.299,
         "heading": "linear",
         "startDeg": 225,
         "endDeg": 270,

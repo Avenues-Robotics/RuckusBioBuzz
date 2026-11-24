@@ -1,0 +1,12 @@
+--------- beginning of main
+12-31 19:07:44.842 I/PollenCamera(28466): attached webcam serialNumber="941980E0" Logitech Webcam
+12-31 19:07:44.856 I/PollenCamera(28466): opened first attached webcam, NOT in the config (serial 941980E0)
+--------- beginning of system
+12-31 19:07:48.883 I/BlueSoloAuto(28466): step 1 at (85.5, 132.3, 360 deg) shoot=0 intake=0 scoop=up shooter=SHOOT/zone/aimP
+12-31 19:08:11.202 I/BlueSoloAuto(28466): step 2 at (130.9, 132.0, 90 deg) shoot=0 intake=1 scoop=up shooter=TRACK/zone/aimP
+12-31 19:08:11.733 I/BlueSoloAuto(28466): step 3 at (131.1, 131.7, 90 deg) shoot=0 intake=1 scoop=up shooter=TRACK/zone/aimP
+12-31 19:08:21.077 I/BlueSoloAuto(28466): step 4 at (94.8, 15.4, 261 deg) shoot=0 intake=1 scoop=down shooter=TRACK/aimP
+12-31 19:08:23.141 I/BlueSoloAuto(28466): step 5 at (94.9, 15.5, 262 deg) shoot=0 intake=0 scoop=down shooter=SHOOT/aimP
+12-31 19:08:24.856 I/BlueSoloAuto(28466): step 6 at (83.2, 25.9, 98 deg) shoot=0 intake=0 scoop=up shooter=TRACK/aimP
+12-31 19:08:26.891 I/BlueSoloAuto(28466): step 7 at (83.0, 25.9, 90 deg) shoot=0 intake=0 scoop=up shooter=TRACK/aimP
+12-31 19:08:30.974 I/CameraPick(28466): pick at (81, 83): (100.0, 132.5) x 41.5 (clump 41.5, ~1 balls, 1 candidates)

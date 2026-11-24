@@ -31,7 +31,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 public class BlueSoloAuto extends OpMode {
     // PathStep fields are editable from FTC Dashboard; paths are built in init(), so edits apply on the next init.
     public static PathStep START_STEP = new PathStep(85.500, 132.304, 0.000);
-    public static PathStep POINT_2 = new PathStep(131.278, 131.201, 90.000);
+    public static PathStep POINT_2 = new PathStep(131.278, 128.201, 90.000);   // 3 in off the far wall (2026-11-24: the robot met the wall short of 131.2)
     public static PathStep POINT_3 = new PathStep(95.020, 15.643, 262.000);
     public static PathStep POINT_4 = new PathStep(82.688, 25.934, 90.000);
     public static PathStep POINT_5 = new PathStep(83.557, 131.081, 90.000);
@@ -203,7 +203,7 @@ public class BlueSoloAuto extends OpMode {
         chain2 = new AutoPath(
             Paths.curve(
                 POINT_2.toPose(),
-                new Pose(120.713, 99.619),
+                new Pose(119.200, 99.619),   // 1.5 in further from the blue-wall flower after POINT_2 moved (2026-11-24)
                 new Pose(122.511, 44.825),
                 new Pose(92.776, 30.071),
                 POINT_3.toPose()
@@ -314,12 +314,14 @@ public class BlueSoloAuto extends OpMode {
             chain4Switched = false;
             startPath(path, pathSpeed);
             stepStarted = true;
+            resetStallWatch();
         }
         if (pick != null && !chain4Switched) {
             startPath(pick, pathSpeed);
             chain4Switched = true;
+            resetStallWatch();
         }
-        if (!follower.isBusy()) {
+        if (!follower.isBusy() || stalledNearEnd(chain4Switched && pick != null ? pick : path)) {
             startEvent("Intake Off");
             advanceSequence();
         }
@@ -471,11 +473,47 @@ public class BlueSoloAuto extends OpMode {
         if (!stepStarted) {
             startPath(path, pathSpeed);
             stepStarted = true;
+            resetStallWatch();
         }
 
-        if (!follower.isBusy()) {
+        if (!follower.isBusy() || stalledNearEnd(path)) {
             advanceSequence();
         }
+    }
+
+    // Stall guard (2026-11-24, blue auto on the field): the follower stays busy until it REACHES the path end,
+    // so an end it cannot reach (a wall, a game piece) ate 17 s of AUTO pushing into the far wall. Near the end
+    // (AutoConstants.Autonomous.PATH_STALL_NEAR_IN) and not moving (< PATH_STALL_MOVE_IN over PATH_STALL_S), hold
+    // where the robot is and move on.
+    private Pose stallAnchor;
+    private long stallAnchorMs;
+
+    private void resetStallWatch() {
+        stallAnchor = null;
+    }
+
+    private boolean stalledNearEnd(AutoPath path) {
+        Pose now = follower.pose();
+        Pose end = path.path.endPose();
+        if (Math.hypot(end.x() - now.x(), end.y() - now.y()) > AutoConstants.Autonomous.PATH_STALL_NEAR_IN) {
+            stallAnchor = null;
+            return false;
+        }
+        long t = System.currentTimeMillis();
+        if (stallAnchor == null
+                || Math.hypot(now.x() - stallAnchor.x(), now.y() - stallAnchor.y()) > AutoConstants.Autonomous.PATH_STALL_MOVE_IN) {
+            stallAnchor = now;
+            stallAnchorMs = t;
+            return false;
+        }
+        if (t - stallAnchorMs < AutoConstants.Autonomous.PATH_STALL_S * 1000) {
+            return false;
+        }
+        com.qualcomm.robotcore.util.RobotLog.ww(getClass().getSimpleName(), String.format(java.util.Locale.US,
+                "path stalled %.1f in short of its end at (%.1f, %.1f) - holding here and moving on",
+                Math.hypot(end.x() - now.x(), end.y() - now.y()), now.x(), now.y()));
+        follower.hold(now);
+        return true;
     }
 
     /** Pedro 2's followPath(path, maxPower, holdEnd = true), callbacks re-armed as it did. */

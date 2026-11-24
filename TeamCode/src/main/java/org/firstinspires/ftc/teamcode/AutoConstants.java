@@ -53,5 +53,11 @@ public final class AutoConstants {
         // after the timeout and turn anyway. A back-off shorter than the tolerance is skipped.
         public static double TURN_BACKOFF_TOLERANCE_IN = 0.5;
         public static double TURN_BACKOFF_TIMEOUT_MS = 800;
+        // Path stall guard (followPathStep): within NEAR_IN of a path's end and moving < MOVE_IN over S seconds ->
+        // hold there and go on. 2026-11-24 blue auto: the corner end sat 2.7 in into the far wall and the
+        // follower pushed for 17 s.
+        public static double PATH_STALL_NEAR_IN = 6.0;
+        public static double PATH_STALL_MOVE_IN = 0.5;
+        public static double PATH_STALL_S = 0.8;
     }
 }

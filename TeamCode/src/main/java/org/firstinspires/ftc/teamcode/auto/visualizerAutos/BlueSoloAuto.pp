@@ -42,7 +42,7 @@
       "name": "Corner loop, back",
       "endPoint": {
         "x": 131.278,
-        "y": 131.201,
+        "y": 128.201,
         "heading": "linear",
         "startDeg": 45,
         "endDeg": 90,
@@ -74,7 +74,7 @@
       },
       "controlPoints": [
         {
-          "x": 120.713,
+          "x": 119.2,
           "y": 99.619
         },
         {

@@ -2053,3 +2053,20 @@ vs the same session's pre-deploy shipped arm (before/after across a deploy, not 
 duration 2.91 -> 2.67 s, end error 0.18 -> 0.19 in, max heading error 5.4 -> 5.7 deg (over the 3 deg threshold
 both before and after); turn settle-to-2-deg 1.01-1.09 -> 0.91-0.98 s, turn overshoot 0.04-0.27 -> 0.5-1.4 deg.
 Accepted. Remaining before FORESIGHT_MEASURED: a real auto path on the field (pedrocheck path, field fence).
+
+## 2026-11-24 — First REAL blue auto run (recorded): corner stall 17 s, path 3 slow; camera pick + turn + shot worked
+
+Field, operator-placed at blue START (85.5, 132.3, 0), preloads in, recorded with tools/swervetune/autorecord.py
+(runs/auto_blue1: pose.csv 20 Hz from /field, 81 camera frames, logcat step lines). Volts UNKNOWN.
+- Path 1 + corner loop: reached the corner in ~4 s, then sat 2.7 in short of POINT_2 (131.2) for ~17 s with the
+  camera pressed on the far wall's clear panel (frame 016.27) - the robot met the wall while odometry put its
+  front 4 in off it (start placement / real field size vs the 141.5 in model). The follower stays busy until it
+  reaches the end, so the step took 22.3 s and the auto ran ~30 s long.
+- Path 3 (up the field, 172 deg of heading change): 9.2 s at a steady 12-16 in/s vs ~4 s planned; ended square
+  on the audience-wall flower (94.9, 15.5, 262). Cause not established (suspect: heading demand saturating the
+  mixer so translation is scaled down) - next to investigate.
+- Camera pick: clump at x 100.0 on the far wall (~1 ball, 1 candidate), drive in, back off + turn to 0, shot -
+  all as designed. Every remaining step ran; stopped during Park.
+Fixes (shipped): POINT_2 3 in off the wall (blue 128.2, red 13.3); blue path 3 first control point 1.5 in off
+the blue-wall flower (review: 0 problems, 27.8 s both); path stall guard in both autos and the exporter
+(within 6 in of a path end and < 0.5 in of motion over 0.8 s -> hold there, log it, move on).

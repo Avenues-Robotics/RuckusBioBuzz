@@ -54,13 +54,17 @@ def dist_to_polyline(P, L):
 
 # ---- classify linework
 mid0 = S0.mean(1); mid45 = S45.mean(1)
-INTAKE_STAR, SPOKE = np.array([-168.0, 140.0]), np.array([95.0, 198.0])
-drop0 = (np.linalg.norm(mid0 - INTAKE_STAR, axis=1) < 80) & (np.linalg.norm(mid0 - np.array([-230.0, 100.0]), axis=1) > 40)   # keep the intake wheel                   # intake star tubing: hidden
+SPOKE = np.array([95.0, 198.0])
+ROW1, ROW2, WHEEL = np.array([-145.6, 139.0]), np.array([-83.7, 157.6]), np.array([-230.0, 100.0])
+row1 = (np.linalg.norm(mid0 - ROW1, axis=1) < 62) & (np.linalg.norm(mid0 - WHEEL, axis=1) > 40)
+th = np.radians(30.0); Rm = np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
+ROW2_SEGS = (S0[row1] - ROW1) @ Rm.T + ROW2          # no tubing at the centreline on row 2 in the CAD: drawn from row 1's
+drop0 = row1                                          # drawn as tubing below, not as plain linework
 FLOOR_J = [(-5, 66), (122, 95), (140, 105), (158, 122), (172, 143), (183, 168), (190, 195), (194, 225), (196, 250)]
-ramp0 = (dist_to_polyline(mid0, FLOOR_J) < 6.5) & ~drop0
+ramp0 = (dist_to_polyline(mid0, FLOOR_J) < 6.5) & ~row1
 tube0 = (np.linalg.norm(mid0 - SPOKE, axis=1) < 72) & (mid0[:, 1] < 238) & ~ramp0
 
-ramp45 = np.zeros(len(S45), bool)
+ramp45 = dist_to_polyline(mid45, [(-195, 0), (-28, 56)]) < 15   # bottom intake ramp plates (both)
 RAIL = [(-50, 88), (120, 137)]
 for poly, idx, closed in loops(S45):
     c = poly.mean(0); ext = poly.max(0) - poly.min(0)
@@ -99,21 +103,24 @@ for S, m in ((S45, ramp45), (S0, ramp0)):
             ax.add_patch(PathPatch(Path(np.vstack([poly, poly[:1]])), facecolor=RAMP, alpha=0.13, edgecolor="none", zorder=2.5))
     ax.add_collection(LineCollection(S[m], colors=RAMP, linewidths=1.9, zorder=3, **kw))
 
-# surgical tubing on the transfer spoke wheel: rasterise the two walls of each tube, close the gap, fill solid
+# surgical tubing: rasterise the two walls of each tube, close the gap, fill solid
 from scipy.ndimage import distance_transform_edt
-TY0, TY1, TZ0, TZ1, TR = 15.0, 175.0, 125.0, 240.0, 0.2
-tm = np.zeros((int((TZ1 - TZ0) / TR), int((TY1 - TY0) / TR)), bool)
-for (p, q) in S0[tube0]:
-    n = int(max(abs(q[0] - p[0]), abs(q[1] - p[1])) / TR) + 2
-    ys = np.linspace(p[0], q[0], n); zs = np.linspace(p[1], q[1], n)
-    iy = ((ys - TY0) / TR).astype(int); iz = ((zs - TZ0) / TR).astype(int)
-    ok = (iy >= 0) & (iy < tm.shape[1]) & (iz >= 0) & (iz < tm.shape[0]); tm[iz[ok], iy[ok]] = True
-close_r = 4.5 / TR
-dil = distance_transform_edt(~tm) <= close_r
-solid = distance_transform_edt(dil) > close_r
-ty = TY0 + (np.arange(tm.shape[1]) + 0.5) * TR; tz = TZ0 + (np.arange(tm.shape[0]) + 0.5) * TR
-ax.contourf(ty, tz, gaussian_filter(solid.astype(float), 1.0), levels=[0.5, 2], colors=[TUBE_FILL], zorder=3.5)
-ax.add_collection(LineCollection(S0[tube0], colors=TUBE_EDGE, linewidths=1.0, zorder=3.6, **kw))
+def solid_tubes(segs, box, res=0.2, close_mm=4.5):
+    TY0, TY1, TZ0, TZ1 = box
+    tm = np.zeros((int((TZ1 - TZ0) / res), int((TY1 - TY0) / res)), bool)
+    for (p, q) in segs:
+        n = int(max(abs(q[0] - p[0]), abs(q[1] - p[1])) / res) + 2
+        ys = np.linspace(p[0], q[0], n); zs = np.linspace(p[1], q[1], n)
+        iy = ((ys - TY0) / res).astype(int); iz = ((zs - TZ0) / res).astype(int)
+        ok = (iy >= 0) & (iy < tm.shape[1]) & (iz >= 0) & (iz < tm.shape[0]); tm[iz[ok], iy[ok]] = True
+    r = close_mm / res
+    solid = distance_transform_edt(distance_transform_edt(~tm) <= r) > r
+    ty = TY0 + (np.arange(tm.shape[1]) + 0.5) * res; tz = TZ0 + (np.arange(tm.shape[0]) + 0.5) * res
+    ax.contourf(ty, tz, gaussian_filter(solid.astype(float), 1.0), levels=[0.5, 2], colors=[TUBE_FILL], zorder=3.5)
+    ax.add_collection(LineCollection(segs, colors=TUBE_EDGE, linewidths=1.0, zorder=3.6, **kw))
+solid_tubes(S0[tube0], (15.0, 175.0, 125.0, 240.0))
+solid_tubes(S0[row1], (-215.0, -75.0, 75.0, 205.0))
+solid_tubes(ROW2_SEGS, (-150.0, -15.0, 95.0, 225.0))
 
 # ---- wiffle balls (per-pixel render)
 def fib_dirs(n, seed):

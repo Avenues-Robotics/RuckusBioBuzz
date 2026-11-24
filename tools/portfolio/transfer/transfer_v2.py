@@ -168,13 +168,60 @@ def wiffle(base_hex, shadow_hex, hole_hex, n_holes, hole_ang, seed, px=900):
     return np.dstack([np.clip(col, 0, 1), alpha])
 
 balls = json.load(open("balls_final.json"))
-STYLE = {"NECTAR": ("#E8291E", "#8E120C", "#9A1810", 14, 0.235), "POLLEN": ("#FFD21A", "#C98A00", "#C38B00", 14, 0.255)}
-paths = {"NECTAR": [], "POLLEN": []}
-for k, b in enumerate(balls):
+from matplotlib.patches import Circle, Polygon
+# flat game pieces: fill, darker outline, a few flat holes (no shading)
+FLAT = {"NECTAR": ("#E0261C", "#8E120C", "#B71C14"), "POLLEN": ("#F5C211", "#9C7400", "#D9A500")}
+HOLES = [(-0.28, 0.34, 0.19), (0.40, 0.12, 0.17), (0.00, -0.42, 0.19), (-0.66, -0.24, 0.13), (0.64, -0.52, 0.12)]
+RAIL_A, RAIL_B = np.array([-56.0, 86.5]), np.array([126.0, 139.0])        # rail axis (standoff centres), x = +/-45 mm
+RAIL_R = 4.6                                                              # standoff radius
+rail_dir = (RAIL_B - RAIL_A) / np.linalg.norm(RAIL_B - RAIL_A); rail_n = np.array([-rail_dir[1], rail_dir[0]])
+TOP_OFF = RAIL_R                                                          # top edge of the rail = axis + radius
+
+def half_plane(above, big=600.0):
+    """Polygon of everything above (or below) the rail's top edge, as a clip path."""
+    o = RAIL_A + rail_n * TOP_OFF
+    a0, b0 = o - rail_dir * big, o + rail_dir * big
+    off = rail_n * big * (1 if above else -1)
+    return Polygon([a0, b0, b0 + off, a0 + off], closed=True, transform=ax.transData)
+
+def flat_ball(b, clip=None, hidden=False):
+    r = b["d"] * 25.4 / 2; fill, edge, hole = FLAT[b["kind"]]
+    c = (b["y"], b["z"])
+    body = Circle(c, r, facecolor=fill, edgecolor="none", alpha=0.28 if hidden else 1.0, zorder=8)
+    out = Circle(c, r, facecolor="none", edgecolor=edge, lw=1.5, ls=(0, (3.2, 2.4)) if hidden else "-", zorder=8.4)
+    parts = [body, out]
+    if not hidden:
+        for hx, hy, hr in HOLES:
+            parts.append(Circle((c[0] + hx * r, c[1] + hy * r), hr * r, facecolor=hole, edgecolor="none", zorder=8.2))
+    disk = Circle(c, r, transform=ax.transData)
+    for pt in parts:
+        ax.add_patch(pt)
+        if pt is not out and pt is not body: pt.set_clip_path(disk)
+        if clip is not None: pt.set_clip_path(clip)
+    if not hidden:                       # holes cut by the ball edge: clip to the disk AND the region
+        for pt in parts[2:]:
+            pt.set_clip_path(disk if clip is None else clip)
+
+for b in balls:
     r = b["d"] * 25.4 / 2
-    col, sh, hc, n, ang = STYLE[b["kind"]]
-    img = wiffle(col, sh, hc, n, ang, seed=11 + 7 * k)
-    ax.imshow(img, extent=(b["y"] - r, b["y"] + r, b["z"] - r, b["z"] + r), zorder=8, interpolation="lanczos")
+    # does this piece straddle the rail (within the rail's length)?
+    t = (np.array([b["y"], b["z"]]) - RAIL_A) @ rail_dir
+    d = (np.array([b["y"], b["z"]]) - RAIL_A) @ rail_n - TOP_OFF
+    on_rail = -r < t < np.linalg.norm(RAIL_B - RAIL_A) + r and abs(d) < r
+    if on_rail:
+        flat_ball(b, clip=half_plane(True))                 # above the rail: seen
+        flat_ball(b, clip=half_plane(False), hidden=True)   # below the rail top: between the rails (hidden line)
+    else:
+        flat_ball(b)
+
+# the rail in front of the pieces (near side, mirror of the x = -45 mm rail): band + standoffs
+L = np.linalg.norm(RAIL_B - RAIL_A); nstand = 12
+band = [RAIL_A + rail_n * (RAIL_R + 0.8), RAIL_B + rail_n * (RAIL_R + 0.8), RAIL_B - rail_n * (RAIL_R + 0.8), RAIL_A - rail_n * (RAIL_R + 0.8)]
+ax.add_patch(Polygon(band, closed=True, facecolor="#C9D3AE", edgecolor=RAMP, lw=1.5, zorder=9, joinstyle="round"))
+for k in range(nstand):
+    c = RAIL_A + rail_dir * (L * (k + 0.5) / nstand)
+    ax.add_patch(Circle(c, RAIL_R - 0.6, facecolor="#E7EBD4", edgecolor=RAMP, lw=1.2, zorder=9.2))
+    ax.add_patch(Circle(c, 1.6, facecolor=RAMP, edgecolor="none", zorder=9.3))
 
 if a.arrows:
     def path_arrow(pts, color):

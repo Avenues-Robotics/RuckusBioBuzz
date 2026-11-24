@@ -64,6 +64,15 @@ public final class AutoMechanisms {
                         org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKI,
                         org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalKD,
                         org.firstinspires.ftc.teamcode.pedroPathing.Constants.translationalSwitchIn));
+        // Pod steering high-speed floor for the autos (robot-wide static; createSwerve re-applies Constants for
+        // every other OpMode, so TeleOp is unaffected).
+        double floorHigh = Double.isNaN(AutoConstants.Autonomous.STEER_FLOOR_HIGH)
+                ? org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleFloorHigh
+                : AutoConstants.Autonomous.STEER_FLOOR_HIGH;
+        com.pedropathing.revhub.drivetrains.CoaxialPod.setScheduleHighSpeed(floorHigh,
+                org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighStart,
+                org.firstinspires.ftc.teamcode.pedroPathing.Constants.turnScheduleHighFull);
+        com.qualcomm.robotcore.util.RobotLog.ii("AutoMechanisms", "pod schedule high floor " + floorHigh);
         double tolDeg = Double.isNaN(AutoConstants.Autonomous.HEADING_TOLERANCE_DEG)
                 ? 11.25 : AutoConstants.Autonomous.HEADING_TOLERANCE_DEG;
         org.firstinspires.ftc.teamcode.pedroPathing.Constants.foresightConfig.headingDeviationTolerance.set(

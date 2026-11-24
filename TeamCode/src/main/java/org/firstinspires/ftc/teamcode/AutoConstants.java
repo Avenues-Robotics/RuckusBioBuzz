@@ -84,5 +84,14 @@ public final class AutoConstants {
          * 30 is an ESTIMATE; on trial, not accepted. The heading still converges - it just stops preempting driving.
          */
         public static double HEADING_TOLERANCE_DEG = 30;
+        /**
+         * Pod steering gain-schedule HIGH-SPEED floor for the autos (CoaxialPod.setScheduleHighSpeed; NaN =
+         * Constants.turnScheduleFloorHigh 0.80). Blue run 10 (2026-11-24), straight return leg at 0.85-0.95 drive
+         * power: commanded pod targets steady (80-100 deg) while the wheels swing +/-35-45 deg around them at ~3 Hz,
+         * turn power +/-0.5-0.6, yaw rate +/-80 deg/s in step - the pod loops limit-cycling. 0.80 was accepted
+         * 2026-11-24 in the TeleOp Drive Probe (mechanisms off, 48-75 Hz loop); the auto loop is 30-35 Hz.
+         * 0.30 = the high-speed leg off (same as the low floor): a hypothesis test, not a tune.
+         */
+        public static double STEER_FLOOR_HIGH = 0.30;
     }
 }

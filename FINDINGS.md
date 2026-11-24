@@ -2212,3 +2212,18 @@ samples (37%) have |heading error| > headingDeviationTolerance 11.25 deg; there 
 rotation command ~0.5. At kP 7.72 this rarely triggered (heading tight but oscillating); at kP 1.5 the heading
 lags the 172 deg turn path 3 asks for. Candidate next: raise headingDeviationTolerance for the autos (translation
 keeps priority; the heading finishes at the end, as it already does in the shot wait).
+
+### Blue run 10 — heading tolerance 30 deg (12.50 V at rest, tiles, flush start). Path 3 CONTAMINATED: robot-robot contact
+
+Path 3 cruised 31-37 in/s with heading error <= 5 deg to y ~37 (trans command 0.83-0.99), then sat ~3 s near
+(100, 30) commanded 0.85 at < 5 in/s and was pushed back / sideways: operator "there was a contact of robots".
+Path-3 time (9.1 s) and dips are not usable. Return leg: 2.5 s, 37.5 in/s mean.
+
+**The limp, located (return leg, heading held 90, 0.85-0.95 drive power):** the commanded pod targets are nearly
+steady (80-100 deg) but the wheels swing +/-35-45 deg AROUND them at ~3 Hz (pod 0: 63 -> 111 -> 41 -> 118 -> 45 ->
+124 -> 38 -> 111 -> 25 deg, period ~0.33 s), turn power +/-0.5-0.6, robot yaw rate +/-80 deg/s in step. The pod
+steering loops are limit-cycling at speed - the command is not the oscillator here. Suspect: the gain schedule's
+high-speed floor 0.80 (caf98ea2, this morning, was 0.60), which raises the near-target pod gain at > 0.35 drive
+power; it was accepted in the TeleOp Drive Probe (mechanisms OFF, 48-75 Hz loop), the auto runs 30-35 Hz.
+Next run: AutoConstants.STEER_FLOOR_HIGH 0.30 (high-speed leg off) - a hypothesis test. If it holds, TeleOp
+(mechanisms ON, loop unmeasured) probably limit-cycles at full speed too.

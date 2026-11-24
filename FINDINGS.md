@@ -2333,3 +2333,9 @@ unfinished, path 2 asks 45 -> 90 in the same stretch). Foresight passes no curva
 normalFeedforwardVector = zero), so it does not slow for a tight curve itself. Next run: segment-only speed cap on
 path 2, AutoConstants PATH2_SPEED 0.4 (~28 in/s) via the child path's maxPathSpeed modifier (hand-wired in
 BlueSoloAuto chain1 - a visualizer re-export drops it).
+
+### Blue run 17 — path 2 speed cap 0.4 (12.78 V at rest, tiles, flush start)
+
+Path 2 (x > 121 -> corner), run 16 -> 17: pod |err| median 23 -> 13 deg (p90 65 -> 31), heading err median 26 -> 10
+deg (max 31 -> 16), yaw rate -37..99 -> 35..101 deg/s (one continuous turn, no reversal), min speed 10.2 -> 14.1
+in/s; start -> corner 1.72 -> 1.76 s (no time cost). n = 1.

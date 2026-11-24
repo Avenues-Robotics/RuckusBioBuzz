@@ -48,19 +48,29 @@ public class Constants {
     // Max velocity MEASURED 2026-11-16 on a competition field (was the 73.9 placeholder): open-loop full-power run
     // along the audience-side lane, steady ~50-53 in/s on a loaded battery (11.3-12.6 V); 0.80 power -> 44, 0.47 -> 27.5.
     // Strafe is assumed equal (swerve), not measured.
-    public static final double maxAchievableForwardVelocity = 52.0;
-    public static final double maxAchievableStrafeVelocity = 52.0;
-    public static final double naturalForwardDeceleration = 40.0;
-    public static final double naturalStrafeDeceleration = 40.0;
+    // 2026-11-24: 52 -> 70. The 52 came through Swerve Bring-Up's DRIVE path, which re-measured today in the same lane
+    // at 30-32 in/s peak with the bench's own pods 22-27 deg off target (the drive scales power by cos(pod error)) -
+    // a proxy, not the drivetrain. The competition path (follower.manual through the shipped mixer and pods, TeleOp
+    // Drive Probe) reached 69-72 in/s at full stick (speed_p90, ~15 runs, 2x6 lane, 11.2-12.6 V); strafe matched
+    // forward at 0.8 stick (50.9 vs 51.7). A vmax below the real one makes Foresight plan braking for a slower robot.
+    public static final double maxAchievableForwardVelocity = 70.0;
+    public static final double maxAchievableStrafeVelocity = 70.0;
+    // 2026-11-24 Foresight box tuner coast-down, 2x6 lane (was 40, the 2026-08-14 coast-down on the old drivetrain):
+    // forward 73.9 in/s^2 from 34.5 in/s (8.1 in coast), strafe 95.1 from 28.7 in/s (target lowered to fit the lane).
+    public static final double naturalForwardDeceleration = 73.86;
+    public static final double naturalStrafeDeceleration = 95.10;
     public static final double headingKP = 7.7173;
     public static final double headingBrakeLinear = 0.050501;
     public static final double headingBrakeQuadratic = 0.019853;
-    public static final double forwardBrakeLinear = 0.0;
+    // Forward braking MEASURED 2026-11-24 (Foresight box tuner, 5 stops from 8-38 in/s: 3.4 in from 37.8 in/s) - was
+    // the derived pure-coast v^2/(2*40), which predicted ~18 in from 38 in/s. Strafe braking stays DERIVED: today's
+    // fit came out -0.0386 / 0.0035 (negative linear term, scattered points) and was rejected.
+    public static final double forwardBrakeLinear = 0.003102;
     public static final double strafeBrakeLinear = 0.0;
-    public static final double forwardBrakeQuadratic = 1.0 / (2 * naturalForwardDeceleration);
+    public static final double forwardBrakeQuadratic = 0.002368;
     public static final double strafeBrakeQuadratic = 1.0 / (2 * naturalStrafeDeceleration);
-    public static final double coastKV = 1.0 / 52.0;
-    public static final double brakeKV = 1.0 / 52.0;
+    public static final double coastKV = 1.0 / maxAchievableForwardVelocity;
+    public static final double brakeKV = 1.0 / maxAchievableForwardVelocity;
     // Translational: primary kP above translationalSwitchIn of error, secondary below it (the
     // tuner's piecewise shape). Equal primary/secondary builds ONE PID, exactly as before.
     public static final double forwardTranslationalPrimaryKP = 0.26;
@@ -144,6 +154,12 @@ public class Constants {
     //
     // Pedro 3.0.0 replaced the 2.x PIDF follower with Foresight, which plans against a braking
     // model and needs constants the 2.x follower never had. Their status, field by field:
+    //
+    //   ** 2026-11-24 UPDATE (supersedes the matching rows below; see the TUNED VALUES comments): vmax 52 -> 70
+    //   (the 52 was Bring-Up's degraded DRIVE proxy), natural decel 40 -> 73.9 / 95.1 (box tuner coast-down),
+    //   forward braking MEASURED 0.0031 / 0.0024, strafe braking still derived, coast/brake kV = 1/vmax.
+    //   Heading and translational gains unchanged (the tuner's were rejected on pedrocheck, FINDINGS 2026-11-24).
+    //   Pending a --pods shipped pedrocheck acceptance; FORESIGHT_MEASURED stays false until it and a field path pass.
     //
     //   naturalForward/StrafeDeceleration  40 in/s^2   MEASURED 2026-08-14, the coast-down below
     //                                                  (same quantity the v3 tuner measures).

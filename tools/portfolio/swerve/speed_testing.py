@@ -98,7 +98,7 @@ for yv, arr, col, lab in ((1, A, "#B9CC86", "BEFORE"), (0, B, DARK, "AFTER")):
     ax.text(-0.02, yv, lab, transform=ax.get_yaxis_transform(), ha="right", va="center", fontsize=5.2, color=DARK, fontweight="bold")
     ax.text(arr.mean() + 0.3, yv, f"{arr.mean():.1f}\u00b0/s  ({len(arr)} runs)", ha="left", va="center", fontsize=5.0, color=DARK, fontweight="bold")
 cut = (A.mean() - B.mean()) / A.mean()
-ax.text(0.985, 0.62, f"{cut:.0%}\nless wobble", transform=fig.transFigure, ha="right", va="center", fontsize=7.0, color=ORANGE, fontweight="bold", linespacing=0.95)
+# the "39% less wobble" callout is native Slides text (Permanent Marker, the deck stat font), not part of the image
 ax.set_ylim(-0.6, 1.6); ax.set_yticks([]); ax.set_xlim(0, 16); ax.set_xticks([0, 5, 10, 15])
 ax.grid(True, axis="x", color=GRID, lw=0.3, ls=(0, (2, 2))); ax.set_axisbelow(True)
 for sp_ in ("top", "right", "left"): ax.spines[sp_].set_visible(False)

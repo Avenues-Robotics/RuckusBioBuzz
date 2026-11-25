@@ -15,7 +15,7 @@ from scipy.ndimage import gaussian_filter
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--arrows", action="store_true"); ap.add_argument("--out", default="transfer_v2.png")
-ap.add_argument("--dpi", type=int, default=300)
+ap.add_argument("--dpi", type=int, default=300); ap.add_argument("--no-balls", action="store_true")
 a = ap.parse_args()
 
 SURF = "#FBF8E6"
@@ -205,7 +205,7 @@ def flat_ball(b, clip=None, hidden=False):
         for pt in parts[2:]:
             pt.set_clip_path(disk if clip is None else clip)
 
-for b in balls:
+for b in ([] if a.no_balls else balls):
     flat_ball(b)
 
 if a.arrows:

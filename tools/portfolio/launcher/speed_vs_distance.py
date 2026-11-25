@@ -4,7 +4,7 @@ Points: the six logged POLLEN trials. Curve: the SHIPPED fit, ShootingRegression
 (c0 + c1 d + c2 d^2, d in inches, motor encoder ticks/s), drawn over POLLEN_RANGE. R^2 is computed
 here from those coefficients on those six points - it is not copied from anywhere.
 
-Sized for the slide slot (105.8 x 62 pt); rendered with a transparent background.
+Sized for the slide slot (105 x 58 pt); rendered with a transparent background.
   python3 tools/portfolio/launcher/speed_vs_distance.py docs/portfolio/launcher_speed_vs_distance.png
 """
 import sys
@@ -31,9 +31,9 @@ for name in ("Avenir Next", "Helvetica Neue"):
         plt.rcParams["font.family"] = name
         break
 
-W, H = 105.8 / 72, 62.0 / 72
+W, H = 105.0 / 72, 58.0 / 72
 fig = plt.figure(figsize=(W, H), dpi=1200)
-ax = fig.add_axes([0.20, 0.25, 0.76, 0.56])
+ax = fig.add_axes([0.20, 0.26, 0.76, 0.54])
 ax.set_facecolor(PLOT)
 d = np.linspace(RANGE[0], RANGE[1], 200)          # the code clamps outside RANGE
 ax.fill_between(d, 1120, f(d), color=FILL, lw=0, zorder=1)

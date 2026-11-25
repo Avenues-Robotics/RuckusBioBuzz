@@ -48,13 +48,15 @@ for f in sorted(glob.glob(os.path.join(RUNS, "20261124-11*lane-*_line_b*.csv.gz"
     cruise = (np.abs(cf) > 0.5) & (sp > 50)
     after = np.where((t > toff) & (sp < 2))[0]; ioff = np.searchsorted(t, toff)
     floor = 0.60 if (lab == "fh06" or (grp == "lane-fh-1124" and lab == "shipped")) else (0.80 if lab == "fh08" else None)
-    runs.append(dict(t=t - t0, sp=sp, rel=toff - t0, peak=np.nanmax(sp), t60=t[np.argmax(sp > 60)] - t0,
+    runs.append(dict(t=t - t0, sp=sp, rel=toff - t0, peak=np.nanmax(sp), t60=t[np.argmax(sp > 60)] - t0, t15=t[np.argmax(sp > 1.5 / 0.0254)] - t0,
                      tstop=t[after[0]] - toff, dstop=np.hypot(px[after[0]] - px[ioff], py[after[0]] - py[ioff]),
                      yaw=np.nanmean(np.abs(yr[cruise])), floor=floor))
 peak = np.array([r["peak"] for r in runs]); t60 = np.array([r["t60"] for r in runs])
 tstop = np.array([r["tstop"] for r in runs]); dstop = np.array([r["dstop"] for r in runs])
 A = np.array([r["yaw"] for r in runs if r["floor"] == 0.60]); B = np.array([r["yaw"] for r in runs if r["floor"] == 0.80])
 p = stats.ttest_ind(B, A, equal_var=False).pvalue
+t15 = np.array([r["t15"] for r in runs])
+print(f"0-1.5 m/s {t15.mean():.2f} s; top {peak.mean()*0.0254:.3f} m/s; stop dist {dstop.mean()*0.0254:.2f} m")
 print(f"n={len(runs)} top {peak.mean():.1f}+/-{peak.std(ddof=1):.1f} in/s; 0-60 {t60.mean():.2f} s; stop {tstop.mean():.2f} s "
       f"{dstop.mean():.1f} in; yaw 0.60 {A.mean():.1f} (n{len(A)}) vs 0.80 {B.mean():.1f} (n{len(B)}) p={p:.4f}")
 out = sys.argv[1]
@@ -64,25 +66,27 @@ fig = plt.figure(figsize=(218 / 72, 100 / 72), dpi=1200)
 ax = fig.add_axes([0.13, 0.24, 0.84, 0.70])
 grid_t = np.linspace(-0.1, 1.45, 300)
 curves = np.array([np.interp(grid_t, r["t"], np.nan_to_num(r["sp"]), left=np.nan, right=np.nan) for r in runs])
+IN2M = 0.0254
+curves = curves * IN2M
 for c in curves: ax.plot(grid_t, c, color=LIME, lw=0.35, alpha=0.55, zorder=2)
 typ = int(np.argmin(np.abs(peak - np.median(peak))))   # the run whose top speed is the median one
 ax.plot(grid_t, curves[typ], color=DARK, lw=1.3, zorder=4, solid_capstyle="round")
-ax.text(0.30, 50, "one typical run", fontsize=4.4, color=DARK, fontweight="bold", ha="right", va="bottom")
-ax.text(0.62, 22, f"all {len(runs)} test runs", fontsize=4.4, color="#7FA02E", fontweight="bold", ha="left")
-ax.axhline(peak.mean(), color=ORANGE, lw=0.6, ls=(0, (3, 2)), zorder=3)
-ax.text(1.43, peak.mean() + 2.5, f"top speed {peak.mean():.0f} in/s", ha="right", va="bottom", fontsize=4.6, color=DARK, fontweight="bold")
+ax.text(0.30, 50 * IN2M, "one typical run", fontsize=4.4, color=DARK, fontweight="bold", ha="right", va="bottom")
+ax.text(0.62, 22 * IN2M, f"all {len(runs)} test runs", fontsize=4.4, color="#7FA02E", fontweight="bold", ha="left")
+ax.axhline(peak.mean() * IN2M, color=ORANGE, lw=0.6, ls=(0, (3, 2)), zorder=3)
+ax.text(1.43, peak.mean() * IN2M + 0.06, f"top speed {peak.mean() * IN2M:.2f} m/s", ha="right", va="bottom", fontsize=4.6, color=DARK, fontweight="bold")
 rel = np.mean([r["rel"] for r in runs])
 ax.axvspan(rel, 1.45, color=FILL, alpha=0.6, lw=0, zorder=1)
-ax.text(rel + 0.02, 4, "driver\nlets go", fontsize=4.0, color=DARK, va="bottom", linespacing=1.1)
-ax.set_xlim(-0.1, 1.45); ax.set_ylim(0, 88)
-ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0, 1.25]); ax.set_yticks([0, 20, 40, 60, 80])
+ax.text(rel + 0.02, 0.1, "driver\nlets go", fontsize=4.0, color=DARK, va="bottom", linespacing=1.1)
+ax.set_xlim(-0.1, 1.45); ax.set_ylim(0, 2.25)
+ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0, 1.25]); ax.set_yticks([0, 0.5, 1.0, 1.5, 2.0])
 ax.grid(True, color=GRID, lw=0.3, ls=(0, (2, 2)))
 for s in ("top", "right"): ax.spines[s].set_visible(False)
 for s in ("left", "bottom"): ax.spines[s].set_color(DARK); ax.spines[s].set_linewidth(0.6)
 ax.tick_params(colors=DARK, labelsize=4.4, length=1.5, width=0.4, pad=1)
 for tl in ax.get_xticklabels() + ax.get_yticklabels(): tl.set_fontweight("bold")
 ax.set_xlabel("seconds after the driver pushes full speed", fontsize=4.6, color=DARK, fontweight="bold", labelpad=1)
-ax.set_ylabel("speed (in/s)", fontsize=4.6, color=DARK, fontweight="bold", labelpad=1.5)
+ax.set_ylabel("speed (m/s)", fontsize=4.6, color=DARK, fontweight="bold", labelpad=1.5)
 fig.savefig(os.path.join(out, "swerve_speed_vs_time.png"), transparent=True); plt.close(fig)
 
 # ---- chart 2: iterate, plain before / after for judges ----

@@ -12,11 +12,15 @@ import os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "..", "..", "docs", "portfolio")
-FONT_PT = 8.0
-DPI = 800                      # PX_PER_PT = DPI / 72
+FONT_PT = 8.5
+DPI = 1200                     # PX_PER_PT = DPI / 72
 INK = "#1F2A12"
+# Computer Modern hairlines go soft grey at 8 pt next to Poppins (read as "blurry" on the
+# slide); a 0.3 pt outline in the same ink gives them the weight of the body text.
+STROKE_PT = 0.3
 plt.rcParams["mathtext.fontset"] = "cm"
 
 EQS = {
@@ -28,7 +32,8 @@ EQS = {
 
 for name, tex in EQS.items():
     fig = plt.figure(figsize=(4, 1))
-    fig.text(0, 0.5, tex, fontsize=FONT_PT, color=INK, va="center")
+    t = fig.text(0, 0.5, tex, fontsize=FONT_PT, color=INK, va="center")
+    t.set_path_effects([pe.withStroke(linewidth=STROKE_PT, foreground=INK)])
     path = os.path.normpath(os.path.join(OUT, f"swerve_math_{name}.png"))
     fig.savefig(path, dpi=DPI, transparent=True, bbox_inches="tight", pad_inches=0.01)
     plt.close(fig)

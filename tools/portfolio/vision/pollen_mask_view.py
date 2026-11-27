@@ -41,7 +41,7 @@ DPI = 600
 TAG_BG, TAG_FG, CREAM = (62, 92, 18), (255, 255, 255), (251, 248, 230)
 
 # Zoom region in saved-frame pixels: the "~5 balls" clump, right of the amber "~1 ball" box.
-ZOOM_X0, ZOOM_X1, ZOOM_YC = 178, 320, 292
+ZOOM_X0, ZOOM_X1, ZOOM_YC = 178, 320, 282
 
 
 def pipeline_mask(rgb):
